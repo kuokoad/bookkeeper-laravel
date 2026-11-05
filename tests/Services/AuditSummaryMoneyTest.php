@@ -3,17 +3,16 @@
 declare(strict_types=1);
 
 /*
-| Ported from the sale and customer-payment parts of the old
+| Ported from the sale, purchase and payment parts of the old
 | tests/services/audit-summary-money.test.ts: the audit log writes money in the
 | shop's format, never as raw pesewas. The exact string is the point.
 |
-| Deferred: "records a supplier payment as money" and "records a purchase total
-| as money" (purchases, Phase 5), and "records a till shortage as money"
-| (reconciliation, Phase 6).
+| Deferred: "records a till shortage as money" (reconciliation, Phase 6).
 */
 
 use App\Services\CustomerPaymentService;
 use App\Services\SaleService;
+use App\Services\SupplierPaymentService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
@@ -49,6 +48,30 @@ describe('money in the audit log', function () {
         // GHS 9,600.00, not "960000".
         expect(auditMoneyLatest('sale'))->toContain('total GHS 9,600.00')
             ->and(auditMoneyLatest('sale'))->not->toMatch('/total \d+$/');
+    });
+
+    it('records a supplier payment as money, not as pesewas', function () {
+        $supplier = Shop::supplier($this->actor, 'Tema Steel Works');
+        $product = ($this->stocked)();
+        Shop::purchase($this->actor, $supplier, [[$product, 600_000, 8_900]], [], ['businessDate' => AUDIT_MONEY_TODAY]);
+
+        SupplierPaymentService::recordSupplierPayment([
+            'businessDate' => AUDIT_MONEY_TODAY,
+            'supplierId' => $supplier,
+            'paymentAccountId' => $this->cash,
+            'amount' => 600_000,
+        ], $this->actor);
+
+        // The figure from the report: "paid 600000" was GHS 6,000.00.
+        expect(auditMoneyLatest('supplier_payment'))->toContain('paid GHS 6,000.00 to Tema Steel Works');
+    });
+
+    it('records a purchase total as money, not as pesewas', function () {
+        $supplier = Shop::supplier($this->actor, 'Ghacem Depot, Tema');
+        $product = ($this->stocked)();
+        Shop::purchase($this->actor, $supplier, [[$product, 600_000, 8_900]], [], ['businessDate' => AUDIT_MONEY_TODAY]);
+
+        expect(auditMoneyLatest('purchase'))->toContain('total GHS 53,400.00');
     });
 
     it('records a customer payment as money, not as pesewas', function () {

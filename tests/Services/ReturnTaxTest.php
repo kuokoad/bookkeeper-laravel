@@ -3,17 +3,16 @@
 declare(strict_types=1);
 
 /*
-| Ported from the old tests/services/return-tax.test.ts (customer half): the
-| tax goes back when the goods come back. After every test, every unit of
-| stock still belongs to a batch, as the old afterEach checked.
-|
-| Deferred to Phase 5 (purchases): "sending goods back to a supplier" — "gives
-| back the tax that was reclaimed on them".
+| Ported from the old tests/services/return-tax.test.ts: the tax goes back
+| when the goods come back, from a customer or to a supplier. After every
+| test, every unit of stock still belongs to a batch, as the old afterEach
+| checked. Nothing is deferred.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
+use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +103,32 @@ describe('returning goods from a shop with no tax', function () {
 
         expect(CustomerService::getCustomerBalance($this->customer))->toBe(0)
             ->and(Shop::balance(ChartOfAccounts::TAX_PAYABLE))->toBe(0)
+            ->and(Shop::trialBalanced())->toBeTrue();
+    });
+});
+
+describe('sending goods back to a supplier', function () {
+    // The mirror of the customer side: tax paid to a supplier was reclaimed
+    // when the goods arrived, and goes back with them.
+    it('gives back the tax that was reclaimed on them', function () {
+        Shop::setSingleTax(1_250);
+        $supplier = Shop::supplier($this->actor, 'Kofi Wholesale');
+        $product = ($this->stockedProduct)();
+
+        // Ten bags at GHS 50.00 = GHS 500.00 plus GHS 62.50 VAT.
+        $purchase = Shop::purchase($this->actor, $supplier, [[$product, 10_000, 5_000]], [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 56_250]], ['businessDate' => RTAX_DAY]);
+        $taxAfterPurchase = Shop::balance(ChartOfAccounts::TAX_PAYABLE);
+
+        // All ten go back.
+        ReturnsService::createSupplierReturn($purchase['purchaseId'], [
+            'businessDate' => RTAX_DAY,
+            'items' => [['itemId' => PurchaseService::getPurchase($purchase['purchaseId'])['items'][0]['id'], 'qty' => 10_000]],
+            'refunds' => [],
+        ], $this->actor);
+
+        // The reclaim goes back with the goods, leaving the tax account where it
+        // stood before the delivery.
+        expect(Shop::balance(ChartOfAccounts::TAX_PAYABLE) - $taxAfterPurchase)->toBe(6_250)
             ->and(Shop::trialBalanced())->toBeTrue();
     });
 });

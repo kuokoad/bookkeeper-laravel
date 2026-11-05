@@ -9,8 +9,7 @@ declare(strict_types=1);
 | "still voids an ordinary adjustment whose product was archived later" checks
 | the stock summary against the inventory account; its stock-valuation report
 | half waits for Phase 7. "refuses dated stock" lands its dated crate through
-| the gateway, standing in for a delivery. Deferred: "refuses a purchase saved
-| after the replace that still names the old product" (purchases, Phase 5).
+| the gateway, as the old test did.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -266,6 +265,19 @@ describe('replacing a product to change its units', function () {
         $result = ($this->replace)($oldId, ['name' => 'Rice', 'altUnit' => 'Bag', 'altFactor' => 50_000, 'costPrice' => 900, 'sellingPrice' => 1_200], 50);
 
         expect(CatalogService::getProduct($result['productId'])['unit'])->toBe('kg');
+    });
+
+    it('refuses a purchase saved after the replace that still names the old product', function () {
+        $oldId = ($this->create)();
+        ($this->stockIn)($oldId, 10, 5_000);
+        $result = ($this->replace)($oldId, $this->milo24, 10);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+
+        // A purchase form opened before the replace still holds the old product id.
+        expect(fn () => Shop::purchase($this->actor, $supplierId, [[$oldId, 5_000, 500]], [], ['businessDate' => REPLACE_TODAY]))
+            ->toThrow(ValidationError::class, 'archived')
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(($this->row)($result['productId'])->qty_on_hand_milli)->toBe(10_000);
     });
 
     it('refuses any adjustment on an archived product, so a stale form moves nothing there', function () {

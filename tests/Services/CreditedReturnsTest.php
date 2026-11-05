@@ -11,19 +11,24 @@ declare(strict_types=1);
 | (the read the ageing is built from), and the ledger figure is the A/R
 | journal lines dated up to that day.
 |
+| The purchase block reads the payables ageing through Tests\Support\Ageing
+| (a test-side copy of the old getPayablesAgeing, line for line) and the A/P
+| journal lines dated up to that day.
+|
 | Deferred to Phase 7 (reports): "ages the credit with the sale it came off,
 | not on the day it was given" (needs the ageing buckets).
-| Deferred to Phase 5 (purchases): the whole "a purchase after goods go back on
-| account" block (4 tests, 5 with the each).
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Errors\ValidationError;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
+use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
+use App\Services\SupplierService;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\Ageing;
 use Tests\Support\Shop;
 
 const CRET_DAY = '2026-08-10';
@@ -35,6 +40,7 @@ beforeEach(function () {
     $this->actor = Shop::owner();
     $this->cash = Shop::paymentAccount('CASH');
     $this->customer = Shop::customer($this->actor, 'Mensah Provisions');
+    $this->supplier = Shop::supplier($this->actor, 'Kofi Traders');
     $this->rice = Shop::product($this->actor, 'Rice 5kg', 8_000, 12_000, ['unit' => 'bag']);
     Shop::openingStock($this->actor, $this->rice, 40_000, 320_000, '2026-08-01');
 
@@ -56,6 +62,21 @@ beforeEach(function () {
         ['customerId' => $this->customer, 'businessDate' => CRET_DAY, 'paymentAccountId' => $this->cash, 'amount' => $amount],
         $this->actor,
     );
+
+    // A delivery of rice at 80.00 a bag, on the supplier's account unless paid.
+    $this->creditPurchase = fn (int $units, int $paid = 0): int => Shop::purchase(
+        $this->actor,
+        $this->supplier,
+        [[$this->rice, $units * 1000, 8_000]],
+        $paid === 0 ? [] : [['paymentAccountId' => $this->cash, 'amount' => $paid]],
+        ['businessDate' => CRET_DAY],
+    )['purchaseId'];
+
+    $this->sendBack = fn (int $purchaseId, int $units, int $refund = 0): array => ReturnsService::createSupplierReturn($purchaseId, [
+        'businessDate' => CRET_RETURN_DAY,
+        'items' => [['itemId' => PurchaseService::getPurchase($purchaseId)['items'][0]['id'], 'qty' => $units * 1000]],
+        'refunds' => $refund === 0 ? [] : [['paymentAccountId' => $this->cash, 'amount' => $refund]],
+    ], $this->actor);
 
     $this->receivablesAsAt = fn (string $asAt): int => (int) DB::table('journal_lines')
         ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
@@ -204,4 +225,45 @@ describe('the receivables ageing with goods back on account', function () {
             ->and(SaleService::getOutstandingBySale()[$returnSaleId])->toBe(-12_000)
             ->and(collect(SaleService::listSales())->firstWhere('id', $returnSaleId)['outstandingMinor'])->toBe(-12_000);
     });
+});
+
+describe('a purchase after goods go back on account', function () {
+    it('owes only what is left, on every reading of it', function () {
+        $purchase = ($this->creditPurchase)(2);
+        $returnPurchaseId = ($this->sendBack)($purchase, 1)['returnPurchaseId'];
+
+        expect(PurchaseService::getPurchaseOutstanding($purchase))->toBe(8_000)
+            ->and(SupplierService::getSupplierBalance($this->supplier))->toBe(8_000)
+            ->and(PurchaseService::getOutstandingByPurchase()[$returnPurchaseId])->toBe(0)
+            ->and(PurchaseService::getOutstandingByPurchase()[$purchase])->toBe(8_000)
+            ->and(collect(PurchaseService::listPurchases())->firstWhere('id', $purchase)['outstandingMinor'])->toBe(8_000);
+    });
+
+    it('leaves the open deliveries once everything has gone back', function () {
+        $purchase = ($this->creditPurchase)(2);
+        ($this->sendBack)($purchase, 2);
+
+        expect(PurchaseService::getPurchaseOutstanding($purchase))->toBe(0)
+            ->and(PurchaseService::getOpenPurchases($this->supplier))->toBe([]);
+    });
+
+    it('counts only what was credited, not what the supplier refunded in cash', function () {
+        $purchase = ($this->creditPurchase)(2, 16_000);
+        ($this->sendBack)($purchase, 1, 3_000);
+
+        expect(PurchaseService::getPurchaseOutstanding($purchase))->toBe(-5_000)
+            ->and(SupplierService::getSupplierBalance($this->supplier))->toBe(-5_000);
+    });
+
+    it('agrees with the ageing and the ledger as at a date', function (string $asAt, int $owing) {
+        $purchase = ($this->creditPurchase)(2);
+        ($this->sendBack)($purchase, 1);
+
+        expect(PurchaseService::getOutstandingByPurchase(['asAt' => $asAt])[$purchase])->toBe($owing)
+            ->and(array_sum(array_column(Ageing::payables($asAt), 'total')))->toBe($owing)
+            ->and(Ageing::payablesAt($asAt))->toBe($owing);
+    })->with([
+        'before the return' => [CRET_BEFORE_RETURN, 16_000],
+        'after the return' => [CRET_AFTER_RETURN, 8_000],
+    ]);
 });

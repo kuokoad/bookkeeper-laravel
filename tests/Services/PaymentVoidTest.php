@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 /*
 | Ported from the old tests/services/payment-void.test.ts: voiding a payment
-| frees the sales it settled and keeps the record of what it settled.
-|
-| Deferred to Phase 5 (purchases and supplier payments): "voiding a supplier
-| payment / puts the purchase back to outstanding and keeps the record".
+| frees the sales or purchases it settled and keeps the record of what it
+| settled. Nothing is deferred.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
+use App\Services\PurchaseService;
 use App\Services\SaleService;
+use App\Services\SupplierPaymentService;
+use App\Services\SupplierService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
@@ -78,6 +79,33 @@ describe('voiding a customer payment', function () {
 
         expect(SaleService::getSaleOutstanding($sale['saleId']))->toBe(0)
             ->and(CustomerService::getCustomerBalance($this->customer))->toBe(0)
+            ->and(Shop::trialBalanced())->toBeTrue();
+    });
+});
+
+describe('voiding a supplier payment', function () {
+    it('puts the purchase back to outstanding and keeps the record', function () {
+        $supplier = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplier, [[$this->product, 10_000, 1_000]], [], ['businessDate' => PVOID_DAY]);
+
+        $payment = SupplierPaymentService::recordSupplierPayment(
+            ['supplierId' => $supplier, 'businessDate' => PVOID_DAY, 'paymentAccountId' => $this->cash, 'amount' => 4_000],
+            $this->actor,
+        );
+        expect(PurchaseService::getPurchaseOutstanding($purchase['purchaseId']))->toBe(6_000);
+
+        SupplierPaymentService::voidSupplierPayment($payment['paymentId'], 'Paid the wrong supplier', $this->actor);
+
+        expect(PurchaseService::getPurchaseOutstanding($purchase['purchaseId']))->toBe(10_000)
+            ->and(SupplierService::getSupplierBalance($supplier))->toBe(10_000);
+
+        // The allocation history must survive the void.
+        $allocations = DB::table('supplier_payment_allocations')->where('payment_id', $payment['paymentId'])->get();
+        expect($allocations)->toHaveCount(1)
+            ->and((int) $allocations[0]->purchase_id)->toBe($purchase['purchaseId'])
+            ->and((int) $allocations[0]->amount_minor)->toBe(4_000);
+
+        expect(SupplierService::getTotalPayables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_PAYABLE))
             ->and(Shop::trialBalanced())->toBeTrue();
     });
 });

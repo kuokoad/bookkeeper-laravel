@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 /*
 | Ported from the old tests/app/carton-size-actions.test.ts, at the service
-| level: the write-off refuses a carton line entered at a size that has since
-| changed, names the new size, and moves nothing.
+| level: the write-off and the delivery refuse a carton line entered at a size
+| that has since changed, name the new size, and move nothing.
 |
 | Deferred: everything that drives a screen's own action (the till, delivery
 | and quote screens, a payload missing the size, a size that cannot be read)
-| waits for those screens (after Phase 5). The till and quote services' own
-| refusals are in UnitsTest; the delivery's waits for purchases (Phase 5). The parsing rule the actions share is
+| waits for those screens (Phase 8). The till and quote services' own
+| refusals are in UnitsTest. The parsing rule the actions share is
 | Quantity::parseAltEntry, already tested in tests/Domain/QuantityTest.php.
 */
 
@@ -68,6 +68,19 @@ describe('a carton size that changed while the screen was open', function () {
                 ]);
         }
         expect(($this->books)())->toBe($before);
+    });
+
+    it('is refused on the delivery with the new size, not thrown', function () {
+        $supplier = Shop::supplier($this->actor, 'Depot');
+        DB::table('products')->where('id', $this->milk)->update(['alt_factor_milli' => 48_000]);
+        $before = ($this->books)();
+
+        // 2 cartons at 96.00, paid 192.00, entered while the carton was 24 tins.
+        expect(fn () => Shop::purchase($this->actor, $supplier, [
+            ['productId' => $this->milk, 'qty' => 2_000, 'unitCost' => 9_600, 'alt' => true, 'altFactor' => 24_000],
+        ], [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 19_200]], ['businessDate' => Clock::today()]))
+            ->toThrow(StaleUnitError::class, 'is now 48 tin, not 24')
+            ->and(($this->books)())->toBe($before);
     });
 
     it('still writes off at the size the screen showed when it is current', function () {

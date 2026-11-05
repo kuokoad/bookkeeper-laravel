@@ -6,8 +6,8 @@ declare(strict_types=1);
 | Numbering, posting, reversal and the books lock. Ported from the old
 | tests/db/foundation.test.ts ("document numbering", "atomicity") and the
 | journal-level and lock-management parts of tests/services/period-lock.test.ts.
-| The sale and adjustment lock cases are here ("the books lock on a document");
-| the purchase case waits for Phase 5 and the expense case for Phase 6.
+| The sale, purchase and adjustment lock cases are here ("the books lock on a
+| document"); the expense case waits for the cashbook in Phase 6.
 */
 
 use App\Database\Tx;
@@ -241,6 +241,12 @@ describe('the books lock on a document', function () {
 
     it('allows a sale dated after the lock', function () {
         expect(($this->sell)('2026-08-01')['receiptNo'])->toBe('RCP-00001');
+    });
+
+    it('refuses a back-dated purchase', function () {
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        expect(fn () => Shop::purchase($this->actor, $supplierId, [[$this->milo, 1_000, 500]], [], ['businessDate' => '2026-07-01']))
+            ->toThrow(PeriodLockedError::class);
     });
 
     it('refuses a back-dated stock adjustment', function () {

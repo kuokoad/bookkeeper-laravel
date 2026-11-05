@@ -35,7 +35,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** sales tests green; the two-till concurrency test passes; reconcile passes on receivables.
 
-## Phase 5: Purchases ⬜ (FR-8)
+## Phase 5: Purchases ✅ (FR-8)
 - Suppliers, deliveries, supplier returns and voids, supplier payments
 
 **Exit criteria:** purchase tests green; reconcile passes on payables.

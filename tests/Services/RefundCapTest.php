@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 /*
 | Ported from the old tests/services/refund-cap.test.ts: cash goes back only
-| for money that came in. The rest of a return goes on account.
-|
-| Deferred to Phase 5 (purchases): "a refund from a supplier" — "cannot bring
-| back cash the shop never paid" and "brings back what was paid on a paid
-| delivery".
+| for money that came in. The rest of a return goes on account. Nothing is
+| deferred: the supplier block arrived with the purchases in Phase 5.
 */
 
 use App\Domain\Errors\ValidationError;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
+use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
+use App\Services\SupplierService;
 use Tests\Support\Shop;
 
 const RCAP_DAY = '2026-08-10';
@@ -24,6 +23,7 @@ beforeEach(function () {
     $this->actor = Shop::owner();
     $this->cash = Shop::paymentAccount('CASH');
     $this->customer = Shop::customer($this->actor, 'Mensah Provisions');
+    $this->supplier = Shop::supplier($this->actor, 'Kofi Traders');
     // Soap at 108.00 a carton.
     $this->soap = Shop::product($this->actor, 'Soap carton', 6_000, 10_800, ['unit' => 'carton']);
     Shop::openingStock($this->actor, $this->soap, 20_000, 120_000, '2026-08-01');
@@ -47,6 +47,21 @@ beforeEach(function () {
         'paymentAccountId' => $this->cash,
         'amount' => $amount,
         'allocations' => [['saleId' => $saleId, 'amount' => $amount]],
+    ], $this->actor);
+
+    // A delivery of soap at 60.00 a carton, on the supplier's account.
+    $this->buy = fn (int $units, int $paid = 0): int => Shop::purchase(
+        $this->actor,
+        $this->supplier,
+        [[$this->soap, $units * 1000, 6_000]],
+        $paid === 0 ? [] : [['paymentAccountId' => $this->cash, 'amount' => $paid]],
+        ['businessDate' => RCAP_DAY],
+    )['purchaseId'];
+
+    $this->sendBack = fn (int $purchaseId, int $units, int $refund): array => ReturnsService::createSupplierReturn($purchaseId, [
+        'businessDate' => RCAP_DAY,
+        'items' => [['itemId' => PurchaseService::getPurchase($purchaseId)['items'][0]['id'], 'qty' => $units * 1000]],
+        'refunds' => $refund === 0 ? [] : [['paymentAccountId' => $this->cash, 'amount' => $refund]],
     ], $this->actor);
 });
 
@@ -127,6 +142,24 @@ describe('a refund on a sale paid in full', function () {
         expect(fn () => ($this->bringBack)($sale, 1, 10_801))->toThrow(ValidationError::class, '108.00');
         expect(($this->bringBack)($sale, 1, 10_800)['refunded'])->toBe(10_800)
             ->and(CustomerService::getCustomerBalance($this->customer))->toBe(0);
+    });
+});
+
+describe('a refund from a supplier', function () {
+    it('cannot bring back cash the shop never paid', function () {
+        $purchase = ($this->buy)(1);
+
+        expect(fn () => ($this->sendBack)($purchase, 1, 6_000))->toThrow(ValidationError::class, 'Nothing can be refunded in cash');
+        ($this->sendBack)($purchase, 1, 0);
+        expect(PurchaseService::getPurchaseOutstanding($purchase))->toBe(0)
+            ->and(SupplierService::getSupplierBalance($this->supplier))->toBe(0);
+    });
+
+    it('brings back what was paid on a paid delivery', function () {
+        $purchase = ($this->buy)(2, 12_000);
+
+        expect(($this->sendBack)($purchase, 1, 6_000)['refunded'])->toBe(6_000)
+            ->and(SupplierService::getSupplierBalance($this->supplier))->toBe(0);
     });
 });
 

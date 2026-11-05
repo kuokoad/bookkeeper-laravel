@@ -18,9 +18,11 @@ use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
 use App\Services\JournalService;
+use App\Services\PurchaseService;
 use App\Services\SaleService;
 use App\Services\SettingsService;
 use App\Services\StockAdjustmentService;
+use App\Services\SupplierService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -188,6 +190,28 @@ final class Shop
         ], $actor);
     }
 
+    public static function supplier(Actor $actor, string $name = 'Depot', array $extra = []): int
+    {
+        return SupplierService::createSupplier(['name' => $name, ...$extra], $actor);
+    }
+
+    /**
+     * A delivery the old tests' way: lines of [productId, qty, unitCost] or full
+     * line arrays, on credit unless tenders are given. Extra keys go to createPurchase.
+     */
+    public static function purchase(Actor $actor, int $supplierId, array $items, array $tenders = [], array $extra = []): array
+    {
+        $lines = array_map(fn (array $i): array => array_is_list($i) ? ['productId' => $i[0], 'qty' => $i[1], 'unitCost' => $i[2]] : $i, $items);
+
+        return PurchaseService::createPurchase([
+            'supplierId' => $supplierId,
+            'businessDate' => '2026-08-17',
+            'items' => $lines,
+            'tenders' => $tenders,
+            ...$extra,
+        ], $actor);
+    }
+
     /** One tax at one rate (VAT), the levies switched off: the old helpers/tax setSingleTax. */
     public static function setSingleTax(int $rateBp, bool $inclusive = false): void
     {
@@ -218,12 +242,13 @@ final class Shop
         return ['from' => substr($date, 0, 7).'-01', 'to' => substr($date, 0, 7).'-'.str_pad((string) $last, 2, '0', STR_PAD_LEFT)];
     }
 
-    /** The stock and the books agree: trial balance, stock value against 1200, A/R against its control, and every product's replay. */
+    /** The stock and the books agree: trial balance, stock value against 1200, A/R and A/P against their controls, and every product's replay. */
     public static function assertBooksHealthy(string $label): void
     {
         expect(self::trialBalanced())->toBeTrue("{$label}: trial balance")
             ->and(InventoryService::getInventoryValue())->toBe(self::balance(ChartOfAccounts::INVENTORY), "{$label}: inventory vs GL")
-            ->and(CustomerService::getTotalReceivables())->toBe(self::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE), "{$label}: A/R subledger vs control");
+            ->and(CustomerService::getTotalReceivables())->toBe(self::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE), "{$label}: A/R subledger vs control")
+            ->and(SupplierService::getTotalPayables())->toBe(self::balance(ChartOfAccounts::ACCOUNTS_PAYABLE), "{$label}: A/P subledger vs control");
         foreach (DB::table('products')->pluck('id') as $id) {
             expect(InventoryService::verifyProductStock((int) $id)['ok'])->toBeTrue("{$label}: stock drift p{$id}");
         }

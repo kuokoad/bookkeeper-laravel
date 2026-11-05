@@ -5,10 +5,7 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/units.test.ts: buy by the carton, sell by
 | the carton or the tin, and the shelf, the money and the books agree in tins.
-|
-| Deferred until purchases exist (Phase 5): "buying by the carton", "takes a
-| voided carton purchase back off the shelf and the books" and "refuses a
-| delivery entered at the old size, and moves nothing".
+| The whole old file is ported; nothing is deferred.
 */
 
 use App\Database\Tx;
@@ -18,6 +15,7 @@ use App\Domain\Errors\ValidationError;
 use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
+use App\Services\PurchaseService;
 use App\Services\QuotationService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
@@ -66,6 +64,10 @@ beforeEach(function () {
     $this->sell = fn (array $items, int $cash): array => SaleService::createSale(['businessDate' => UNITS_TODAY, 'items' => $items, 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $cash]]], $this->actor);
     $this->quote = fn (array $lines): array => QuotationService::createQuotation(['businessDate' => UNITS_TODAY, 'validUntil' => '2026-09-15', 'customerName' => 'Ama', 'lines' => $lines], $this->actor);
     $this->convert = fn (int $quoteId, int $cash): array => QuotationService::convertQuotation($quoteId, ['businessDate' => UNITS_TODAY, 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $cash]]], $this->actor);
+    // 3 cartons at 200.00 each, from the Depot, paid in cash; altFactor is the size the screen showed.
+    $this->buyCartons = fn (int $id, ?int $shown = null): array => Shop::purchase($this->actor, Shop::supplier($this->actor, 'Depot'), [
+        ['productId' => $id, 'qty' => 3_000, 'alt' => true, 'altFactor' => $shown, 'unitCost' => 20_000],
+    ], [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 60_000]], ['businessDate' => UNITS_TODAY]);
     $this->cartonWriteOff = fn (int $id, ?int $shown = null) => StockAdjustmentService::createStockAdjustment([
         'businessDate' => UNITS_TODAY,
         'reason' => AdjustmentReason::Damaged,
@@ -128,6 +130,23 @@ describe('selling by the carton', function () {
             ->and((int) $mirror->entry_qty_milli)->toBe(-2_000)
             ->and((int) $mirror->qty_milli)->toBe(-48_000);
         Shop::assertBooksHealthy('carton void');
+    });
+});
+
+describe('buying by the carton', function () {
+    it('adds 72 tins and 600.00 of stock for 3 cartons at 200.00', function () {
+        $id = ($this->makeMilk)();
+        ($this->buyCartons)($id);
+
+        $product = CatalogService::getProduct($id);
+        expect($product['qtyOnHand'])->toBe(72_000)
+            ->and($product['stockValue'])->toBe(60_000);
+
+        $line = DB::table('purchase_items')->first();
+        expect($line->qty_milli)->toBe(72_000)
+            ->and($line->entry_qty_milli)->toBe(3_000)
+            ->and($line->unit_cost_minor)->toBe(20_000);
+        Shop::assertBooksHealthy('carton purchase');
     });
 });
 
@@ -334,6 +353,21 @@ describe('a product form naming a unit that is not on the list', function () {
 });
 
 describe('voiding documents taken in cartons', function () {
+    it('takes a voided carton purchase back off the shelf and the books', function () {
+        $id = ($this->makeMilk)();
+        $purchase = ($this->buyCartons)($id);
+
+        $reversalPurchaseId = PurchaseService::voidPurchase($purchase['purchaseId'], 'Wrong supplier', $this->actor)['reversalPurchaseId'];
+
+        expect(($this->qty)($id))->toBe(0)
+            ->and(CatalogService::getProduct($id)['stockValue'])->toBe(0);
+        $mirror = DB::table('purchase_items')->where('purchase_id', $reversalPurchaseId)->first();
+        expect($mirror->qty_milli)->toBe(-72_000)
+            ->and($mirror->entry_unit)->toBe('Carton')
+            ->and($mirror->entry_qty_milli)->toBe(-3_000);
+        Shop::assertBooksHealthy('carton purchase void');
+    });
+
     it('puts a voided carton write-off back on the shelf', function () {
         $id = ($this->makeMilk)();
         ($this->stockUp)($id);
@@ -382,6 +416,16 @@ describe('a carton size changed while a screen was open', function () {
 
         expect(($this->qty)($id))->toBe(52_000);
         Shop::assertBooksHealthy('sale at the current carton size');
+    });
+
+    it('refuses a delivery entered at the old size, and moves nothing', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        ($this->cartonBecomes48)($id);
+        $before = ($this->snapshot)($id);
+
+        expect(fn () => ($this->buyCartons)($id, 24_000))->toThrow(ConflictError::class)
+            ->and(($this->snapshot)($id))->toBe($before);
     });
 
     it('refuses a write-off entered at the old size, and moves nothing', function () {

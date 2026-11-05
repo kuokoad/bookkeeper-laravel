@@ -6,11 +6,8 @@ declare(strict_types=1);
 | Ported from the old tests/services/batch-reporting.test.ts: how long the
 | stock has left, the recall trail, and correcting the date on a crate.
 |
-| Deferred: the recall-trail tests that run a purchase, sale or void ("lists
-| the delivery in and every sale out", "shows a void as its own line", "follows
-| a voided delivery back out of the crate it filled") wait for purchases
-| (Phase 5): each fills its crate with a delivery. "finding a batch by its
-| reference" (3 tests) waits for the search service (Phase 8).
+| Deferred: "finding a batch by its reference" (3 tests) waits for the search
+| service (Phase 8).
 */
 
 use App\Domain\BusinessDate;
@@ -18,6 +15,8 @@ use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
+use App\Services\PurchaseService;
+use App\Services\SaleService;
 use App\Support\Clock;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
@@ -41,6 +40,13 @@ beforeEach(function () {
         'userId' => $this->actor->id,
         'batch' => ['kind' => 'NEW', 'expiryDate' => $expiryDate],
     ])['batchAllocations'][0]['batchId'];
+    $this->cash = Shop::paymentAccount('CASH');
+    $this->supplier = Shop::supplier($this->actor, 'Kofi Wholesale');
+    // A real delivery at 3.00 a tin, dated 30 days out, paid in cash.
+    $this->buy = fn (int $id, int $units): array => Shop::purchase($this->actor, $this->supplier, [
+        ['productId' => $id, 'qty' => $units * 1000, 'unitCost' => 300, 'expiryDate' => BusinessDate::addDays(REPORTING_TODAY, 30)],
+    ], [['paymentAccountId' => $this->cash, 'amount' => 300 * $units]], ['businessDate' => REPORTING_TODAY]);
+    $this->sellAt = fn (int $id, int $units, int $paid, array $extra = []): array => Shop::sell($this->actor, [[$id, $units * 1000]], [['paymentAccountId' => $this->cash, 'amount' => $paid]], ['businessDate' => REPORTING_TODAY, ...$extra]);
     $this->byBucket = fn (): array => collect(InventoryService::getExpiryAgeing(REPORTING_TODAY))->keyBy('bucket')->all();
     $this->expiryOf = fn (int $batchId): ?string => DB::table('product_batches')->where('id', $batchId)->value('expiry_date');
 });
@@ -102,6 +108,58 @@ describe('how long the stock has left', function () {
 });
 
 describe('tracing a delivery to the people who took it home', function () {
+    it('lists the delivery in and every sale out, in order', function () {
+        $milk = ($this->make)();
+        $ama = Shop::customer($this->actor, 'Ama Serwaa');
+        ($this->buy)($milk, 10);
+        $batchId = (int) DB::table('product_batches')->orderBy('id')->value('id');
+
+        ($this->sellAt)($milk, 3, 1_500, ['customerId' => $ama]);
+        ($this->sellAt)($milk, 2, 1_000);
+
+        $history = InventoryService::getBatchHistory($batchId);
+
+        expect($history['batch']['batchRef'])->toMatch('/^BAT-\d{5}$/')
+            ->and($history['batch']['productName'])->toBe('Evaporated Milk')
+            ->and($history['batch']['supplierName'])->toBe('Kofi Wholesale')
+            ->and($history['batch']['qtyMilli'])->toBe(5_000)
+            ->and(array_map(fn (array $e): array => [$e['sourceType'], $e['qtyInMilli'], $e['qtyOutMilli']], $history['entries']))->toBe([
+                ['PURCHASE', 10_000, 0],
+                ['SALE', 0, 3_000],
+                ['SALE', 0, 2_000],
+            ])
+            // The names are the point. A walk-in is a real answer, not a missing one.
+            ->and(array_column($history['entries'], 'partyName'))->toBe(['Kofi Wholesale', 'Ama Serwaa', 'Walk-in customer'])
+            ->and(collect($history['entries'])->every(fn (array $e): bool => $e['sourceRef'] !== null))->toBeTrue();
+    });
+
+    it('shows a void as its own line rather than erasing the sale', function () {
+        $milk = ($this->make)();
+        ($this->buy)($milk, 10);
+        $batchId = (int) DB::table('product_batches')->orderBy('id')->value('id');
+
+        $sale = ($this->sellAt)($milk, 4, 2_000);
+        SaleService::voidSale($sale['saleId'], 'Rang it up twice', $this->actor);
+
+        $history = InventoryService::getBatchHistory($batchId);
+        expect(array_column($history['entries'], 'sourceType'))->toBe(['PURCHASE', 'SALE', 'SALE_VOID'])
+            ->and($history['batch']['qtyMilli'])->toBe(10_000);
+    });
+
+    it('follows a voided delivery back out of the crate it filled', function () {
+        $milk = ($this->make)();
+        $purchase = ($this->buy)($milk, 6);
+        $batchId = (int) DB::table('product_batches')->orderBy('id')->value('id');
+
+        PurchaseService::voidPurchase($purchase['purchaseId'], 'Never arrived', $this->actor);
+
+        $history = InventoryService::getBatchHistory($batchId);
+        expect(array_column($history['entries'], 'sourceType'))->toBe(['PURCHASE', 'PURCHASE_VOID'])
+            ->and($history['entries'][1]['partyName'])->toBe('Kofi Wholesale')
+            ->and($history['batch']['qtyMilli'])->toBe(0)
+            ->and($history['batch']['isClosed'])->toBeTrue();
+    });
+
     it('has nothing to show for a batch the migration opened', function () {
         // An opening batch was never delivered by anybody.
         $milk = ($this->make)();

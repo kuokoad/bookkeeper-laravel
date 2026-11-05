@@ -12,7 +12,9 @@ declare(strict_types=1);
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
+use App\Services\PurchaseService;
 use App\Services\SaleService;
+use App\Services\SupplierService;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
@@ -188,4 +190,30 @@ it('leaves an imported shop whose receivables the sale and customer services agr
     expect($balances)->not->toBe([])
         ->and($total)->toBe($control)
         ->and(array_filter($byCustomer, fn (int $owed): bool => $owed !== 0))->toEqual($balances);
+});
+
+it('leaves an imported shop whose payables the purchase and supplier services agree on, supplier by supplier', function () {
+    $import = artisan('nuna:import-sqlite', oldCopy());
+    expect($import->successful())->toBeTrue($import->output());
+
+    $default = DB::getDefaultConnection();
+    DB::setDefaultConnection('import');
+    try {
+        $balances = SupplierService::getAllSupplierBalances();
+        $total = SupplierService::getTotalPayables();
+        $outstanding = PurchaseService::getOutstandingByPurchase();
+        $owners = DB::table('purchases')->whereIn('id', array_keys($outstanding))->whereNotNull('supplier_id')->pluck('supplier_id', 'id')->all();
+        $control = (int) DB::table('journal_lines')->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+            ->where('accounts.code', ChartOfAccounts::ACCOUNTS_PAYABLE)->selectRaw('COALESCE(SUM(credit_minor) - SUM(debit_minor), 0) AS b')->value('b');
+    } finally {
+        DB::setDefaultConnection($default);
+    }
+
+    // Each supplier's open deliveries add up to exactly what the ledger says the shop owes them.
+    $bySupplier = [];
+    foreach ($owners as $purchaseId => $supplierId) {
+        $bySupplier[(int) $supplierId] = ($bySupplier[(int) $supplierId] ?? 0) + $outstanding[$purchaseId];
+    }
+    expect($total)->toBe($control)
+        ->and(array_filter($bySupplier, fn (int $owed): bool => $owed !== 0))->toEqual(array_filter($balances, fn (int $owed): bool => $owed !== 0));
 });

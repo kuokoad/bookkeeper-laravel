@@ -5,17 +5,14 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/batch-gateway.test.ts: every movement
 | writes down which batch it touched, inside the gateway, and coverage holds
-| (Σ batch quantities === the shelf) after any sequence of movements.
-|
-| Deferred until purchases exist (Phase 5; each also runs a delivery): "lands a delivery
-| in the undated batch, and takes a sale back out of it", "opens exactly one
-| undated batch however many deliveries arrive", "holds coverage through a void
-| of a delivery that is partly sold".
+| (Σ batch quantities === the shelf) after any sequence of movements. The
+| whole old file is ported; nothing is deferred.
 */
 
 use App\Domain\Errors\ExpiredStockError;
 use App\Enums\AdjustmentReason;
 use App\Services\InventoryService;
+use App\Services\PurchaseService;
 use App\Services\StockAdjustmentService;
 use App\Support\Clock;
 use Illuminate\Support\Facades\DB;
@@ -55,6 +52,11 @@ beforeEach(function () {
             'batch' => ['kind' => 'PICK', 'allowExpired' => $options['allowExpired'] ?? false],
         ])['batchAllocations'];
     };
+    $this->cash = Shop::paymentAccount('CASH');
+    $this->supplier = Shop::supplier($this->actor, 'Kofi Wholesale');
+    // A delivery paid in full in cash, as the old tests ran them.
+    $this->deliver = fn (int $id, int $units, int $unitCost): array => Shop::purchase($this->actor, $this->supplier, [[$id, $units * 1000, $unitCost]], [['paymentAccountId' => $this->cash, 'amount' => $units * $unitCost]], ['businessDate' => GATEWAY_DAY]);
+    $this->sellAt = fn (int $id, int $units, int $paid): array => Shop::sell($this->actor, [[$id, $units * 1000]], [['paymentAccountId' => $this->cash, 'amount' => $paid]], ['businessDate' => GATEWAY_DAY]);
     $this->expiryOf = function (int $id): array {
         return DB::table('product_batches')->where('product_id', $id)->pluck('expiry_date', 'id')->all();
     };
@@ -81,6 +83,45 @@ function gatewayIntact(string $label): void
 }
 
 describe('the paths the shop already uses, which asked for nothing', function () {
+    it('lands a delivery in the undated batch, and takes a sale back out of it', function () {
+        $rice = ($this->make)();
+        ($this->deliver)($rice, 10, 1_000);
+
+        $batch = ($this->batchesOf)($rice)[0];
+        expect($batch->expiry_date)->toBeNull()
+            ->and($batch->qty_milli)->toBe(10_000)
+            ->and((bool) $batch->is_closed)->toBeFalse();
+
+        ($this->sellAt)($rice, 4, 12_000);
+
+        expect(($this->batchesOf)($rice))->toHaveCount(1)
+            ->and(($this->batchesOf)($rice)[0]->qty_milli)->toBe(6_000);
+        gatewayIntact('purchase then sale');
+    });
+
+    it('opens exactly one undated batch however many deliveries arrive', function () {
+        $rice = ($this->make)();
+        foreach ([1_000, 2_000, 1_500] as $price) {
+            ($this->deliver)($rice, 5, $price);
+        }
+
+        expect(($this->batchesOf)($rice))->toHaveCount(1)
+            ->and(($this->batchesOf)($rice)[0]->qty_milli)->toBe(15_000);
+        gatewayIntact('three deliveries');
+    });
+
+    it('holds coverage through a void of a delivery that is partly sold', function () {
+        $rice = ($this->make)();
+        $first = ($this->deliver)($rice, 10, 1_000);
+        ($this->deliver)($rice, 10, 2_000);
+        ($this->sellAt)($rice, 5, 15_000);
+
+        PurchaseService::voidPurchase($first['purchaseId'], 'Supplier invoiced us twice', $this->actor);
+
+        expect(($this->batchesOf)($rice)[0]->qty_milli)->toBe(5_000);
+        gatewayIntact('void of a partly-sold delivery');
+    });
+
     it('holds coverage through a stock adjustment in both directions', function () {
         $rice = ($this->make)();
         Shop::openingStock($this->actor, $rice, 20_000, 20_000, GATEWAY_DAY);

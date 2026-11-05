@@ -28,10 +28,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Returns: goods coming back. A return is a NEW document linked to the
  * original, never an edit of it, and each line tracks how much has already
- * come back so the same goods cannot come back twice. A port of the customer
- * half of the old returns.service.ts; the supplier half arrives with
- * purchases in Phase 5 and shares formatQtyLabel, chargedTaxLines and the
- * refund-cap shape.
+ * come back so the same goods cannot come back twice. A port of the old
+ * returns.service.ts, both directions: a customer bringing goods back and the
+ * shop sending them back to a supplier.
  *
  * Input: ['businessDate', 'items' => list of ['itemId', 'qty'],
  * 'refunds'? => list of ['paymentAccountId', 'amount'], 'reason'?, 'occurredAt'? => Carbon, 'isDemo'?].
@@ -51,12 +50,7 @@ final class ReturnsService
         if (($input['items'] ?? []) === []) {
             throw new ValidationError('Choose at least one item to return.');
         }
-        // Two requests for one line would each pass the returnable check against the same figure.
-        // TODO(Phase 5): createSupplierReturn needs this same guard.
-        $itemIds = array_map(fn (array $r): int => (int) $r['itemId'], $input['items']);
-        if (count($itemIds) !== count(array_unique($itemIds))) {
-            throw new ValidationError('Each item can appear only once in a return.');
-        }
+        self::assertEachItemOnce($input['items']);
 
         return Tx::run(function () use ($originalSaleId, $input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
@@ -305,6 +299,241 @@ final class ReturnsService
     }
 
     /**
+     * The shop sends goods back. They leave at the price the SUPPLIER charged,
+     * not the blended average, from the crate that supplier delivered; the tax
+     * reclaim goes back with them; and the shop is made whole in cash (never
+     * more than it paid beyond what it keeps) or off what it owes.
+     *
+     * @return array{returnPurchaseId: int, purchaseNo: string, refunded: int, creditApplied: int}
+     */
+    public static function createSupplierReturn(int $originalPurchaseId, array $input, Actor $actor): array
+    {
+        if (($input['items'] ?? []) === []) {
+            throw new ValidationError('Choose at least one item to return.');
+        }
+        self::assertEachItemOnce($input['items']);
+
+        return Tx::run(function () use ($originalPurchaseId, $input, $actor): array {
+            $occurredAt = $input['occurredAt'] ?? Clock::now();
+            $at = Clock::stamp($occurredAt);
+            $isDemo = $input['isDemo'] ?? false;
+
+            // Lock order (Tx): products, the supplier, then the purchase and its lines.
+            InventoryService::lockProducts(DB::table('purchase_items')->where('purchase_items.purchase_id', $originalPurchaseId)->pluck('product_id')->all());
+            $supplierId = DB::table('purchases')->where('id', $originalPurchaseId)->value('supplier_id');
+            if ($supplierId !== null) {
+                SupplierService::lockSupplier((int) $supplierId);
+            }
+            $original = DB::table('purchases')->where('id', $originalPurchaseId)->lockForUpdate()->first() ?? throw new NotFoundError('Purchase', $originalPurchaseId);
+            if ($original->status === 'VOIDED') {
+                throw new ConflictError('That purchase was voided, so there is nothing to return.');
+            }
+            if ($original->kind !== 'PURCHASE') {
+                throw new ConflictError('Returns can only be made against an original purchase.');
+            }
+            $lockedById = DB::table('purchase_items')->where('purchase_id', $originalPurchaseId)->orderBy('line_no')->lockForUpdate()->get()
+                ->keyBy(fn (object $l): int => (int) $l->id);
+
+            $allowNegative = (bool) DB::table('business_settings')->where('id', 1)->value('allow_negative_stock');
+            JournalService::readLockDate();
+            $purchaseNo = SequenceService::next(DocType::PurchaseReturn);
+
+            // --- each line against what is still returnable, as locked ----------
+            $resolved = [];
+            foreach ($input['items'] as $request) {
+                $item = $lockedById->get((int) $request['itemId']);
+                if ($item === null) {
+                    throw DB::table('purchase_items')->where('id', $request['itemId'])->exists()
+                        ? new ValidationError('That item is not part of this purchase.')
+                        : new NotFoundError('Purchase item', $request['itemId']);
+                }
+                if ($request['qty'] <= 0) {
+                    throw new ValidationError('Return quantity must be greater than zero.');
+                }
+                $returnable = (int) $item->qty_milli - (int) $item->returned_qty_milli;
+                if ($request['qty'] > $returnable) {
+                    throw new ValidationError('Only '.self::formatQtyLabel($returnable)." of {$item->product_name} can still be returned.");
+                }
+                $resolved[] = ['request' => $request, 'item' => $item, 'costShare' => Money::mulDiv((int) $item->line_total_minor, $request['qty'], (int) $item->qty_milli)];
+            }
+
+            $totalCost = Money::sum(array_column($resolved, 'costShare'));
+            if ($totalCost === 0) {
+                throw new ValidationError('This return has no value to record.');
+            }
+
+            $sourceBatches = PurchaseService::batchSplitByPurchaseItem($originalPurchaseId);
+
+            // The reclaim goes back with the goods, component by component, from
+            // what the ORIGINAL purchase carried, on the basis the costs were
+            // prorated from. Recoverability is carried across: it is a fact of the day bought.
+            $purchaseNet = Money::subtract((int) $original->subtotal_minor, (int) $original->discount_minor);
+            $paidRows = TaxService::readPurchaseTaxes($originalPurchaseId);
+            $returnedLines = [];
+            $returnedIds = [];
+            if ($paidRows->isNotEmpty() && $purchaseNet !== 0) {
+                foreach ($paidRows as $row) {
+                    $returnedLines[] = new TaxLine(
+                        new TaxComponent($row->code, $row->name, (int) $row->rate_bp, TaxBasis::from($row->basis), (bool) $row->is_recoverable),
+                        Money::mulDiv((int) $row->amount_minor, $totalCost, $purchaseNet),
+                    );
+                    if ($row->component_id !== null) {
+                        $returnedIds[$row->code] = (int) $row->component_id;
+                    }
+                }
+            }
+            $taxShare = match (true) {
+                $returnedLines !== [] => Money::sum(array_map(fn (TaxLine $l): int => $l->amount, $returnedLines)),
+                (int) $original->tax_minor === 0 || $purchaseNet === 0 => 0,
+                default => Money::mulDiv((int) $original->tax_minor, $totalCost, $purchaseNet),
+            };
+
+            // What the supplier owes back: the goods and the tax charged on them.
+            $returnedValue = Money::add($totalCost, $taxShare);
+
+            // Read before the return exists, after the supplier and purchase locks.
+            $outstandingOnOriginal = PurchaseService::getPurchaseOutstanding($originalPurchaseId);
+            $owedBeforeReturn = $original->supplier_id === null
+                ? $outstandingOnOriginal
+                : Money::min($outstandingOnOriginal, SupplierService::getSupplierBalance((int) $original->supplier_id));
+
+            $returnId = (int) DB::table('purchases')->insertGetId([
+                'purchase_no' => $purchaseNo,
+                'kind' => 'RETURN',
+                'returns_purchase_id' => $originalPurchaseId,
+                'supplier_id' => $original->supplier_id,
+                'business_date' => $input['businessDate'],
+                'occurred_at' => $at,
+                'invoice_no' => $original->invoice_no,
+                'subtotal_minor' => Money::negate($totalCost),
+                'discount_minor' => 0,
+                'tax_minor' => Money::negate($taxShare),
+                'total_minor' => Money::negate($returnedValue),
+                'status' => 'POSTED',
+                'note' => $input['reason'] ?? "Return against {$original->purchase_no}",
+                'created_by' => $actor->id,
+                'is_demo' => $isDemo,
+                'created_at' => $at,
+                'updated_at' => $at,
+            ]);
+            TaxService::writePurchaseTaxes($returnId, array_map(fn (TaxLine $l): TaxLine => $l->withAmount(Money::negate($l->amount)), $returnedLines), $returnedIds, $occurredAt);
+
+            foreach ($resolved as $index => $line) {
+                $item = $line['item'];
+                if (DB::table('products')->where('id', $item->product_id)->value('track_inventory')) {
+                    // From the crate THIS supplier delivered, at what THIS supplier charged.
+                    $cameFrom = $sourceBatches[(int) $item->id] ?? null;
+                    InventoryService::recordStockMovement([
+                        'productId' => (int) $item->product_id,
+                        'direction' => 'OUT',
+                        'qty' => $line['request']['qty'],
+                        'totalCost' => $line['costShare'],
+                        ...($cameFrom === null ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $cameFrom]]),
+                        'movementType' => MovementType::PurchaseReturn,
+                        'sourceType' => 'PURCHASE_RETURN',
+                        'sourceId' => $returnId,
+                        'sourceRef' => $purchaseNo,
+                        'businessDate' => $input['businessDate'],
+                        'occurredAt' => $occurredAt,
+                        'userId' => $actor->id,
+                        'allowNegative' => $allowNegative,
+                        'note' => "Return to supplier against {$original->purchase_no}",
+                        'isDemo' => $isDemo,
+                    ]);
+                }
+
+                DB::table('purchase_items')->insert([
+                    'purchase_id' => $returnId,
+                    'line_no' => $index + 1,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'unit' => $item->unit,
+                    'qty_milli' => -$line['request']['qty'],
+                    'unit_cost_minor' => Quantity::perBaseUnitPrice((int) $item->unit_cost_minor, $item->entry_factor_milli === null ? null : (int) $item->entry_factor_milli),
+                    'discount_minor' => 0,
+                    'line_total_minor' => Money::negate($line['costShare']),
+                    'created_at' => $at,
+                ]);
+                DB::table('purchase_items')->where('id', $item->id)->update(['returned_qty_milli' => (int) $item->returned_qty_milli + $line['request']['qty']]);
+            }
+
+            // --- how the shop is made whole -------------------------------------
+            $refunds = $input['refunds'] ?? [];
+            $refundTotal = Money::sum(array_column($refunds, 'amount'));
+            // A supplier hands back only money the shop actually paid them.
+            $refundable = SaleCalculator::refundableOnReturn($returnedValue, $owedBeforeReturn);
+            if ($refundTotal > $refundable) {
+                throw new ValidationError(
+                    $refundable === 0
+                        ? 'Nothing can be refunded in cash: this delivery has not been paid for beyond the goods being kept. Take the return off what you owe instead.'
+                        : 'At most '.Money::toDecimalString($refundable).' can be refunded in cash, which is what you paid beyond the goods being kept. Take the rest off what you owe.',
+                    ['returnedValue' => $returnedValue, 'refundable' => $refundable, 'refundTotal' => $refundTotal],
+                );
+            }
+            $creditApplied = Money::subtract($returnedValue, $refundTotal);
+
+            $lines = [Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::INVENTORY), $totalCost, ['description' => "{$purchaseNo} stock returned to supplier"])];
+            // Nothing left to reclaim on goods that went back.
+            if ($taxShare !== 0) {
+                $lines[] = Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::TAX_PAYABLE), $taxShare, ['description' => "{$purchaseNo} tax on goods returned"]);
+            }
+            foreach ($refunds as $refund) {
+                if ($refund['amount'] <= 0) {
+                    continue;
+                }
+                $account = DB::table('payment_accounts')->where('id', $refund['paymentAccountId'])->first() ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
+                DB::table('purchase_payments')->insert([
+                    'purchase_id' => $returnId,
+                    'payment_account_id' => $refund['paymentAccountId'],
+                    'amount_minor' => Money::negate($refund['amount']),
+                    'reference' => "Refund for {$original->purchase_no}",
+                    'created_at' => $at,
+                ]);
+                $lines[] = Journal::debit((int) $account->gl_account_id, $refund['amount'], [
+                    'paymentAccountId' => (int) $refund['paymentAccountId'],
+                    'description' => "{$purchaseNo} refunded by supplier ({$account->name})",
+                ]);
+            }
+            if ($creditApplied !== 0) {
+                $lines[] = Journal::debit(JournalService::accountIdByCode(ChartOfAccounts::ACCOUNTS_PAYABLE), $creditApplied, [
+                    ...($original->supplier_id !== null ? ['supplierId' => (int) $original->supplier_id] : []),
+                    'description' => "{$purchaseNo} credited against what we owe",
+                ]);
+            }
+
+            $posted = JournalService::post(
+                $input['businessDate'],
+                JournalSourceType::PurchaseReturn,
+                $lines,
+                sourceId: $returnId,
+                memo: "{$purchaseNo} — return against {$original->purchase_no}",
+                isDemo: $isDemo,
+                occurredAt: $occurredAt,
+                actor: $actor,
+            );
+            DB::table('purchases')->where('id', $returnId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
+
+            AuditService::write(AuditAction::Create, 'purchase_return', "{$purchaseNo}: return to supplier against {$original->purchase_no}", $returnId, $actor, [
+                'valueMinor' => $totalCost,
+                'refundedMinor' => $refundTotal,
+                'creditedMinor' => $creditApplied,
+                'entryNo' => $posted['entryNo'],
+            ], $occurredAt);
+
+            return ['returnPurchaseId' => $returnId, 'purchaseNo' => $purchaseNo, 'refunded' => $refundTotal, 'creditApplied' => $creditApplied];
+        });
+    }
+
+    /** Two requests for one line would each pass the returnable check against the same figure. */
+    private static function assertEachItemOnce(array $items): void
+    {
+        $itemIds = array_map(fn (array $r): int => (int) $r['itemId'], $items);
+        if (count($itemIds) !== count(array_unique($itemIds))) {
+            throw new ValidationError('Each item can appear only once in a return.');
+        }
+    }
+
+    /**
      * A document's stored tax rows as domain lines (never recoverable on the
      * way back), with each row's component id alongside, by position.
      *
@@ -346,6 +575,25 @@ final class ReturnsService
                 'returnedQtyMilli' => (int) $item->returned_qty_milli,
                 'returnableMilli' => (int) $item->qty_milli - (int) $item->returned_qty_milli,
                 'unitPriceMinor' => Quantity::perBaseUnitPrice((int) $item->unit_price_minor, $item->entry_factor_milli === null ? null : (int) $item->entry_factor_milli),
+            ])
+            ->filter(fn (array $item): bool => $item['returnableMilli'] > 0)
+            ->values()
+            ->all();
+    }
+
+    /** Lines from a purchase that still have quantity to send back. @return list<array> */
+    public static function getReturnablePurchaseItems(int $purchaseId): array
+    {
+        return DB::table('purchase_items')->where('purchase_id', $purchaseId)->orderBy('id')->get()
+            ->map(fn (object $item): array => [
+                'id' => (int) $item->id,
+                'productId' => (int) $item->product_id,
+                'productName' => $item->product_name,
+                'unit' => $item->unit,
+                'qtyMilli' => (int) $item->qty_milli,
+                'returnedQtyMilli' => (int) $item->returned_qty_milli,
+                'returnableMilli' => (int) $item->qty_milli - (int) $item->returned_qty_milli,
+                'unitCostMinor' => Quantity::perBaseUnitPrice((int) $item->unit_cost_minor, $item->entry_factor_milli === null ? null : (int) $item->entry_factor_milli),
             ])
             ->filter(fn (array $item): bool => $item['returnableMilli'] > 0)
             ->values()

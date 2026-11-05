@@ -8,16 +8,15 @@ declare(strict_types=1);
 |
 | The P&L's net sales (Phase 7) is read here as the August journal lines on
 | Sales Revenue, Sales Discounts and Sales Returns, credits less debits: the
-| figure getProfitAndLoss(...).netSales reports.
-|
-| Deferred to Phase 5 (purchases): "refuses a purchase with goods already sent
-| back, and changes nothing".
+| figure getProfitAndLoss(...).netSales reports. Nothing is deferred: the
+| purchase void case arrived with the purchases in Phase 5.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ValidationError;
 use App\Services\CustomerPaymentService;
+use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use Illuminate\Support\Carbon;
@@ -29,6 +28,7 @@ const RAR_DAY = '2026-08-10';
 beforeEach(function () {
     $this->actor = Shop::owner();
     $this->cash = Shop::paymentAccount('CASH');
+    $this->supplier = Shop::supplier($this->actor, 'Kofi Traders');
     $this->voidAt = Carbon::parse('2026-08-11 10:00:00', 'Africa/Accra');
     $this->rice = Shop::product($this->actor, 'Rice 5kg', 8_000, 12_000, ['unit' => 'bag']);
     $this->coke = Shop::product($this->actor, 'Coca-Cola', 2_000, 3_000);
@@ -130,6 +130,17 @@ describe('voiding after a return', function () {
 
         expect(fn () => SaleService::voidSale($sale['saleId'], 'rung up by mistake', $this->actor, $this->voidAt))->toThrow(ConflictError::class);
         expect(SaleService::getSale($sale['saleId'])['status'])->toBe('POSTED')
+            ->and(($this->onHand)($this->rice))->toBe($stock);
+    });
+
+    it('refuses a purchase with goods already sent back, and changes nothing', function () {
+        $purchase = Shop::purchase($this->actor, $this->supplier, [[$this->rice, 2_000, 8_000]], [], ['businessDate' => RAR_DAY]);
+        $line = PurchaseService::getPurchase($purchase['purchaseId'])['items'][0];
+        ReturnsService::createSupplierReturn($purchase['purchaseId'], ['businessDate' => RAR_DAY, 'items' => [['itemId' => $line['id'], 'qty' => 1_000]], 'refunds' => []], $this->actor);
+        $stock = ($this->onHand)($this->rice);
+
+        expect(fn () => PurchaseService::voidPurchase($purchase['purchaseId'], 'wrong supplier', $this->actor, $this->voidAt))->toThrow(ConflictError::class);
+        expect(PurchaseService::getPurchase($purchase['purchaseId'])['status'])->toBe('POSTED')
             ->and(($this->onHand)($this->rice))->toBe($stock);
     });
 

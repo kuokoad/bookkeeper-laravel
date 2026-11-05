@@ -191,3 +191,39 @@ Each of these becomes at least one test before the code that implements it.
 ## 9. Out of scope for this rebuild
 
 New features, multi-branch, FIFO costing, a free-form journal screen, putting the app on the internet, and pixel-identical styling. The three looks (Standard, Ledger, Classic) and light/dark mode do come over.
+
+## 10. Owner decisions (old-app money behaviour kept for now)
+
+The rule is "the old app is right until proven otherwise", and the brief says
+to ask about money rather than guess. Each item below is old-app behaviour
+the port reproduces exactly; reviews showed it produces wrong figures. Nothing
+changes until you decide. Imported history is unaffected either way: the
+importer copies posted rows unchanged, so a fix applies only to new documents.
+
+**D1. A supplier return puts its whole tax share on VAT Payable (2100).**
+Old `returns.service.ts:761` (new `ReturnsService.php`, supplier side).
+Ghana taxes, 10 bags at 65.00 on credit, all returned:
+- levies reclaimable (the default): after the return 2100 = +32.50,
+  2110 = -16.25, 2120 = -16.25. The trial balance balances, but VAT is
+  overstated by the levies and the levy reclaim stays on goods that went
+  back. A tax return over that period will disagree with the ledger.
+- levies folded into stock cost: after the full return Inventory (1200)
+  holds 32.50 with an empty shelf, and 2100 is +32.50.
+Proposed: credit each recoverable tax line to its own account
+(`TaxService::accountFor`), and take a non-recoverable line back where it
+went in: 1200 through the stock movement for stock lines, 6900 for non-stock.
+
+**D2. A supplier return values the goods before the invoice discount and
+without folded levies, and ignores the costing residual.** Old
+`returns.service.ts:573` and :695. Example: 10 × 65.00 less a 65.00 invoice
+discount, on credit (owed 585.00); return all 10: the credit applied is
+650.00, so the supplier "owes" the shop 65.00 that was never paid, and
+Inventory ends at -65.00 with an empty shelf.
+Proposed: value the goods at their own stock-ledger cost, prorated (as a
+purchase void already does), and post any residual like the void.
+
+**D3. A supplier payment's explicit allocations are not checked against the
+payment amount.** Old `supplier-payment.service.ts` allocation loop. Paying
+10.00 with an allocation of 50.00 to one purchase settles 50.00 of it while
+the payable falls by 10.00. Proposed: refuse allocations that add up to more
+than the payment. (Check the customer side for the same.)

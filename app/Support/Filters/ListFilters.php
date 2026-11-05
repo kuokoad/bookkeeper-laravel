@@ -7,14 +7,17 @@ namespace App\Support\Filters;
 use App\Enums\MovementType;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
+use App\Services\PurchaseService;
 use App\Services\QuotationService;
 use App\Services\SaleService;
+use App\Services\SupplierService;
 use App\Support\Clock;
 
 /**
  * The URL, turned into a service query, once per module for the page and its
  * CSV export alike. Everything is validated on the way in. A port of the
- * product and stock-movement parts of the old lib/list-filters.ts.
+ * product, stock-movement, sales, quotation, customer, purchase and supplier
+ * parts of the old lib/list-filters.ts.
  *
  * $params is the query string as Laravel gives it: a value may be a string or
  * a list (a repeated key), and the first value wins.
@@ -121,6 +124,63 @@ final class ListFilters
                 'search' => Filters::parseSearch(self::one($params, 'q')),
                 'balanceState' => Filters::parseEnum(self::one($params, 'balance'), ['owing', 'zero', 'credit']),
                 'customerStatus' => Filters::parseEnum(self::one($params, 'archived'), ['active', 'archived']),
+            ], fn ($value): bool => $value !== null),
+        ];
+        $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);
+
+        return [
+            'filters' => $filters,
+            'page' => $paged['page'],
+            'pageSize' => $paged['pageSize'],
+            'carried' => self::carry($params, ['q', 'balance', 'archived', 'sort', 'direction']),
+        ];
+    }
+
+    /** @return array{filters: array, range: array{from: string, to: string}, preset: string, page: int, pageSize: int, carried: array<string, string>} */
+    public static function parsePurchaseFilters(array $params, ?string $today = null, int $pageSize = Filters::DEFAULT_PAGE_SIZE): array
+    {
+        $resolved = Filters::resolveDateRange(self::one($params, 'period'), self::one($params, 'from'), self::one($params, 'to'), $today ?? Clock::today());
+        $sort = Filters::parseSort(self::one($params, 'sort'), self::one($params, 'direction'), PurchaseService::PURCHASE_SORTS, 'date');
+        $filters = [
+            'from' => $resolved['range']['from'],
+            'to' => $resolved['range']['to'],
+            'sort' => $sort['sort'],
+            'direction' => $sort['direction'],
+            ...array_filter([
+                'supplierId' => Filters::parseId(self::one($params, 'supplier')),
+                'productId' => Filters::parseId(self::one($params, 'product')),
+                'categoryId' => Filters::parseId(self::one($params, 'category')),
+                'paymentAccountId' => Filters::parseId(self::one($params, 'account')),
+                'paymentKind' => Filters::parseEnum(self::one($params, 'method'), PurchaseService::PURCHASE_PAYMENT_KINDS),
+                'status' => Filters::parseEnum(self::one($params, 'status'), ['POSTED', 'VOIDED']),
+                'paymentState' => Filters::parseEnum(self::one($params, 'paid'), ['paid', 'partial', 'outstanding']),
+                'search' => Filters::parseSearch(self::one($params, 'q')),
+            ], fn ($value): bool => $value !== null),
+            ...Filters::parseAmountRange(self::one($params, 'min'), self::one($params, 'max')),
+        ];
+        $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);
+
+        return [
+            'filters' => $filters,
+            'range' => $resolved['range'],
+            'preset' => $resolved['preset'],
+            'page' => $paged['page'],
+            'pageSize' => $paged['pageSize'],
+            'carried' => self::carry($params, ['period', 'from', 'to', 'q', 'supplier', 'product', 'category', 'account', 'method', 'status', 'paid', 'min', 'max', 'sort', 'direction']),
+        ];
+    }
+
+    /** @return array{filters: array, page: int, pageSize: int, carried: array<string, string>} */
+    public static function parseSupplierFilters(array $params, int $pageSize = Filters::DEFAULT_PAGE_SIZE): array
+    {
+        $sort = Filters::parseSort(self::one($params, 'sort'), self::one($params, 'direction'), SupplierService::SUPPLIER_SORTS, 'name', 'asc');
+        $filters = [
+            'sort' => $sort['sort'],
+            'direction' => $sort['direction'],
+            ...array_filter([
+                'search' => Filters::parseSearch(self::one($params, 'q')),
+                'balanceState' => Filters::parseEnum(self::one($params, 'balance'), ['owing', 'zero', 'credit']),
+                'supplierStatus' => Filters::parseEnum(self::one($params, 'archived'), ['active', 'archived']),
             ], fn ($value): bool => $value !== null),
         ];
         $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);

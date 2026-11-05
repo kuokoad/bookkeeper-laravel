@@ -34,9 +34,9 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Concurrency: four processes taking numbers and posting at once; numbers run with no gaps or repeats despite rollbacks (tests/Processes/ConcurrencyTest.php)
 - [x] Structural test: services open transactions only through `App\Database\Tx`
 - [x] AuditService: insert-only, redaction, filters and counts share conditions
-- [ ] Port `audit-summary-money` (sale and customer-payment parts done in Phase 4; purchase and supplier payment wait for Phase 5, the till shortage for Phase 6)
+- [ ] Port `audit-summary-money` (sale, customer-payment, purchase and supplier-payment parts done in Phases 4 and 5; the till shortage waits for Phase 6)
 - [x] SettingsService, TaxService: port `settings`, `tax-setup`, `tax-components-crud`, and the journal-level and lock-management parts of `period-lock`
-- [ ] Port the per-document parts of `period-lock` (sale and adjustment done; purchase waits for Phase 5, expense for Phase 6)
+- [ ] Port the per-document parts of `period-lock` (sale, adjustment and purchase done; expense waits for Phase 6)
 - [x] `nuna:import-sqlite` (all tables, ids kept, timestamps to UTC, refuses a non-empty target, FK checks off then its own orphan check, skips generated columns, lists refused rows and commits nothing)
 - [x] `nuna:reconcile` v1: rows per table, trial balance per account, stock pair per product (cache and replay), receivables, payables, tax held. Zero differences on the old app's own demo database (tests/Fixtures/old-demo.db)
 
@@ -64,9 +64,12 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Reconcile: receivables per customer (ledger, since Phase 2); `ImportTest` also checks that the imported shop's open invoices add up to each customer's ledger balance through the new services
 
 ## Phase 5: Purchases
-- [ ] Port `purchases`, `purchase-tax`, `tests/app/purchase-form-parity`
-- [ ] Free-goods delivery, non-stock lines (6900), costing residual on void
-- [ ] Reconcile: payables per supplier
+- [x] `PurchaseService`, `SupplierService`, `SupplierPaymentService`, the supplier half of `ReturnsService` (duplicate-line guard, decides on locked lines); `App\Domain\Purchases\PurchaseCalculator`; purchase and supplier filter parsers
+- [x] Port `purchases`, `purchase-tax`, `tests/app/purchase-form-parity` (service part; the form's own parsing waits for the screens)
+- [x] Free-goods delivery, non-stock lines (6900), costing residual on void
+- [x] Un-defer the purchase and supplier parts of `refund-cap`, `refunds-after-returns`, `credited-returns`, `return-tax`, `void-ageing` (payables, via a test-side copy of the old payables ageing), `payment-void`, `units`, `batch-gateway`, `batch-reporting`, `costing-vs-ledger`, `product-replace-unit`, `carton-size-actions` (delivery), `module-filters`, `period-lock` and `audit-summary-money`
+- [x] Concurrency (`tests/Processes/PurchaseConcurrencyTest.php`): four desks return the same delivery line at once, five times over: one return each, stock out once, refund once, return numbers gap-free; a void racing a supplier payment on one delivery: exactly one goes through, the supplier owes nothing either way. Each test was run with its locks removed and failed (all of a return's locks together: the product and supplier locks serialise the desks before the line lock is reached, so the test proves the return is serialised, not which lock does it; for the void race, removing the void's locks, or the payment's supplier lock, fails it)
+- [x] Reconcile: payables per supplier (ledger, since Phase 2); `ImportTest` also checks that the imported shop's open deliveries add up to each supplier's ledger balance through the new services
 
 ## Phase 6: Cashbook
 - [ ] Port `cashbook`, `transfers` (+ `tests/app/transfer-action`), `reconciliation`, `account-statement`, `list-order-by-trading-date`

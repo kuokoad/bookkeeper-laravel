@@ -3,23 +3,22 @@
 declare(strict_types=1);
 
 /*
-| Ported from the product and stock parts of the old
-| tests/services/module-filters.test.ts: a filter narrows in SQL before any
+| Ported from the purchase, product, stock and customer/supplier parts of the
+| old tests/services/module-filters.test.ts: a filter narrows in SQL before any
 | page limit, and totals come from the same clause as the rows.
 |
-| Deferred: the purchase filters and "finds who the shop owes from actual
-| payable entries" and "sorts by balance" (suppliers, Phase 5), the supplier
-| half of "searches customers and suppliers on more than the name" and of
-| "narrows by category and by the supplier who delivered it" (Phase 5), and the
-| expense and expense-category filters (Phase 6).
+| Deferred: the expense filters and "expense categories offered by the filter"
+| (cashbook, Phase 6).
 */
 
 use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
+use App\Services\PurchaseService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
+use App\Services\SupplierService;
 use Tests\Support\Shop;
 
 beforeEach(function () {
@@ -36,6 +35,111 @@ beforeEach(function () {
         'items' => [['productId' => $id, 'qty' => $units * 1000]],
         'tenders' => $customerId === null ? [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $units * (int) Shop::productRow($id)->selling_price_minor]] : [],
     ], $this->actor);
+    $this->cash = Shop::paymentAccount('CASH');
+    $this->momo = Shop::paymentAccount('MOBILE_MONEY');
+    $this->kasapreko = Shop::supplier($this->actor, 'Kasapreko Distributors', ['phone' => '0302000111']);
+    $this->madina = Shop::supplier($this->actor, 'Madina Market Wholesale', ['phone' => '0244777888']);
+    $this->delivery = fn (string $date, int $supplierId, int $productId, int $units, int $unitCost, int $paid, ?int $account = null): int => Shop::purchase(
+        $this->actor,
+        $supplierId,
+        [[$productId, $units * 1000, $unitCost]],
+        $paid > 0 ? [['paymentAccountId' => $account ?? $this->cash, 'amount' => $paid]] : [],
+        ['businessDate' => $date],
+    )['purchaseId'];
+});
+
+describe('purchase filters', function () {
+    it('narrows by supplier, product, category and payment method', function () {
+        ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000);
+        ($this->delivery)('2026-08-03', $this->madina, $this->rice, 10, 4_000, 40_000, $this->momo);
+
+        $range = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        expect(PurchaseService::countPurchases([...$range, 'supplierId' => $this->kasapreko]))->toBe(1)
+            ->and(PurchaseService::countPurchases([...$range, 'productId' => $this->rice]))->toBe(1)
+            ->and(PurchaseService::countPurchases([...$range, 'categoryId' => $this->drinks]))->toBe(1)
+            ->and(PurchaseService::countPurchases([...$range, 'paymentKind' => 'MOBILE_MONEY']))->toBe(1)
+            ->and(PurchaseService::countPurchases([...$range, 'paymentAccountId' => $this->cash]))->toBe(1);
+    });
+
+    it('tells fully paid from partly paid from outstanding', function () {
+        ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000); // paid in full
+        ($this->delivery)('2026-08-03', $this->madina, $this->rice, 10, 4_000, 10_000); // part paid
+        ($this->delivery)('2026-08-04', $this->madina, $this->rice, 5, 4_000, 0); // nothing paid
+
+        $range = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        expect(PurchaseService::countPurchases([...$range, 'paymentState' => 'paid']))->toBe(1)
+            ->and(PurchaseService::countPurchases([...$range, 'paymentState' => 'partial']))->toBe(1)
+            // "Outstanding" covers both the part-paid and the unpaid.
+            ->and(PurchaseService::countPurchases([...$range, 'paymentState' => 'outstanding']))->toBe(2);
+    });
+
+    it('finds a credit delivery sitting past the page limit', function () {
+        $owing = ($this->delivery)('2026-08-01', $this->madina, $this->rice, 5, 4_000, 0);
+        for ($day = 2; $day <= 20; $day++) {
+            ($this->delivery)('2026-08-'.str_pad((string) $day, 2, '0', STR_PAD_LEFT), $this->kasapreko, $this->coke, 10, 300, 3_000);
+        }
+
+        $filters = ['from' => '2026-08-01', 'to' => '2026-08-31', 'paymentState' => 'outstanding'];
+        expect(PurchaseService::countPurchases($filters))->toBe(1)
+            ->and(PurchaseService::listPurchases([...$filters, 'limit' => 5])[0]['id'])->toBe($owing);
+    });
+
+    it('searches purchase number, supplier and product', function () {
+        $id = ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000);
+        $row = collect(PurchaseService::listPurchases())->firstWhere('id', $id);
+
+        $range = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        foreach ([$row['purchaseNo'], 'kasapreko', '0302', 'coca', 'COKE-500'] as $term) {
+            expect(array_column(PurchaseService::listPurchases([...$range, 'search' => $term]), 'id'))->toContain($id);
+        }
+    });
+
+    it('totals only the deliveries the filter selects', function () {
+        ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000); // 300.00
+        ($this->delivery)('2026-08-03', $this->madina, $this->rice, 10, 4_000, 10_000); // 400.00, 300.00 owing
+        ($this->delivery)('2026-09-02', $this->kasapreko, $this->coke, 100, 300, 30_000); // outside the window
+
+        $filters = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        $summary = PurchaseService::getFilteredPurchasesSummary($filters);
+        $rows = PurchaseService::listPurchases($filters);
+
+        expect($summary['count'])->toBe(2)
+            ->and($summary['total'])->toBe(array_sum(array_column($rows, 'totalMinor')))
+            ->and($summary['paid'])->toBe(40_000)
+            ->and($summary['outstanding'])->toBe(30_000)
+            ->and($summary['total'])->toBe($summary['paid'] + $summary['outstanding']);
+    });
+
+    it('reports nothing rather than throwing when nothing matches', function () {
+        ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000);
+        $filters = ['from' => '2026-01-01', 'to' => '2026-01-31'];
+
+        expect(PurchaseService::countPurchases($filters))->toBe(0)
+            ->and(PurchaseService::getFilteredPurchasesSummary($filters))->toMatchArray(['count' => 0, 'total' => 0, 'paid' => 0, 'outstanding' => 0]);
+    });
+
+    it('pages without repeating a delivery', function () {
+        for ($day = 1; $day <= 15; $day++) {
+            ($this->delivery)('2026-08-'.str_pad((string) $day, 2, '0', STR_PAD_LEFT), $this->kasapreko, $this->coke, 10, 300, 3_000);
+        }
+        $filters = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        expect(PurchaseService::countPurchases($filters))->toBe(15);
+
+        $seen = [];
+        for ($page = 0; $page < 3; $page++) {
+            foreach (PurchaseService::listPurchases([...$filters, 'limit' => 6, 'offset' => $page * 6]) as $row) {
+                expect($seen)->not->toHaveKey($row['id']);
+                $seen[$row['id']] = true;
+            }
+        }
+        expect($seen)->toHaveCount(15);
+    });
+
+    it('treats a wildcard in the search as the character it is', function () {
+        ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000);
+        expect(PurchaseService::countPurchases(['search' => '%']))->toBe(0)
+            ->and(SupplierService::countSuppliers(['search' => '_']))->toBe(0);
+    });
 });
 
 describe('product and stock-status filters', function () {
@@ -58,8 +162,12 @@ describe('product and stock-status filters', function () {
         expect(array_column(CatalogService::listProducts(['stockStatus' => 'low', 'limit' => 5]), 'id'))->toContain($this->coke);
     });
 
-    it('narrows by category', function () {
-        expect(CatalogService::countProducts(['categoryId' => $this->drinks]))->toBe(1);
+    it('narrows by category and by the supplier who delivered it', function () {
+        ($this->delivery)('2026-08-02', $this->kasapreko, $this->coke, 100, 300, 30_000);
+
+        expect(CatalogService::countProducts(['categoryId' => $this->drinks]))->toBe(1)
+            ->and(CatalogService::countProducts(['supplierId' => $this->kasapreko]))->toBe(1)
+            ->and(CatalogService::countProducts(['supplierId' => $this->madina]))->toBe(0);
     });
 
     it('searches name, SKU and barcode', function () {
@@ -173,10 +281,27 @@ describe('customer and supplier balance filters', function () {
             ->and(CustomerService::listCustomers(['balanceState' => 'owing', 'limit' => 5])[0]['id'])->toBe($zoe);
     });
 
+    it('finds who the shop owes from actual payable entries', function () {
+        ($this->delivery)('2026-08-02', $this->madina, $this->rice, 10, 4_000, 0); // nothing paid
+        ($this->delivery)('2026-08-03', $this->kasapreko, $this->coke, 10, 300, 3_000); // paid in full
+
+        expect(SupplierService::countSuppliers(['balanceState' => 'owing']))->toBe(1)
+            ->and(SupplierService::listSuppliers(['balanceState' => 'owing'])[0]['id'])->toBe($this->madina);
+    });
+
     it('searches customers and suppliers on more than the name', function () {
         Shop::customer($this->actor, 'Kofi Mensah', null, ['phone' => '0244000111', 'email' => 'kofi@example.com']);
 
         expect(CustomerService::countCustomers(['search' => '0244']))->toBe(1)
-            ->and(CustomerService::countCustomers(['search' => 'example.com']))->toBe(1);
+            ->and(CustomerService::countCustomers(['search' => 'example.com']))->toBe(1)
+            ->and(SupplierService::countSuppliers(['search' => 'madina']))->toBe(1);
+    });
+
+    it('sorts by balance', function () {
+        ($this->delivery)('2026-08-02', $this->madina, $this->rice, 10, 4_000, 0);
+        ($this->delivery)('2026-08-03', $this->kasapreko, $this->coke, 10, 300, 0);
+
+        $highestFirst = SupplierService::listSuppliers(['sort' => 'balance', 'direction' => 'desc']);
+        expect($highestFirst[0]['id'])->toBe($this->madina);
     });
 });

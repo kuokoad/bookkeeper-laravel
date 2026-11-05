@@ -6,16 +6,17 @@ declare(strict_types=1);
 | Ported from the old tests/services/void-ageing.test.ts: a void's mirror is
 | not a debt going the other way.
 |
-| The receivables ageing is Phase 7; it is read through Tests\Support\Ageing,
-| which follows the old report line for line.
-|
-| Deferred to Phase 5 (purchases and suppliers): the whole "payables ageing
-| after a void" block (5 tests: really owes, agrees with the ledger before /
-| on / after the void, and no negative owing on the purchases list).
+| The receivables and payables ageing reports are Phase 7; both are read
+| through Tests\Support\Ageing, a test-side copy of the old
+| getReceivablesAgeing / getPayablesAgeing line for line, and the ledger side
+| is the control account's journal lines dated up to the day (the old
+| getAccountBalanceByCode with a to date). Nothing is deferred.
 */
 
 use App\Services\CustomerService;
+use App\Services\PurchaseService;
 use App\Services\SaleService;
+use App\Services\SupplierService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Ageing;
@@ -30,6 +31,7 @@ beforeEach(function () {
     $this->cash = Shop::paymentAccount('CASH');
     $this->voidAt = Carbon::parse(VA_VOID_DAY.' 10:00:00');
     $this->customer = Shop::customer($this->actor, 'Mensah Provisions');
+    $this->supplier = Shop::supplier($this->actor, 'Kofi Traders');
     $this->product = Shop::product($this->actor, 'Rice 5kg', 3_000, 10_000, ['unit' => 'bag']);
     Shop::openingStock($this->actor, $this->product, 40_000, 120_000, '2026-08-01');
     $this->creditSale = fn (int $units, int $tendered = 0): array => SaleService::createSale([
@@ -38,6 +40,8 @@ beforeEach(function () {
         'items' => [['productId' => $this->product, 'qty' => $units * 1000]],
         'tenders' => $tendered > 0 ? [['paymentAccountId' => $this->cash, 'amount' => $tendered]] : [],
     ], $this->actor);
+    $this->creditPurchase = fn (int $units): array => Shop::purchase($this->actor, $this->supplier, [[$this->product, $units * 1000, 10_000]], [], ['businessDate' => '2026-08-10']);
+    $this->agedPayables = fn (string $asAt): int => array_sum(array_column(Ageing::payables($asAt), 'total'));
     $this->aged = fn (string $asAt): int => array_sum(array_column(Ageing::receivables($asAt), 'total'));
 });
 
@@ -98,5 +102,37 @@ describe('the sales list after a void', function () {
 
         expect(SaleService::getFilteredSalesSummary()['outstanding'])->toBe(50_000)
             ->and(SaleService::getSaleOutstanding($reversal))->toBe(0);
+    });
+});
+
+describe('payables ageing after a void', function () {
+    it('shows what the shop really owes, not the void set against it', function () {
+        ($this->creditPurchase)(10);
+        $voided = ($this->creditPurchase)(5);
+        PurchaseService::voidPurchase($voided['purchaseId'], 'wrong supplier', $this->actor, $this->voidAt);
+
+        expect(SupplierService::getSupplierBalance($this->supplier))->toBe(100_000)
+            ->and(($this->agedPayables)(VA_AFTER_VOID))->toBe(100_000);
+    });
+
+    it('agrees with the ledger as at a date', function (string $label, string $asAt) {
+        ($this->creditPurchase)(10);
+        $voided = ($this->creditPurchase)(5);
+        PurchaseService::voidPurchase($voided['purchaseId'], 'wrong supplier', $this->actor, $this->voidAt);
+
+        expect(($this->agedPayables)($asAt))->toBe(Ageing::payablesAt($asAt));
+    })->with([
+        ['before the void', VA_BEFORE_VOID],
+        ['on the day of the void', VA_VOID_DAY],
+        ['after the void', VA_AFTER_VOID],
+    ]);
+
+    it('does not report a negative amount owing on the purchases list', function () {
+        ($this->creditPurchase)(10);
+        $voided = ($this->creditPurchase)(5);
+        $reversal = PurchaseService::voidPurchase($voided['purchaseId'], 'wrong supplier', $this->actor, $this->voidAt)['reversalPurchaseId'];
+
+        expect(PurchaseService::getFilteredPurchasesSummary()['outstanding'])->toBe(100_000)
+            ->and(PurchaseService::getPurchaseOutstanding($reversal))->toBe(0);
     });
 });

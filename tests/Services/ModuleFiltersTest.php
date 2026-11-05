@@ -7,18 +7,19 @@ declare(strict_types=1);
 | tests/services/module-filters.test.ts: a filter narrows in SQL before any
 | page limit, and totals come from the same clause as the rows.
 |
-| The stock-movement tests stand in for createSale with a SALE movement through
-| the gateway, the only part of the sale these filters read. Deferred: the
-| purchase, expense, customer/supplier and expense-category filters (Phases 4 to
-| 6) and, in "narrows by category and by the supplier who delivered it", the
-| supplier half, which needs a delivery (Phase 5).
+| Deferred: the purchase filters and "finds who the shop owes from actual
+| payable entries" and "sorts by balance" (suppliers, Phase 5), the supplier
+| half of "searches customers and suppliers on more than the name" and of
+| "narrows by category and by the supplier who delivered it" (Phase 5), and the
+| expense and expense-category filters (Phase 6).
 */
 
 use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
+use App\Services\CustomerService;
 use App\Services\InventoryService;
+use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
-use App\Support\Clock;
 use Tests\Support\Shop;
 
 beforeEach(function () {
@@ -29,10 +30,12 @@ beforeEach(function () {
     $this->rice = CatalogService::createProduct(['name' => 'Rice 5kg', 'sku' => 'RICE-5', 'categoryId' => $this->food, 'costPrice' => 4_000, 'sellingPrice' => 6_000, 'unit' => 'bag', 'minStock' => 5_000], $this->actor);
     $this->stock = fn (int $id, int $units, int $cost) => Shop::openingStock($this->actor, $id, $units * 1000, $cost, '2026-08-01');
     $this->filler = fn (string $name, array $extra = []): int => CatalogService::createProduct(['name' => $name, 'costPrice' => 100, 'sellingPrice' => 200, 'unit' => 'pcs', 'trackInventory' => false, ...$extra], $this->actor);
-    $this->sale = fn (int $id, int $units, string $date) => Shop::move([
-        'productId' => $id, 'direction' => 'OUT', 'qty' => $units * 1000, 'movementType' => 'SALE', 'sourceType' => 'TEST',
-        'businessDate' => $date, 'occurredAt' => Clock::now(),
-    ]);
+    $this->sale = fn (int $id, int $units, string $date, ?int $customerId = null) => SaleService::createSale([
+        'businessDate' => $date,
+        'customerId' => $customerId,
+        'items' => [['productId' => $id, 'qty' => $units * 1000]],
+        'tenders' => $customerId === null ? [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $units * (int) Shop::productRow($id)->selling_price_minor]] : [],
+    ], $this->actor);
 });
 
 describe('product and stock-status filters', function () {
@@ -143,5 +146,37 @@ describe('stock movement filters', function () {
         ($this->stock)($this->coke, 100, 30_000);
         expect(InventoryService::countStockLedger(['search' => '%']))->toBe(0)
             ->and(CatalogService::countProducts(['search' => '_']))->toBe(0);
+    });
+});
+
+describe('customer and supplier balance filters', function () {
+    it('finds who owes from the ledger, not from a flag', function () {
+        $kofi = Shop::customer($this->actor, 'Kofi Mensah');
+        Shop::customer($this->actor, 'Ama Serwaa');
+        ($this->stock)($this->rice, 10, 40_000);
+        ($this->sale)($this->rice, 1, '2026-08-02', $kofi);
+
+        expect(CustomerService::countCustomers(['balanceState' => 'owing']))->toBe(1)
+            ->and(CustomerService::listCustomers(['balanceState' => 'owing'])[0]['id'])->toBe($kofi)
+            ->and(CustomerService::countCustomers(['balanceState' => 'zero']))->toBe(1);
+    });
+
+    it('finds a debtor sorted past the page limit', function () {
+        for ($index = 0; $index < 30; $index++) {
+            Shop::customer($this->actor, 'Aaa customer '.str_pad((string) $index, 3, '0', STR_PAD_LEFT));
+        }
+        $zoe = Shop::customer($this->actor, 'Zoe Owusu');
+        ($this->stock)($this->rice, 10, 40_000);
+        ($this->sale)($this->rice, 1, '2026-08-02', $zoe);
+
+        expect(CustomerService::countCustomers(['balanceState' => 'owing']))->toBe(1)
+            ->and(CustomerService::listCustomers(['balanceState' => 'owing', 'limit' => 5])[0]['id'])->toBe($zoe);
+    });
+
+    it('searches customers and suppliers on more than the name', function () {
+        Shop::customer($this->actor, 'Kofi Mensah', null, ['phone' => '0244000111', 'email' => 'kofi@example.com']);
+
+        expect(CustomerService::countCustomers(['search' => '0244']))->toBe(1)
+            ->and(CustomerService::countCustomers(['search' => 'example.com']))->toBe(1);
     });
 });

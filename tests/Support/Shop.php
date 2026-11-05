@@ -7,6 +7,7 @@ namespace Tests\Support;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\FinancialYear;
 use App\Enums\AccountType;
 use App\Enums\AdjustmentReason;
 use App\Enums\BusinessType;
@@ -14,8 +15,10 @@ use App\Enums\JournalSourceType;
 use App\Enums\Look;
 use App\Services\Actor;
 use App\Services\CatalogService;
+use App\Services\CustomerService;
 use App\Services\InventoryService;
 use App\Services\JournalService;
+use App\Services\SaleService;
 use App\Services\SettingsService;
 use App\Services\StockAdjustmentService;
 use Illuminate\Support\Facades\DB;
@@ -158,11 +161,69 @@ final class Shop
         DB::table('business_settings')->where('id', 1)->update([$column => $value]);
     }
 
-    /** The stock and the books agree: trial balance, stock value against 1200, and every product's replay. */
+    /** The seeded till account of a kind: CASH, MOBILE_MONEY, BANK. */
+    public static function paymentAccount(string $kind = 'CASH'): int
+    {
+        return (int) DB::table('payment_accounts')->where('kind', $kind)->orderBy('id')->value('id');
+    }
+
+    public static function customer(Actor $actor, string $name = 'Ama Serwaa', ?int $creditLimit = null, array $extra = []): int
+    {
+        return CustomerService::createCustomer(['name' => $name, 'creditLimit' => $creditLimit, ...$extra], $actor);
+    }
+
+    /**
+     * A sale the old tests' way: lines of [productId, qty] or full line arrays,
+     * paid in cash in full unless tenders are given. Extra keys go to createSale.
+     */
+    public static function sell(Actor $actor, array $items, ?array $tenders = null, array $extra = []): array
+    {
+        $lines = array_map(fn (array $i): array => array_is_list($i) ? ['productId' => $i[0], 'qty' => $i[1]] : $i, $items);
+
+        return SaleService::createSale([
+            'businessDate' => '2026-08-16',
+            'items' => $lines,
+            'tenders' => $tenders ?? [],
+            ...$extra,
+        ], $actor);
+    }
+
+    /** One tax at one rate (VAT), the levies switched off: the old helpers/tax setSingleTax. */
+    public static function setSingleTax(int $rateBp, bool $inclusive = false): void
+    {
+        self::setting('tax_enabled', true);
+        self::setting('tax_inclusive', $inclusive);
+        DB::table('tax_components')->where('code', '<>', 'VAT')->update(['is_active' => false]);
+        DB::table('tax_components')->where('code', 'VAT')->update(['rate_bp' => $rateBp, 'is_active' => true]);
+    }
+
+    /** NHIL 2.5, GETFund 2.5 and VAT 15, all on: the old setGhanaTaxes. */
+    public static function setGhanaTaxes(bool $inclusive = false): void
+    {
+        self::setting('tax_enabled', true);
+        self::setting('tax_inclusive', $inclusive);
+        DB::table('tax_components')->update(['is_active' => true]);
+    }
+
+    public static function setNoTax(): void
+    {
+        self::setting('tax_enabled', false);
+    }
+
+    /** The calendar month containing a date, inclusive: the old helpers/clock monthOf. */
+    public static function monthOf(string $date): array
+    {
+        $last = FinancialYear::daysInMonth((int) substr($date, 0, 4), (int) substr($date, 5, 2));
+
+        return ['from' => substr($date, 0, 7).'-01', 'to' => substr($date, 0, 7).'-'.str_pad((string) $last, 2, '0', STR_PAD_LEFT)];
+    }
+
+    /** The stock and the books agree: trial balance, stock value against 1200, A/R against its control, and every product's replay. */
     public static function assertBooksHealthy(string $label): void
     {
         expect(self::trialBalanced())->toBeTrue("{$label}: trial balance")
-            ->and(InventoryService::getInventoryValue())->toBe(self::balance(ChartOfAccounts::INVENTORY), "{$label}: inventory vs GL");
+            ->and(InventoryService::getInventoryValue())->toBe(self::balance(ChartOfAccounts::INVENTORY), "{$label}: inventory vs GL")
+            ->and(CustomerService::getTotalReceivables())->toBe(self::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE), "{$label}: A/R subledger vs control");
         foreach (DB::table('products')->pluck('id') as $id) {
             expect(InventoryService::verifyProductStock((int) $id)['ok'])->toBeTrue("{$label}: stock drift p{$id}");
         }

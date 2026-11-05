@@ -61,6 +61,16 @@ final class InventoryService
         'undated' => 'No date recorded',
     ];
 
+    /** Lock order (Tx): every product a document touches, by id, before anything else it locks. */
+    public static function lockProducts(array $productIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        sort($ids);
+        if ($ids !== []) {
+            DB::table('products')->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get(['id']);
+        }
+    }
+
     public static function getStockState(int $productId): StockState
     {
         $product = DB::table('products')->where('id', $productId)->first(['qty_on_hand_milli', 'stock_value_minor'])
@@ -500,7 +510,7 @@ final class InventoryService
     }
 
     /** "05 Aug 2026", as the old app's en-GB Intl format (which writes "Sept"). */
-    private static function formatDate(string $businessDate): string
+    public static function formatDate(string $businessDate): string
     {
         $date = Carbon::createFromFormat('!Y-m-d', $businessDate, 'UTC');
 

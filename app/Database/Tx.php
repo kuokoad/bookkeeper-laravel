@@ -19,7 +19,12 @@ use Illuminate\Support\Facades\DB;
  * time. MySQL runs writers side by side, so each service locks what it reads
  * before writing based on it, always in the same order:
  *
- *   1. products (by id, ascending), 2. parties, 3. documents,
+ *   0. a sale's client_ref, looked up FOR UPDATE before anything else, so a
+ *      second submission of the same cart waits for (or loses a deadlock
+ *      to) the first and is then replayed (SaleService::createSale),
+ *   1. products (by id, ascending), 2. parties (the customer row, for the
+ *      credit limit, overpayment and refund cap), 3. documents (the original
+ *      sale and its lines for returns and voids; a quote),
  *   4. the settings row (shared, via JournalService::readLockDate(), called
  *      before any number is taken; exclusive only in settings, tax and lock
  *      edits, which take it first and post nothing),
@@ -27,6 +32,11 @@ use Illuminate\Support\Facades\DB;
  *      place after the settings row cannot deadlock),
  *   6. sequence rows (SequenceService::next; a document's own number first,
  *      then any batch numbers), 7. the journal (post()).
+ *
+ * The connection runs at READ COMMITTED (config/database.php), so a plain
+ * read after a lock sees the latest committed data, not a snapshot taken
+ * before the wait. Still, decide on the locked row itself: read it with
+ * lockForUpdate() and test what that read returned.
  *
  * A deadlock or lock-wait timeout retries the whole closure, so a closure must
  * not keep state outside itself between attempts. Any other failure rolls

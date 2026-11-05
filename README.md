@@ -2,7 +2,7 @@
 
 Bookkeeping, inventory and point of sale for a small Ghanaian retail shop. It runs on the shop's own PC, with no internet needed to make a sale. This is a rebuild of the working Next.js + SQLite app in `C:\ClaudeProjects\bookkeeper` (the specification) in Laravel + MySQL 8.
 
-> **Status: Phases 0 to 2 done** (schema, seed, domain layer, ledger-core services, importer and reconcile). No screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
+> **Status: Phases 0 to 4 done** (schema, seed, domain layer, ledger core, importer and reconcile, catalog and inventory, sales). No screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
 
 ## Features
 Carried over unchanged from the old app:
@@ -107,6 +107,12 @@ Every behaviour difference is listed here with its reason.
 | `audit_logs.user_id`, `users.created_by` | Plain integers | Foreign keys with RESTRICT | Real FKs; RESTRICT because an FK action would rewrite audit rows without firing the insert-only triggers. |
 | Audit-log search | `%` and `_` in the search box were SQL wildcards, so `%` matched every entry | Matched literally | Filter rule 4: input narrows, it never widens. |
 | Product and stock-movement search | Same: `%` and `_` were wildcards | Matched literally | Same reason. |
+| Sale, customer and quotation search | Same: `%` and `_` were wildcards | Matched literally | Same reason. |
+| The same cart submitted twice at once (`clientRef`) | One writer at a time, so the second always found the first and replayed it | The lookup takes a lock first; the second submission waits for the first or loses a deadlock to it, and is retried (Tx, then a few more rounds for a deadlock) until it finds the stored sale and replays it. Never a second sale, never a "saved at the same moment" error | MySQL runs tills side by side. Proved by `tests/Processes/SaleConcurrencyTest`. |
+| Transaction isolation | SQLite: one writer at a time | MySQL `READ COMMITTED`, and decisions read the locked row (a return checks the lines it locked; a quote's status is read from the locked quote) | At MySQL's default `REPEATABLE READ`, a plain read after waiting for a lock still saw the data from before the wait: two tills could return the same goods, or convert the same quote, twice. Proved by `tests/Processes/SaleConcurrencyTest`. |
+| The same item twice in one customer return | Accepted: `[{item, 5}, {item, 5}]` on a 6-unit line each passed the "still returnable" check, so 10 came back and more cash could be refunded than was paid | Refused: "Each item can appear only once in a return." | A deliberate fix of a hole in the old app. Supplier returns get the same guard in Phase 5. |
+| The same sale twice in one payment's allocations | Refused by the unique index (`uq_customer_payment_allocations`) with SQLite's constraint error | Refused up front, with a message that says so | The index's error would otherwise read as "someone else saved the same code or name". |
+| Duplicate-key tests (`client_ref`, a quote converted twice) | Expected SQLite's "UNIQUE constraint failed" | Expect MySQL's "Duplicate entry" | Same guarantee, the database's own wording. |
 | Product import: codes, units and categories matched ignoring case | SQLite `lower()` folded ASCII only on the database side; JavaScript folded every letter on the file side | Both sides fold every letter (`mb_strtolower`) | One rule for both sides, the one MySQL's unique indexes apply. |
 | Product-import test "lands whole or not at all" | Forced the second insert to fail with a SQLite trigger | Forces it with a name longer than the column, which MySQL strict mode refuses | `CREATE TRIGGER` commits in MySQL, ending the test's transaction. The behaviour tested is unchanged. |
 | Demo data | `SEED_DEMO_DATA=true` seeds a demo shop | Refused with a message until the sales, purchase and cashbook services exist | The old demo seed records trading through those services. |

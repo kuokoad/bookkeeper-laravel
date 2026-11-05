@@ -9,8 +9,8 @@ declare(strict_types=1);
 |
 | Deferred: everything that drives a screen's own action (the till, delivery
 | and quote screens, a payload missing the size, a size that cannot be read)
-| waits for those actions; the sale, purchase and quote services are Phases 4
-| and 5 and the screens come after. The parsing rule the actions share is
+| waits for those screens (after Phase 5). The till and quote services' own
+| refusals are in UnitsTest; the delivery's waits for purchases (Phase 5). The parsing rule the actions share is
 | Quantity::parseAltEntry, already tested in tests/Domain/QuantityTest.php.
 */
 

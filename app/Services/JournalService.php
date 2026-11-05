@@ -23,6 +23,14 @@ use Illuminate\Support\Facades\DB;
  */
 final class JournalService
 {
+    /** A chart-of-accounts code (ChartOfAccounts::*) to its account id. */
+    public static function accountIdByCode(string $code): int
+    {
+        $id = DB::table('accounts')->where('code', $code)->value('id');
+
+        return $id === null ? throw new NotFoundError('Account', $code) : (int) $id;
+    }
+
     /**
      * The books lock. Read with a shared lock so it cannot move while this
      * transaction posts; changing it takes the exclusive lock and waits.

@@ -9,7 +9,10 @@ declare(strict_types=1);
 | commits.
 */
 
+use App\Domain\Accounting\ChartOfAccounts;
+use App\Services\CustomerService;
 use App\Services\InventoryService;
+use App\Services\SaleService;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
@@ -157,4 +160,32 @@ it('leaves an imported shop whose stock the inventory service proves, product by
         ->and(array_filter($cheap, fn (array $row): bool => ! $row['ok']))->toBe([])
         ->and(array_filter($coverage, fn (array $row): bool => ! $row['ok']))->toBe([])
         ->and($value)->toBe($fromLedger);
+});
+
+it('leaves an imported shop whose receivables the sale and customer services agree on, customer by customer', function () {
+    $import = artisan('nuna:import-sqlite', oldCopy());
+    expect($import->successful())->toBeTrue($import->output());
+
+    $default = DB::getDefaultConnection();
+    DB::setDefaultConnection('import');
+    try {
+        $balances = CustomerService::getAllCustomerBalances();
+        $total = CustomerService::getTotalReceivables();
+        $outstanding = SaleService::getOutstandingBySale();
+        $owners = DB::table('sales')->whereIn('id', array_keys($outstanding))->whereNotNull('customer_id')->pluck('customer_id', 'id')->all();
+        $control = (int) DB::table('journal_lines')->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+            ->where('accounts.code', ChartOfAccounts::ACCOUNTS_RECEIVABLE)->selectRaw('SUM(debit_minor) - SUM(credit_minor) AS b')->value('b');
+    } finally {
+        DB::setDefaultConnection($default);
+    }
+
+    // The demo shop has no unallocated or advance payments, so each customer's
+    // open invoices add up to exactly what the ledger says they owe.
+    $byCustomer = [];
+    foreach ($owners as $saleId => $customerId) {
+        $byCustomer[(int) $customerId] = ($byCustomer[(int) $customerId] ?? 0) + $outstanding[$saleId];
+    }
+    expect($balances)->not->toBe([])
+        ->and($total)->toBe($control)
+        ->and(array_filter($byCustomer, fn (int $owed): bool => $owed !== 0))->toEqual($balances);
 });

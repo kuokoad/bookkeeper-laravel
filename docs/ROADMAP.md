@@ -30,7 +30,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** catalog and inventory tests green; reconcile passes on `(Q, V)` per product.
 
-## Phase 4: Sales ⬜ (FR-4 to FR-7)
+## Phase 4: Sales ✅ (FR-4 to FR-7)
 - Till, credit sales and invoices, backdating, returns, voids, refunds, customer payments, overpayment, quotations
 
 **Exit criteria:** sales tests green; the two-till concurrency test passes; reconcile passes on receivables.

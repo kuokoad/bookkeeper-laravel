@@ -7,7 +7,7 @@ declare(strict_types=1);
 | writes down which batch it touched, inside the gateway, and coverage holds
 | (Σ batch quantities === the shelf) after any sequence of movements.
 |
-| Deferred until purchases and sales exist (Phases 4 and 5): "lands a delivery
+| Deferred until purchases exist (Phase 5; each also runs a delivery): "lands a delivery
 | in the undated batch, and takes a sale back out of it", "opens exactly one
 | undated batch however many deliveries arrive", "holds coverage through a void
 | of a delivery that is partly sold".

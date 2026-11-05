@@ -74,26 +74,9 @@ final class StockAdjustmentService
         'OTHER' => null,
     ];
 
-    private static function accountIdByCode(string $code): int
-    {
-        $id = DB::table('accounts')->where('code', $code)->value('id');
-
-        return $id === null ? throw new NotFoundError('Account', $code) : (int) $id;
-    }
-
     private static function allowNegativeStock(): bool
     {
         return (bool) (DB::table('business_settings')->where('id', 1)->value('allow_negative_stock') ?? false);
-    }
-
-    /** Lock order (Tx): every product the document touches, by id, before anything else. */
-    private static function lockProducts(array $productIds): void
-    {
-        $ids = array_values(array_unique(array_map('intval', $productIds)));
-        sort($ids);
-        if ($ids !== []) {
-            DB::table('products')->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get(['id']);
-        }
     }
 
     /**
@@ -107,7 +90,7 @@ final class StockAdjustmentService
         $reason = $input['reason'] instanceof AdjustmentReason ? $input['reason'] : (AdjustmentReason::tryFrom((string) $input['reason']) ?? throw new ValidationError('Choose a reason for the adjustment.'));
 
         return Tx::run(function () use ($input, $reason, $actor): array {
-            self::lockProducts(array_column($input['items'], 'productId'));
+            InventoryService::lockProducts(array_column($input['items'], 'productId'));
             JournalService::readLockDate();
 
             $occurredAt = $input['occurredAt'] ?? Clock::now();
@@ -207,8 +190,8 @@ final class StockAdjustmentService
 
             $totalIn = Money::sum($inValues);
             $totalOut = Money::sum($outValues);
-            $inventory = self::accountIdByCode(ChartOfAccounts::INVENTORY);
-            $counter = self::accountIdByCode(self::REASON_ACCOUNT[$reason->value]);
+            $inventory = JournalService::accountIdByCode(ChartOfAccounts::INVENTORY);
+            $counter = JournalService::accountIdByCode(self::REASON_ACCOUNT[$reason->value]);
 
             // Stock in: Dr Inventory, Cr counter. Stock out: Dr counter, Cr Inventory.
             $lines = [];
@@ -267,7 +250,7 @@ final class StockAdjustmentService
         $now ??= Clock::now();
 
         return Tx::run(function () use ($adjustmentId, $reason, $actor, $now): array {
-            self::lockProducts(DB::table('stock_adjustment_items')->where('adjustment_id', $adjustmentId)->pluck('product_id')->all());
+            InventoryService::lockProducts(DB::table('stock_adjustment_items')->where('adjustment_id', $adjustmentId)->pluck('product_id')->all());
             $original = DB::table('stock_adjustments')->where('id', $adjustmentId)->lockForUpdate()->first()
                 ?? throw new NotFoundError('Stock adjustment', $adjustmentId);
             if ($original->status === 'VOIDED') {
@@ -368,8 +351,8 @@ final class StockAdjustmentService
             // went in can leave the running value off zero once the average has
             // moved on. It leaves inventory and the general ledger together.
             if ($costingResidual !== 0) {
-                $cogs = self::accountIdByCode(ChartOfAccounts::COST_OF_GOODS_SOLD);
-                $inventory = self::accountIdByCode(ChartOfAccounts::INVENTORY);
+                $cogs = JournalService::accountIdByCode(ChartOfAccounts::COST_OF_GOODS_SOLD);
+                $inventory = JournalService::accountIdByCode(ChartOfAccounts::INVENTORY);
                 JournalService::post(
                     $businessDate,
                     JournalSourceType::StockAdjustment,

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Support\Filters;
 
 use App\Domain\BusinessDate;
+use App\Domain\Errors\DomainError;
 use App\Domain\Errors\ValidationError;
 use App\Domain\JsCompat;
+use App\Domain\Money;
 use App\Support\Clock;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -115,6 +117,40 @@ final class Filters
     public static function parseDate(?string $value): ?string
     {
         return $value !== null && self::isValidBusinessDate($value) ? $value : null;
+    }
+
+    /**
+     * An amount bound, or null. A negative bound is dropped, not applied:
+     * nothing these boxes filter is held negative, so it is a filter nobody meant.
+     */
+    public static function parseAmount(?string $value): ?int
+    {
+        if ($value === null || JsCompat::trim($value) === '') {
+            return null;
+        }
+        try {
+            $parsed = Money::parse($value);
+        } catch (DomainError) {
+            return null;
+        }
+
+        return $parsed < 0 ? null : $parsed;
+    }
+
+    /**
+     * Both ends optional, put back in order if reversed.
+     *
+     * @return array{minAmount?: int, maxAmount?: int}
+     */
+    public static function parseAmountRange(?string $min, ?string $max): array
+    {
+        $low = self::parseAmount($min);
+        $high = self::parseAmount($max);
+        if ($low !== null && $high !== null && $low > $high) {
+            return ['minAmount' => $high, 'maxAmount' => $low];
+        }
+
+        return array_filter(['minAmount' => $low, 'maxAmount' => $high], fn (?int $v): bool => $v !== null);
     }
 
     /** A search term, trimmed and capped. Empty and whitespace become null. */

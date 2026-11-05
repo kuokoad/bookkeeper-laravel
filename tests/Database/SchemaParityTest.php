@@ -111,9 +111,10 @@ it('uses InnoDB and the binary, no-pad utf8mb4 collation for every table', funct
 });
 
 it('runs each connection in strict mode on UTC', function () {
-    $session = DB::selectOne('SELECT @@SESSION.sql_mode AS mode, @@SESSION.time_zone AS tz');
+    $session = DB::selectOne('SELECT @@SESSION.sql_mode AS mode, @@SESSION.time_zone AS tz, @@SESSION.transaction_isolation AS isolation');
 
     expect($session->tz)->toBe('+00:00')
+        ->and($session->isolation)->toBe('READ-COMMITTED')
         ->and($session->mode)->toContain('STRICT_ALL_TABLES')
         ->and($session->mode)->toContain('STRICT_TRANS_TABLES')
         ->and($session->mode)->toContain('NO_ZERO_DATE');

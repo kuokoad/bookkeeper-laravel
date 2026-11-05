@@ -6,8 +6,8 @@ declare(strict_types=1);
 | Numbering, posting, reversal and the books lock. Ported from the old
 | tests/db/foundation.test.ts ("document numbering", "atomicity") and the
 | journal-level and lock-management parts of tests/services/period-lock.test.ts.
-| The per-document lock cases (sale, purchase, expense, adjustment) are ported
-| with those services.
+| The sale and adjustment lock cases are here ("the books lock on a document");
+| the purchase case waits for Phase 5 and the expense case for Phase 6.
 */
 
 use App\Database\Tx;
@@ -24,6 +24,7 @@ use App\Enums\JournalSourceType;
 use App\Services\AuditService;
 use App\Services\JournalService;
 use App\Services\PeriodLockService;
+use App\Services\SaleService;
 use App\Services\SequenceService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -219,6 +220,57 @@ describe('the books lock on posting', function () {
 
         Tx::run(fn () => JournalService::reverse($old['entryId'], '2026-08-02', sourceId: 1));
         expect(DB::table('journal_entries')->count())->toBe(2);
+    });
+});
+
+describe('the books lock on a document', function () {
+    beforeEach(function () {
+        $this->milo = Shop::product($this->actor, 'Milo', 500, 1_000);
+        Shop::openingStock($this->actor, $this->milo, 100_000, 50_000, '2026-06-01');
+        PeriodLockService::setLock('2026-07-31', $this->actor);
+        $this->sell = fn (string $date, int $units = 1): array => SaleService::createSale([
+            'businessDate' => $date,
+            'items' => [['productId' => $this->milo, 'qty' => $units * 1000]],
+            'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $units * 1_000]],
+        ], $this->actor);
+    });
+
+    it('refuses a sale dated inside the closed period', function () {
+        expect(fn () => ($this->sell)('2026-07-15'))->toThrow(PeriodLockedError::class);
+    });
+
+    it('allows a sale dated after the lock', function () {
+        expect(($this->sell)('2026-08-01')['receiptNo'])->toBe('RCP-00001');
+    });
+
+    it('refuses a back-dated stock adjustment', function () {
+        expect(fn () => Shop::stockOut($this->actor, $this->milo, 1_000, '2026-07-10'))->toThrow(PeriodLockedError::class);
+    });
+
+    it('leaves nothing behind when a locked transaction is refused', function () {
+        $sales = DB::table('sales')->count();
+        $debits = (int) DB::table('journal_lines')->sum('debit_minor');
+
+        expect(fn () => ($this->sell)('2026-07-15', 5))->toThrow(PeriodLockedError::class);
+
+        expect(DB::table('sales')->count())->toBe($sales)
+            ->and((int) DB::table('journal_lines')->sum('debit_minor'))->toBe($debits)
+            ->and(Shop::trialBalanced())->toBeTrue();
+    });
+
+    it('still allows a locked transaction to be corrected by a dated reversal', function () {
+        PeriodLockService::setLock(null, $this->actor);
+        $sale = ($this->sell)('2026-07-15', 2);
+        PeriodLockService::setLock('2026-07-31', $this->actor);
+
+        // The reversal is dated today, which is after the lock, so it goes through.
+        SaleService::voidSale($sale['saleId'], 'Entered in error', $this->actor);
+
+        $original = DB::table('sales')->where('id', $sale['saleId'])->first();
+        expect($original->status)->toBe('VOIDED')
+            // The original record is untouched: its date still says July.
+            ->and($original->business_date)->toBe('2026-07-15')
+            ->and(Shop::trialBalanced())->toBeTrue();
     });
 });
 

@@ -6,21 +6,21 @@ declare(strict_types=1);
 | Ported from the old tests/services/units.test.ts: buy by the carton, sell by
 | the carton or the tin, and the shelf, the money and the books agree in tins.
 |
-| Deferred until their services exist (they drive a sale, purchase, quote or
-| return): "selling by the carton" (5 tests), "buying by the carton",
-| "turns a quote for 2 cartons into a sale of 2 cartons", "returning part of a
-| carton sale", "takes a voided carton purchase back off the shelf and the
-| books", and from "a carton size changed while a screen was open" the till,
-| delivery and quote cases (6 tests). Sales and quotes are Phase 4, purchases
-| Phase 5.
+| Deferred until purchases exist (Phase 5): "buying by the carton", "takes a
+| voided carton purchase back off the shelf and the books" and "refuses a
+| delivery entered at the old size, and moves nothing".
 */
 
 use App\Database\Tx;
 use App\Domain\Errors\ConflictError;
+use App\Domain\Errors\ForbiddenError;
 use App\Domain\Errors\ValidationError;
 use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
+use App\Services\QuotationService;
+use App\Services\ReturnsService;
+use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
 use App\Services\UnitsService;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +63,9 @@ beforeEach(function () {
         // 2 cartons of 24 = 48 tins, counted in by the carton.
         'items' => [['productId' => $id, 'direction' => 'IN', 'qty' => 2_000, 'alt' => true, 'totalCost' => 19_200]],
     ], $this->actor);
+    $this->sell = fn (array $items, int $cash): array => SaleService::createSale(['businessDate' => UNITS_TODAY, 'items' => $items, 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $cash]]], $this->actor);
+    $this->quote = fn (array $lines): array => QuotationService::createQuotation(['businessDate' => UNITS_TODAY, 'validUntil' => '2026-09-15', 'customerName' => 'Ama', 'lines' => $lines], $this->actor);
+    $this->convert = fn (int $quoteId, int $cash): array => QuotationService::convertQuotation($quoteId, ['businessDate' => UNITS_TODAY, 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => $cash]]], $this->actor);
     $this->cartonWriteOff = fn (int $id, ?int $shown = null) => StockAdjustmentService::createStockAdjustment([
         'businessDate' => UNITS_TODAY,
         'reason' => AdjustmentReason::Damaged,
@@ -70,7 +73,79 @@ beforeEach(function () {
     ], $this->actor);
 });
 
+describe('selling by the carton', function () {
+    it('takes 48 tins off the shelf for 2 cartons, at the carton price', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+
+        $sale = ($this->sell)([['productId' => $id, 'qty' => 2_000, 'alt' => true]], 22_000);
+
+        expect($sale['total'])->toBe(22_000) // 2 x 110.00, not 2 x 5.00
+            ->and($sale['cogs'])->toBe(19_200) // 48 tins at 4.00
+            ->and(($this->qty)($id))->toBe(52_000)
+            ->and((int) DB::table('stock_ledger')->where('source_type', 'SALE')->where('source_id', $sale['saleId'])->value('qty_out_milli'))->toBe(48_000);
+
+        // The receipt shows what the customer asked for.
+        $line = SaleService::getSale($sale['saleId'])['items'][0];
+        expect($line['entryUnit'])->toBe('Carton')
+            ->and($line['entryQtyMilli'])->toBe(2_000)
+            ->and($line['qtyMilli'])->toBe(48_000)
+            ->and($line['unit'])->toBe('tin');
+        Shop::assertBooksHealthy('carton sale');
+    });
+
+    it('defaults a carton to 24 tins at the tin price when no carton price is set', function () {
+        $id = ($this->makeMilk)(['altSellingPrice' => null]);
+        ($this->stockUp)($id);
+
+        expect(($this->sell)([['productId' => $id, 'qty' => 1_000, 'alt' => true]], 12_000)['total'])->toBe(12_000);
+    });
+
+    it('refuses a cashier pricing a carton at the tin price', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+
+        expect(fn () => ($this->sell)([['productId' => $id, 'qty' => 1_000, 'alt' => true, 'unitPrice' => 500]], 500))->toThrow(ForbiddenError::class);
+    });
+
+    it('refuses half a tin, because tins are counted whole', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+
+        expect(fn () => ($this->sell)([['productId' => $id, 'qty' => 1_500]], 750))->toThrow(ValidationError::class, 'whole numbers')
+            ->and(($this->qty)($id))->toBe(100_000);
+    });
+
+    it('puts the cartons back on the shelf when the sale is voided', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        $sale = ($this->sell)([['productId' => $id, 'qty' => 2_000, 'alt' => true]], 22_000);
+
+        SaleService::voidSale($sale['saleId'], 'Rang up twice', $this->actor);
+
+        $mirror = DB::table('sale_items')->where('sale_id', '<>', $sale['saleId'])->first();
+        expect(($this->qty)($id))->toBe(100_000)
+            ->and((int) $mirror->entry_qty_milli)->toBe(-2_000)
+            ->and((int) $mirror->qty_milli)->toBe(-48_000);
+        Shop::assertBooksHealthy('carton void');
+    });
+});
+
 describe('quoting and adjusting by the carton', function () {
+    it('turns a quote for 2 cartons into a sale of 2 cartons', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+
+        $quote = ($this->quote)([['productId' => $id, 'qty' => 2_000, 'alt' => true]]);
+        expect($quote['total'])->toBe(22_000);
+
+        $converted = ($this->convert)($quote['quotationId'], 22_000);
+        $line = SaleService::getSale($converted['saleId'])['items'][0];
+        expect($line['entryUnit'])->toBe('Carton')
+            ->and($line['entryQtyMilli'])->toBe(2_000)
+            ->and(($this->qty)($id))->toBe(52_000);
+    });
+
     it('writes off a damaged carton as 24 tins', function () {
         $id = ($this->makeMilk)();
         ($this->stockUp)($id);
@@ -79,6 +154,26 @@ describe('quoting and adjusting by the carton', function () {
 
         expect(($this->qty)($id))->toBe(76_000);
         Shop::assertBooksHealthy('carton write-off');
+    });
+});
+
+describe('returning part of a carton sale', function () {
+    it('takes back 5 tins and refunds 5/48 of the line', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        $sale = ($this->sell)([['productId' => $id, 'qty' => 2_000, 'alt' => true]], 22_000);
+        $item = SaleService::getSale($sale['saleId'])['items'][0];
+
+        $result = ReturnsService::createCustomerReturn($sale['saleId'], [
+            'businessDate' => UNITS_TODAY,
+            'items' => [['itemId' => $item['id'], 'qty' => 5_000]],
+            'refunds' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 2_292]],
+        ], $this->actor);
+
+        // 22,000 x 5 / 48 = 2,291.67, rounded to the pesewa.
+        expect($result['refunded'])->toBe(2_292)
+            ->and(($this->qty)($id))->toBe(57_000);
+        Shop::assertBooksHealthy('partial return');
     });
 });
 
@@ -256,21 +351,80 @@ describe('voiding documents taken in cartons', function () {
 });
 
 describe('a carton size changed while a screen was open', function () {
-    it('refuses a write-off entered at the old size, and moves nothing', function () {
-        $id = ($this->makeMilk)();
-        ($this->stockUp)($id);
+    beforeEach(function () {
         // The owner corrects the carton from 24 to 48 tins after the screen loaded.
-        DB::table('products')->where('id', $id)->update(['alt_factor_milli' => 48_000]);
-        $snapshot = fn (): array => [
+        $this->cartonBecomes48 = fn (int $id) => DB::table('products')->where('id', $id)->update(['alt_factor_milli' => 48_000]);
+        // Everything a refused entry must leave exactly as it was.
+        $this->snapshot = fn (int $id): array => [
             'qty' => (int) Shop::productRow($id)->qty_on_hand_milli,
             'value' => (int) Shop::productRow($id)->stock_value_minor,
             'ledgerRows' => DB::table('stock_ledger')->count(),
             'journalEntries' => DB::table('journal_entries')->count(),
         ];
-        $before = $snapshot();
+    });
+
+    it('refuses a till sale of "2 Carton" rung up at the old size, and moves nothing', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        ($this->cartonBecomes48)($id);
+        $before = ($this->snapshot)($id);
+
+        expect(fn () => ($this->sell)([['productId' => $id, 'qty' => 2_000, 'alt' => true, 'altFactor' => 24_000]], 22_000))->toThrow(ConflictError::class)
+            ->and(($this->snapshot)($id))->toBe($before);
+    });
+
+    it('still sells when the till showed the current size', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        ($this->cartonBecomes48)($id);
+
+        ($this->sell)([['productId' => $id, 'qty' => 1_000, 'alt' => true, 'altFactor' => 48_000]], 11_000);
+
+        expect(($this->qty)($id))->toBe(52_000);
+        Shop::assertBooksHealthy('sale at the current carton size');
+    });
+
+    it('refuses a write-off entered at the old size, and moves nothing', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        ($this->cartonBecomes48)($id);
+        $before = ($this->snapshot)($id);
 
         expect(fn () => ($this->cartonWriteOff)($id, 24_000))->toThrow(ConflictError::class)
-            ->and($snapshot())->toBe($before);
+            ->and(($this->snapshot)($id))->toBe($before);
+    });
+
+    it('refuses saving a quote at the old size', function () {
+        $id = ($this->makeMilk)();
+        ($this->cartonBecomes48)($id);
+
+        expect(fn () => ($this->quote)([['productId' => $id, 'qty' => 2_000, 'alt' => true, 'altFactor' => 24_000]]))->toThrow(ConflictError::class);
+    });
+
+    it('sends a quote back for editing rather than selling today’s carton at the quoted price', function () {
+        $id = ($this->makeMilk)();
+        ($this->stockUp)($id);
+        $quote = ($this->quote)([['productId' => $id, 'qty' => 2_000, 'alt' => true]]);
+        ($this->cartonBecomes48)($id);
+        $before = ($this->snapshot)($id);
+
+        // Quoted 2 cartons of 24 for 220.00: converting must not take 96 tins for it.
+        expect(fn () => ($this->convert)($quote['quotationId'], 22_000))->toThrow(ConflictError::class, 'Edit quote')
+            ->and(($this->snapshot)($id))->toBe($before);
+    });
+
+    it('sends a quote back when its base unit changed, even at the same number', function () {
+        $id = ($this->makeMilk)();
+        $quote = ($this->quote)([['productId' => $id, 'qty' => 2_000, 'alt' => true]]);
+        // Before any stock moved, the owner re-set the product to count bags, still 24 a carton.
+        ($this->unitOnce)('bag', 0);
+        DB::table('products')->where('id', $id)->update(['unit' => 'bag']);
+        ($this->stockUp)($id);
+        $before = ($this->snapshot)($id);
+
+        // Quoted 48 tins; converting must not sell 48 bags at that price.
+        expect(fn () => ($this->convert)($quote['quotationId'], 22_000))->toThrow(ConflictError::class, 'Edit quote')
+            ->and(($this->snapshot)($id))->toBe($before);
     });
 });
 

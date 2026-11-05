@@ -8,11 +8,10 @@ declare(strict_types=1);
 | A duplicate typed in by mistake can be deleted; a product with any history
 | cannot. Archiving hides a product, so it must not hide stock the books carry.
 |
-| Deferred until their services exist: "refuses a product that is only on a
-| quotation" (quotations, Phase 4), "refuses a service item that was sold"
-| (sales, Phase 4), "still values stock that comes back onto an archived
-| product" (sales and returns, Phase 4), and the stock-valuation report half of
-| the archive refusal (reports, Phase 7; its summary half is asserted here).
+| Deferred: the stock-valuation report half of the archive refusal and of
+| "still values stock that comes back onto an archived product" (reports,
+| Phase 7); their stock-summary halves, against the inventory account, are
+| asserted here.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -20,6 +19,9 @@ use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
+use App\Services\QuotationService;
+use App\Services\ReturnsService;
+use App\Services\SaleService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
@@ -58,6 +60,20 @@ describe('deleting a product', function () {
         expect(InventoryService::getInventoryValue())->toBe(5_000);
     });
 
+    it('refuses a product that is only on a quotation', function () {
+        $id = ($this->make)('Peak Milk 400g');
+        QuotationService::createQuotation(['businessDate' => '2026-11-04', 'validUntil' => '2026-11-30', 'customerName' => 'Ama', 'lines' => [['productId' => $id, 'qty' => 1_000]]], $this->actor);
+
+        ($this->expectRefusedAndKept)($id);
+    });
+
+    it('refuses a service item that was sold, though it never moved stock', function () {
+        $id = ($this->make)('Delivery', false);
+        SaleService::createSale(['businessDate' => '2026-11-04', 'items' => [['productId' => $id, 'qty' => 1_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 800]]], $this->actor);
+
+        ($this->expectRefusedAndKept)($id);
+    });
+
     it('says not found for a product that does not exist', function () {
         expect(fn () => CatalogService::deleteProduct(9_999, $this->actor))->toThrow(NotFoundError::class);
     });
@@ -71,6 +87,26 @@ describe('archiving a product', function () {
         expect(fn () => CatalogService::setProductActive($id, false, $this->actor))->toThrow(ConflictError::class)
             ->and(CatalogService::getProduct($id)['isActive'])->toBeTrue()
             ->and(CatalogService::getStockSummary()['totalStockValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
+    });
+
+    it('still values stock that comes back onto an archived product', function () {
+        $id = ($this->make)('Fanta 350ml');
+        ($this->addStock)($id, 1, 500);
+        $cash = Shop::paymentAccount('CASH');
+        $sale = SaleService::createSale(['businessDate' => '2026-11-04', 'items' => [['productId' => $id, 'qty' => 1_000]], 'tenders' => [['paymentAccountId' => $cash, 'amount' => 800]]], $this->actor);
+        CatalogService::setProductActive($id, false, $this->actor);
+
+        // The customer brings it back after the shop archived the line.
+        $line = ReturnsService::getReturnableSaleItems($sale['saleId'])[0];
+        ReturnsService::createCustomerReturn($sale['saleId'], [
+            'businessDate' => '2026-11-04',
+            'items' => [['itemId' => $line['id'], 'qty' => 1_000]],
+            'refunds' => [['paymentAccountId' => $cash, 'amount' => 800]],
+        ], $this->actor);
+
+        // The dashboard and inventory tiles read the summary.
+        expect(CatalogService::getStockSummary()['totalStockValue'])->toBe(500)
+            ->and(Shop::balance(ChartOfAccounts::INVENTORY))->toBe(500);
     });
 
     it('archives and restores a product with no stock', function () {

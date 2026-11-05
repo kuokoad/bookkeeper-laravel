@@ -8,9 +8,9 @@ declare(strict_types=1);
 |
 | Deferred: the recall-trail tests that run a purchase, sale or void ("lists
 | the delivery in and every sale out", "shows a void as its own line", "follows
-| a voided delivery back out of the crate it filled") wait for sales and
-| purchases (Phases 4 and 5); "finding a batch by its reference" (3 tests) waits
-| for the search service.
+| a voided delivery back out of the crate it filled") wait for purchases
+| (Phase 5): each fills its crate with a delivery. "finding a batch by its
+| reference" (3 tests) waits for the search service (Phase 8).
 */
 
 use App\Domain\BusinessDate;

@@ -6,13 +6,11 @@ declare(strict_types=1);
 | Ported from the old tests/services/product-replace-unit.test.ts: replacing a
 | product with locked units, and its stock value coming through to the pesewa.
 |
-| The two backdated-sale tests take the stock out through the gateway with the
-| till's own PICK directive (arrivedBy), the part of createSale they exercise;
-| the sale document itself waits for Phase 4. "still voids an ordinary
-| adjustment whose product was archived later" checks the stock summary
-| against the inventory account; its stock-valuation report half waits for
-| Phase 7. Deferred: "refuses a purchase saved after the replace that still
-| names the old product" (purchases, Phase 5).
+| "still voids an ordinary adjustment whose product was archived later" checks
+| the stock summary against the inventory account; its stock-valuation report
+| half waits for Phase 7. "refuses dated stock" lands its dated crate through
+| the gateway, standing in for a delivery. Deferred: "refuses a purchase saved
+| after the replace that still names the old product" (purchases, Phase 5).
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -22,6 +20,7 @@ use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
 use App\Services\ProductReplaceService;
+use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
 use App\Support\Clock;
 use Illuminate\Support\Facades\DB;
@@ -55,11 +54,13 @@ beforeEach(function () {
         $this->actor,
     );
     $this->milo24 = [...REPLACE_MILO, 'altFactor' => 24_000];
-    $this->sellOnTill = fn (int $id, string $date) => Shop::move([
-        'productId' => $id, 'direction' => 'OUT', 'qty' => 1_000, 'movementType' => 'SALE', 'sourceType' => 'TEST',
-        'businessDate' => $date, 'occurredAt' => Clock::now(),
-        'batch' => ['kind' => 'PICK', 'expiryAsAt' => REPLACE_TODAY, 'arrivedBy' => $date],
-    ]);
+    // The till records a sale on an earlier day: dated then, taking only what had arrived by then.
+    $this->sellOnTill = fn (int $id, string $date) => SaleService::createSale([
+        'businessDate' => $date,
+        'arrivedBy' => $date,
+        'items' => [['productId' => $id, 'qty' => 1_000]],
+        'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 800]],
+    ], $this->actor);
 });
 
 describe('replacing a product to change its units', function () {

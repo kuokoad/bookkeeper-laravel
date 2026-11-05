@@ -72,6 +72,8 @@ return [
             ],
             // Timestamps are stored in UTC; business dates are DATE columns in Africa/Accra.
             'timezone' => '+00:00',
+            // A plain read after a row lock must see what the lock holder committed, not a snapshot from before the wait.
+            'isolation_level' => 'READ COMMITTED',
             'engine' => 'InnoDB',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),

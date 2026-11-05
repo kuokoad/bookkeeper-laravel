@@ -34,9 +34,9 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Concurrency: four processes taking numbers and posting at once; numbers run with no gaps or repeats despite rollbacks (tests/Processes/ConcurrencyTest.php)
 - [x] Structural test: services open transactions only through `App\Database\Tx`
 - [x] AuditService: insert-only, redaction, filters and counts share conditions
-- [ ] Port `audit-summary-money` (needs sales, purchases and payments: Phases 4 to 6)
+- [ ] Port `audit-summary-money` (sale and customer-payment parts done in Phase 4; purchase and supplier payment wait for Phase 5, the till shortage for Phase 6)
 - [x] SettingsService, TaxService: port `settings`, `tax-setup`, `tax-components-crud`, and the journal-level and lock-management parts of `period-lock`
-- [ ] Port the per-document parts of `period-lock` (sale, purchase, expense, adjustment) with those services
+- [ ] Port the per-document parts of `period-lock` (sale and adjustment done; purchase waits for Phase 5, expense for Phase 6)
 - [x] `nuna:import-sqlite` (all tables, ids kept, timestamps to UTC, refuses a non-empty target, FK checks off then its own orphan check, skips generated columns, lists refused rows and commits nothing)
 - [x] `nuna:reconcile` v1: rows per table, trial balance per account, stock pair per product (cache and replay), receivables, payables, tax held. Zero differences on the old app's own demo database (tests/Fixtures/old-demo.db)
 
@@ -51,15 +51,17 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] `units-migration` not ported: it tests the old SQLite migration 0025 on an old schema, which this repo replaces with its own schema and the importer
 
 ## Phase 4: Sales
-- [ ] Port `sales`, `sales-tax`, `sale-idempotency`, `sale-price-override`, `invoicing`, `sale-line-earnings`, `sale-profit-tax`, `sales-filters` (reads never write), `top-product`
-- [ ] Port `sale-batches-by-date`, `sale-expiry`, `tests/app/sale-date-action`
-- [ ] Port `sale-void`, `sale-void-reporting`, `void-ageing`
-- [ ] Port `refund-cap`, `refunds-after-returns`, `credited-returns`, `return-tax`
-- [ ] Port `payment-allocation`, `payment-void`, `overpayment`
-- [ ] Port `quotations`, `tests/app/quotation-convert-date`
-- [ ] Concurrency: two connections selling the last unit, only one succeeds; 50 concurrent sales give gap-free receipts
-- [ ] Receipt, invoice and statement pages (port `tests/app/print`, `document-figures`)
-- [ ] Reconcile: receivables per customer
+- [x] `SaleService`, `ReturnsService` (customer half; the supplier half waits for Phase 5), `CustomerService`, `CustomerPaymentService`, `QuotationService`; sales, quotation and customer filter parsers
+- [x] Port `sales`, `sales-tax`, `sale-idempotency`, `sale-price-override`, `invoicing`, `sale-line-earnings`, `sale-profit-tax`, `sales-filters` (reads never write), `top-product` (report figures from journal sums or a test-side copy of the old report read until Phase 7; each file header says which)
+- [x] Port `sale-batches-by-date`, `sale-expiry`, `tests/app/sale-date-action` (service parts; the action and its responses wait for the screens)
+- [x] Port `sale-void`, `sale-void-reporting`, `void-ageing` (the payables-ageing block waits for Phase 5)
+- [x] Port `refund-cap`, `refunds-after-returns`, `credited-returns`, `return-tax` (customer side; supplier cases wait for Phase 5, "ages the credit with the sale it came off" for Phase 7)
+- [x] Port `payment-allocation`, `payment-void` (supplier case waits for Phase 5), `overpayment`, `receivables-ageing`
+- [x] Port `quotations`, `tests/app/quotation-convert-date` (service part)
+- [x] Un-defer the sale, customer, return and quote parts of `units`, `product-delete`, `product-replace-unit`, `module-filters`, the sale part of `period-lock`, and the sale and customer-payment parts of `audit-summary-money` (purchase parts wait for Phase 5, reports for Phase 7)
+- [x] Concurrency (`tests/Processes/SaleConcurrencyTest.php`): four tills sell the last unit at once, five times over: one sale each, the rest refused, stock 0 and value 0, receipts gap-free; the same cart from four tills at once: one sale, one movement, one entry, the same receipt for all. Each test was run once with its lock removed and failed
+- [ ] Receipt, invoice and statement pages (port `tests/app/print`, `document-figures`): wait for the screens
+- [x] Reconcile: receivables per customer (ledger, since Phase 2); `ImportTest` also checks that the imported shop's open invoices add up to each customer's ledger balance through the new services
 
 ## Phase 5: Purchases
 - [ ] Port `purchases`, `purchase-tax`, `tests/app/purchase-form-parity`

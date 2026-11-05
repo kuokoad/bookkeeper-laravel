@@ -2,7 +2,7 @@
 
 Bookkeeping, inventory and point of sale for a small Ghanaian retail shop. It runs on the shop's own PC, with no internet needed to make a sale. This is a rebuild of the working Next.js + SQLite app in `C:\ClaudeProjects\bookkeeper` (the specification) in Laravel + MySQL 8.
 
-> **Status: Phases 0 and 1 done** (schema, seed, pure domain layer, tests). No services or screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
+> **Status: Phases 0 to 2 done** (schema, seed, domain layer, ledger-core services, importer and reconcile). No screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
 
 ## Features
 Carried over unchanged from the old app:
@@ -65,7 +65,15 @@ vendor/bin/pint --test
 ```
 
 ### Prove it matches the old app
-Planned from Phase 2: `php artisan nuna:import-sqlite <copy of bookkeeper.db>`, then `php artisan nuna:reconcile`.
+Into a freshly migrated, unseeded database:
+
+```bash
+php artisan migrate:fresh
+php artisan nuna:import-sqlite path/to/COPY-of-bookkeeper.db
+php artisan nuna:reconcile path/to/COPY-of-bookkeeper.db
+```
+
+The import commits nothing if any row is refused or any link dangles, and lists each problem. Reconcile compares the figures to the pesewa; zero differences is the only pass. Version 1 checks rows, the trial balance, stock, receivables, payables and tax held; later phases add the reports.
 
 ## Project structure
 ```
@@ -74,7 +82,7 @@ app/Services/    one per old service; transactions, locks, journal, audit
 app/Livewire/    screens
 database/        migrations, seeders
 resources/docs/  in-app Help (ported from the old docs/)
-tests/           Domain, Services, Invariants, Concurrency
+tests/           Domain, Database, Services, Processes (real concurrent processes), Feature
 docs/            planning docs
 ```
 
@@ -97,6 +105,7 @@ Every behaviour difference is listed here with its reason.
 | Case-insensitive uniqueness (usernames, SKUs, category, unit and payment-account names) | `lower()` folds ASCII only | MySQL `LOWER()` folds all Unicode letters, so "Éclair" and "éclair" now collide | Closer to what a person means. The importer will report any old rows that clash. |
 | Column widths | SQLite text has no length | Names and codes sized to what the old CSV import accepted (1,000 characters; 768 where a key needs it) | MySQL needs a length; anything longer will be reported by the importer, not truncated. |
 | `audit_logs.user_id`, `users.created_by` | Plain integers | Foreign keys with RESTRICT | Real FKs; RESTRICT because an FK action would rewrite audit rows without firing the insert-only triggers. |
+| Audit-log search | `%` and `_` in the search box were SQL wildcards, so `%` matched every entry | Matched literally | Filter rule 4: input narrows, it never widens. |
 | Demo data | `SEED_DEMO_DATA=true` seeds a demo shop | Refused with a message until the sales, purchase and cashbook services exist | The old demo seed records trading through those services. |
 
 ## Documentation

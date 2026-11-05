@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Domain\Accounting\ChartOfAccounts;
-use App\Domain\Tax\TaxComponent;
-use App\Domain\Tax\TaxComponents;
 use App\Enums\AccountType;
 use App\Enums\AuditAction;
 use App\Enums\DocType;
-use App\Enums\TaxBasis;
+use App\Services\TaxService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -33,7 +31,7 @@ class CoreSeeder extends Seeder
             $this->seedChartOfAccounts();
             $this->seedPaymentAccounts();
             $this->seedTaxComponents();
-            $this->syncDerivedTaxSettings();
+            TaxService::syncDerivedSettings();
 
             DB::table('audit_logs')->insert([
                 'action' => AuditAction::Create->value,
@@ -157,33 +155,6 @@ class CoreSeeder extends Seeder
                 'metadata' => json_encode(['existingRateBp' => $existingRate]),
             ]);
         }
-    }
-
-    /**
-     * The old single-rate settings columns are derived from the active
-     * components (the old tax.service `syncDerivedTaxSettings`).
-     */
-    private function syncDerivedTaxSettings(): void
-    {
-        $components = DB::table('tax_components')
-            ->where('is_active', true)
-            ->where('rate_bp', '>', 0)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get()
-            ->map(fn (object $row): TaxComponent => new TaxComponent(
-                $row->code,
-                $row->name,
-                (int) $row->rate_bp,
-                TaxBasis::from($row->basis),
-                (bool) $row->is_recoverable,
-            ))
-            ->all();
-
-        DB::table('business_settings')->where('id', 1)->update([
-            'tax_rate_bp' => TaxComponents::totalRateBp($components),
-            'tax_label' => count($components) === 1 ? mb_substr($components[0]->name, 0, 20) : 'Tax',
-        ]);
     }
 
     private function upsertAccount(string $code, string $name, AccountType $type, string $description, int $sortOrder, ?int $parentId = null): int

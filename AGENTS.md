@@ -14,7 +14,7 @@ Planned; none of these exist until Phase 0 is built.
 |---|---|
 | Install | `composer install` then `npm ci && npm run build` |
 | Dev server | Laragon (`http://bookkeeper-laravel.test`) or `php artisan serve` |
-| Test (all) | `php artisan test` (needs MySQL database `nunabooks_test`) |
+| Test (all) | `php artisan test` (needs MySQL databases `nunabooks_test`; the Processes suite creates `nunabooks_concurrency` and `nunabooks_import` itself) |
 | Test (single) | `php artisan test --filter=<name>` |
 | Lint / format | `vendor/bin/pint --test` (check) · `vendor/bin/pint` (fix) |
 | Build assets | `npm run build` |
@@ -41,7 +41,7 @@ Dev PC tools: Laragon at `C:\laragon` (PHP 8.4.19 / 8.5.4, MySQL 8.4.0, Composer
 - **JavaScript parity:** where the old code relied on JS behaviour (`toFixed` ties, `trim` of Unicode spaces, `Math.round`), use `App\Domain\JsCompat`, not PHP's built-ins. `tests/Domain/JsParityTest.php` lists every known case.
 - **Weighted average by a running pair** `(Q, V)`. Selling `q` costs `round(V × q / Q)`; selling the last unit forces `V → 0`. No stored unit cost.
 - **Double entry, nothing stored.** No balance columns. Every journal entry balances inside the same `DB::transaction` as its business row, carries `source_type` + `source_id`, and is never edited. Corrections are linked reversals.
-- **Locks.** Anything that reads stock, a running pair, a sequence or a balance and then writes based on it uses `lockForUpdate()` inside `DB::transaction`. Lock order: products (by id), batches, then sequences. Keep the sale idempotency key (`sales.client_ref`).
+- **Locks.** Every write goes through `App\Database\Tx::run()` (a structural test refuses `DB::transaction` anywhere else). Anything that reads stock, a running pair, a sequence or a balance and then writes based on it uses `lockForUpdate()` inside it. Document numbers come from `SequenceService::next()` inside the same transaction. Lock order: products (by id), batches, then sequences. Keep the sale idempotency key (`sales.client_ref`).
 - **Dates.** Trading dates are `DATE` in `Africa/Accra`, inclusive at both ends. Timestamps are `DATETIME(3)` UTC. Never filter trading on a timestamp.
 - **Filtering** (all six, from the old CLAUDE.md): parse once per module and share it with the CSV export; filter in SQL before the limit; totals use the same conditions as the rows; validate every id, enum, date, amount and sort key (whitelist sort keys); controls show the resolved value; reads never write.
 - **SQL:** always qualify columns inside subqueries (`sales.id`, not `id`). Search uses `LOWER(col) LIKE LOWER(?)` with escaped wildcards. Never write the generated columns (`*_lower`, `open_start_year`).

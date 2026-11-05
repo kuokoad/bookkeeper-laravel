@@ -18,7 +18,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** all 13 old `tests/domain` files ported and green.
 
-## Phase 2: Ledger core ⬜
+## Phase 2: Ledger core ✅
 **Goal:** balanced, gap-free, locked, audited postings.
 - JournalService, SequenceService, PeriodLockService, AuditService, SettingsService, TaxService
 - First cut of `nuna:import-sqlite` and `nuna:reconcile` (trial balance)

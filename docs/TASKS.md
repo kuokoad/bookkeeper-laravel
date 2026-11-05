@@ -29,12 +29,16 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] `allocate()` matches the old output across the weight range (PLAN Q4)
 
 ## Phase 2: Ledger core
-- [ ] JournalService: balanced, period-locked, leaf accounts only, reversal links
-- [ ] SequenceService: gap-free under rollback (`FOR UPDATE`)
-- [ ] AuditService: insert-only; money in summaries formatted (port `audit-summary-money`)
-- [ ] SettingsService, TaxService: port `period-lock`, `settings`, `tax-setup`, `tax-components-crud`
-- [ ] `nuna:import-sqlite` (all tables, ids kept, timestamps to UTC, refuses a non-empty target, FK checks off then its own orphan check, skips generated columns, lists refused rows and commits nothing)
-- [ ] `nuna:reconcile` v1: trial balance per account
+- [x] JournalService: balanced, period-locked (shared lock on the lock date), leaf accounts only, reversal links (original locked)
+- [x] SequenceService: gap-free under rollback; refuses outside a transaction
+- [x] Concurrency: four processes taking numbers and posting at once; numbers run with no gaps or repeats despite rollbacks (tests/Processes/ConcurrencyTest.php)
+- [x] Structural test: services open transactions only through `App\Database\Tx`
+- [x] AuditService: insert-only, redaction, filters and counts share conditions
+- [ ] Port `audit-summary-money` (needs sales, purchases and payments: Phases 4 to 6)
+- [x] SettingsService, TaxService: port `settings`, `tax-setup`, `tax-components-crud`, and the journal-level and lock-management parts of `period-lock`
+- [ ] Port the per-document parts of `period-lock` (sale, purchase, expense, adjustment) with those services
+- [x] `nuna:import-sqlite` (all tables, ids kept, timestamps to UTC, refuses a non-empty target, FK checks off then its own orphan check, skips generated columns, lists refused rows and commits nothing)
+- [x] `nuna:reconcile` v1: rows per table, trial balance per account, stock pair per product (cache and replay), receivables, payables, tax held. Zero differences on the old app's own demo database (tests/Fixtures/old-demo.db)
 
 ## Phase 3: Catalog and inventory
 - [ ] Port `inventory`, `catalog-lookup`, `product-delete`, `units`, `module-filters`

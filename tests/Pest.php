@@ -15,3 +15,6 @@ pest()->extend(TestCase::class)
     ->in('Database', 'Feature', 'Services');
 
 pest()->extend(TestCase::class)->in('Domain');
+
+// These run real processes that commit, so they use their own databases and no RefreshDatabase.
+pest()->extend(TestCase::class)->in('Processes');

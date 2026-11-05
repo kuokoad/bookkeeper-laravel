@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\Accounting;
 
 use App\Enums\AccountType;
@@ -62,6 +64,16 @@ final class ChartOfAccounts
             AccountType::ContraEquity, AccountType::ContraRevenue => NormalBalance::Debit,
             AccountType::Liability, AccountType::Equity, AccountType::Revenue => NormalBalance::Credit,
         };
+    }
+
+    public static function isBalanceSheetAccount(AccountType $type): bool
+    {
+        return in_array($type, [AccountType::Asset, AccountType::Liability, AccountType::Equity, AccountType::ContraEquity], true);
+    }
+
+    public static function isProfitAndLossAccount(AccountType $type): bool
+    {
+        return ! self::isBalanceSheetAccount($type);
     }
 
     /**

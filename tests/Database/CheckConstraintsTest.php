@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 | Every rule the old schema enforced is enforced by MySQL, by name.
 |

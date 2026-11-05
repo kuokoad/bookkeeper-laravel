@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 | The MySQL schema carries every table, CHECK and unique index the old
 | SQLite schema had (lists in tests/Fixtures, taken from the old migrations),

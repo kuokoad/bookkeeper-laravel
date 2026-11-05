@@ -20,11 +20,13 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [ ] Port `tests/db/demo-seed` (with the demo seeder), `transaction-behaviour` (Phase 2), `units-migration` (Phase 3)
 
 ## Phase 1: Domain
-- [ ] Port and pass `money`, `quantity`, `rate` (all 10,001 rates round-trip)
-- [~] Port and pass `tax-components` (`totalRateBp` done for the seeder), `sale-calculate`, `sale-present`
-- [ ] Port and pass `costing`, `costing-properties`, `batch-allocation`
-- [ ] Port and pass `journal`, `year-end-close`, `financial-year`, `business-date`
-- [ ] `allocate()` matches the old output across the weight range (PLAN Q4)
+- [x] Port and pass `money`, `quantity`, `rate` (all 10,001 rates round-trip)
+- [x] Port and pass `tax-components` (including the -5,000 to 5,000 sweeps), `sale-calculate`, `sale-present`
+- [x] Port and pass `costing`, `costing-properties` (200 seeded sequences), `batch-allocation`
+- [x] Port and pass `journal`, `year-end-close`, `financial-year`, `business-date`
+- [x] Domain errors, books lock and sale-date rules
+- [x] Structural test: `app/Domain` uses no framework, database, clock or I/O
+- [x] `allocate()` matches the old output across the weight range (PLAN Q4)
 
 ## Phase 2: Ledger core
 - [ ] JournalService: balanced, period-locked, leaf accounts only, reversal links

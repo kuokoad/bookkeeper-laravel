@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 | Rules MySQL cannot hold as a CHECK are held by triggers: no row may point at
 | itself, and the audit log is insert-only.

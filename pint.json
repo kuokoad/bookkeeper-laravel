@@ -1,0 +1,18 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "declare_strict_types": true
+    },
+    "notPath": [
+        "bootstrap/app.php",
+        "public/index.php",
+        "artisan"
+    ],
+    "exclude": [
+        "config",
+        "routes",
+        "bootstrap/cache",
+        "storage",
+        "vendor"
+    ]
+}

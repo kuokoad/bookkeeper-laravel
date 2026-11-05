@@ -2,7 +2,7 @@
 
 Bookkeeping, inventory and point of sale for a small Ghanaian retail shop. It runs on the shop's own PC, with no internet needed to make a sale. This is a rebuild of the working Next.js + SQLite app in `C:\ClaudeProjects\bookkeeper` (the specification) in Laravel + MySQL 8.
 
-> **Status: Phase 0 done** (schema, seed, tests). No services or screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
+> **Status: Phases 0 and 1 done** (schema, seed, pure domain layer, tests). No services or screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
 
 ## Features
 Carried over unchanged from the old app:

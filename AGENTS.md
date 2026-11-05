@@ -37,6 +37,8 @@ Dev PC tools: Laragon at `C:\laragon` (PHP 8.4.19 / 8.5.4, MySQL 8.4.0, Composer
 
 ## Conventions
 - **Money is `int` pesewas** (`GHS 1,250.00` = `125000`). **Quantity is `int` milli-units** (`1.5 kg` = `1500`). **Rates are basis points.** Columns are `BIGINT`, never `DECIMAL`, `FLOAT` or `DOUBLE`. No float ever touches a stored value. Multiplication that can overflow goes through `brick/math` `BigInteger`. Rounding is half away from zero (`divRoundHalf`), matching the old `domain/money.ts` to the pesewa.
+- **`declare(strict_types=1);` in every PHP file** under app/, database/ and tests/ (Pint enforces it). Without it PHP truncates a float passed to an `int` parameter, so `Money::multiply(100, 1.5)` would quietly return 100.
+- **JavaScript parity:** where the old code relied on JS behaviour (`toFixed` ties, `trim` of Unicode spaces, `Math.round`), use `App\Domain\JsCompat`, not PHP's built-ins. `tests/Domain/JsParityTest.php` lists every known case.
 - **Weighted average by a running pair** `(Q, V)`. Selling `q` costs `round(V × q / Q)`; selling the last unit forces `V → 0`. No stored unit cost.
 - **Double entry, nothing stored.** No balance columns. Every journal entry balances inside the same `DB::transaction` as its business row, carries `source_type` + `source_id`, and is never edited. Corrections are linked reversals.
 - **Locks.** Anything that reads stock, a running pair, a sequence or a balance and then writes based on it uses `lockForUpdate()` inside `DB::transaction`. Lock order: products (by id), batches, then sequences. Keep the sale idempotency key (`sales.client_ref`).

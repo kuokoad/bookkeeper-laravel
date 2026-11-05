@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 | The baseline seed. Ported from the old tests/db/foundation.test.ts
 | ("migrations and pragmas", "chart of accounts seed").

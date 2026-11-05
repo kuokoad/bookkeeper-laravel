@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 | Ported from the old tests/domain/money.test.ts, case for case.
 */

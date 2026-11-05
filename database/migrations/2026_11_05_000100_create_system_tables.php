@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Database\Columns;
 use App\Database\Constraints as C;
 use App\Enums\AuditAction;

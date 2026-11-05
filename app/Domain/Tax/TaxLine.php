@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\Tax;
 
 /** One component's tax on one document, in minor units (negative on a return). */

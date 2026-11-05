@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\Errors;
 
 /** A money or quantity computation left the safe integer range. Never ignore this. */

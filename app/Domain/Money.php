@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain;
 
 use App\Domain\Errors\MoneyOverflowError;
@@ -28,7 +30,7 @@ final class Money
     /** Number.MAX_SAFE_INTEGER in the old app. */
     public const MAX_SAFE = 9_007_199_254_740_991;
 
-    private const INPUT = '/^(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d+))?$/';
+    private const INPUT = '/^(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d+))?$/D';
 
     /** Validate a number as an amount of minor units (the old `minor()`). */
     public static function of(int|float $value): int
@@ -62,8 +64,8 @@ final class Money
             throw new ValidationError('Amount is not a finite number.', ['major' => $major]);
         }
 
-        // sprintf rounds the exact binary value, like JavaScript's toFixed.
-        return self::parse(sprintf('%.2F', $major));
+        // As JavaScript's toFixed(2): the exact binary value, ties to the larger magnitude.
+        return self::fromBig(JsCompat::toFixedScaled($major, self::DECIMALS));
     }
 
     /**
@@ -73,7 +75,7 @@ final class Money
      */
     public static function parse(string $input): int
     {
-        $text = trim($input);
+        $text = JsCompat::trim($input);
         if ($text === '') {
             throw new ValidationError('Enter an amount.');
         }
@@ -81,16 +83,16 @@ final class Money
         $parenNegative = false;
         if (str_starts_with($text, '(') && str_ends_with($text, ')')) {
             $parenNegative = true;
-            $text = trim(substr($text, 1, -1));
+            $text = JsCompat::trim(substr($text, 1, -1));
         }
 
-        $text = preg_replace('/^[A-Za-z]{2,3}\s*/', '', $text) ?? $text;
-        $text = trim(preg_replace('/^[₵$£€]\s*/u', '', $text) ?? $text);
+        $text = preg_replace('/^[A-Za-z]{2,3}'.JsCompat::WHITESPACE.'*/u', '', $text) ?? $text;
+        $text = JsCompat::trim(preg_replace('/^[₵$£€]'.JsCompat::WHITESPACE.'*/u', '', $text) ?? $text);
 
         $signNegative = false;
         if (str_starts_with($text, '-')) {
             $signNegative = true;
-            $text = trim(substr($text, 1));
+            $text = JsCompat::trim(substr($text, 1));
         }
         if ($parenNegative && $signNegative) {
             throw new ValidationError("\"{$input}\" has a confusing sign — enter it once.", ['input' => $input]);

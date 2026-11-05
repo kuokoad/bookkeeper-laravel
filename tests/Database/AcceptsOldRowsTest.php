@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 | The other direction from CheckConstraintsTest: rows the old app wrote must
 | still be accepted. A CHECK that is stricter than the old one would make

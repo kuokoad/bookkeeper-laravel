@@ -12,7 +12,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** `php artisan migrate:fresh --seed` works on an empty database; each CHECK is shown to refuse a bad row.
 
-## Phase 1: Domain ⬜
+## Phase 1: Domain ✅
 **Goal:** the pure money, quantity, tax and costing maths matches the old app to the pesewa.
 - Money, Quantity, Rate, TaxComponents, Calculate, Costing, Batches, Journal, PeriodLock, FinancialYear, BusinessDate, YearEndClose
 

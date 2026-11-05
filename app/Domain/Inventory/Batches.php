@@ -23,6 +23,18 @@ use Brick\Math\BigInteger;
  */
 final class Batches
 {
+    /**
+     * "2.5", "-3", "1200": a batch quantity as messages show it. Unlike
+     * Quantity::format there is no thousands separator, as the old batches.ts.
+     */
+    public static function formatQty(int $milli): string
+    {
+        $digits = str_pad(ltrim((string) $milli, '-'), 4, '0', STR_PAD_LEFT);
+        $fraction = rtrim(substr($digits, -3), '0');
+
+        return ($milli < 0 ? '-' : '').substr($digits, 0, -3).($fraction !== '' ? ".{$fraction}" : '');
+    }
+
     /** A batch is still good on its own date: that is the last good day. */
     public static function isExpired(array $batch, string $today): bool
     {

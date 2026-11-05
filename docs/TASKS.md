@@ -17,7 +17,7 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Core seeder: settings, chart of accounts, sequences (15 prefixes), units, tax components, payment accounts (port of `seedCore`)
 - [ ] Demo data equal to `src/db/seed/demo*.ts` (blocked, see above); demo seeding is already refused in production
 - [x] Port `tests/db/foundation` (schema and seed parts; its numbering tests move to SequenceService in Phase 2)
-- [ ] Port `tests/db/demo-seed` (with the demo seeder), `transaction-behaviour` (Phase 2), `units-migration` (Phase 3)
+- [ ] Port `tests/db/demo-seed` (with the demo seeder), `transaction-behaviour` (Phase 2); `units-migration` is not ported (see Phase 3)
 
 ## Phase 1: Domain
 - [x] Port and pass `money`, `quantity`, `rate` (all 10,001 rates round-trip)
@@ -41,12 +41,14 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] `nuna:reconcile` v1: rows per table, trial balance per account, stock pair per product (cache and replay), receivables, payables, tax held. Zero differences on the old app's own demo database (tests/Fixtures/old-demo.db)
 
 ## Phase 3: Catalog and inventory
-- [ ] Port `inventory`, `catalog-lookup`, `product-delete`, `units`, `module-filters`
-- [ ] Port `batch-gateway`, `batch-integrity`, `batch-reporting`, `stock-integrity-check`, `stock-ledger-dates`, `costing-vs-ledger`
-- [ ] Port `product-import` (+ `tests/app/product-import-action`), `product-replace-unit` (+ `product-replace-action`, `product-replace-guards`)
-- [ ] Carton locks and stale-size refusal (port `tests/app/carton-size-actions`)
-- [ ] Adjustment by unit cost or total value (port `tests/app/adjustment-cost-fields`, `tests/ui/adjustment-form`)
-- [ ] Reconcile: `(Q, V)` per product + full replay
+- [x] Port `inventory`, `catalog-lookup`, `product-delete`, `units`, `module-filters` (the parts that need sales, purchases, quotations or the stock-valuation report are listed in each file and wait for Phases 4, 5 and 7)
+- [x] Port `batch-gateway`, `batch-integrity`, `batch-reporting`, `stock-integrity-check`, `stock-ledger-dates`, `costing-vs-ledger` (same: purchase/sale-driven cases and batch search wait for their services)
+- [x] Port `product-import` and `product-replace-unit`; `tests/lib/spreadsheet` (CSV and XLSX, zlib only)
+- [ ] `tests/app/product-import-action`, `product-replace-action`, `product-replace-guards`: they test the screen actions and their permission guards, so they wait for the screens (and the Phase 8 route-guard test)
+- [x] Carton locks and stale-size refusal at the service (port of the write-off part of `tests/app/carton-size-actions`); the till, delivery and quote screen parts wait for Phases 4 and 5
+- [x] Adjustment by unit cost or total value (`App\Support\CostFields`, port of `tests/app/adjustment-cost-fields`); `tests/ui/adjustment-form` waits for the screen
+- [x] Reconcile: `(Q, V)` per product + full replay (Phase 2 reconcile; `tests/Processes/ImportTest` now also runs the inventory service checks on the imported shop)
+- [x] `units-migration` not ported: it tests the old SQLite migration 0025 on an old schema, which this repo replaces with its own schema and the importer
 
 ## Phase 4: Sales
 - [ ] Port `sales`, `sales-tax`, `sale-idempotency`, `sale-price-override`, `invoicing`, `sale-line-earnings`, `sale-profit-tax`, `sales-filters` (reads never write), `top-product`

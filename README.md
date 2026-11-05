@@ -99,13 +99,16 @@ Every behaviour difference is listed here with its reason.
 | Trading-date format checks (`GLOB 'YYYY-MM-DD'`) | CHECK on text | `DATE` column type | Strict mode refuses an impossible date outright. |
 | Audit log | Insert-only because no code path changes it | Also refused by database triggers | Holds even against a hand-written SQL fix. |
 | Self-referencing links (`voids_sale_id` and the like), `accounts.parent_id` | No foreign key | Foreign key | Real FKs, as the brief asks. |
-| Unit rename | `ON UPDATE CASCADE` to products | No cascade; the service will rename in one transaction | MySQL forbids a CHECK on a column with an FK action (PLAN Q6). |
+| Unit rename | `ON UPDATE CASCADE` to products | No cascade: `UnitsService::updateUnit` renames the unit and every product using it in one transaction, with foreign-key checks off for those three statements only | MySQL forbids a CHECK on a column with an FK action (PLAN Q6). The shop sees the same result. |
 | Sessions | Hashed tokens in `sessions` | Laravel's session table; old sessions not imported | PLAN Q7. |
 | Text comparison | SQLite BINARY: exact, trailing spaces count | `utf8mb4_0900_bin` (binary, NO PAD): the same | `utf8mb4_bin` would treat `'X1'` and `'X1 '` as equal. |
 | Case-insensitive uniqueness (usernames, SKUs, category, unit and payment-account names) | `lower()` folds ASCII only | MySQL `LOWER()` folds all Unicode letters, so "Éclair" and "éclair" now collide | Closer to what a person means. The importer will report any old rows that clash. |
 | Column widths | SQLite text has no length | Names and codes sized to what the old CSV import accepted (1,000 characters; 768 where a key needs it) | MySQL needs a length; anything longer will be reported by the importer, not truncated. |
 | `audit_logs.user_id`, `users.created_by` | Plain integers | Foreign keys with RESTRICT | Real FKs; RESTRICT because an FK action would rewrite audit rows without firing the insert-only triggers. |
 | Audit-log search | `%` and `_` in the search box were SQL wildcards, so `%` matched every entry | Matched literally | Filter rule 4: input narrows, it never widens. |
+| Product and stock-movement search | Same: `%` and `_` were wildcards | Matched literally | Same reason. |
+| Product import: codes, units and categories matched ignoring case | SQLite `lower()` folded ASCII only on the database side; JavaScript folded every letter on the file side | Both sides fold every letter (`mb_strtolower`) | One rule for both sides, the one MySQL's unique indexes apply. |
+| Product-import test "lands whole or not at all" | Forced the second insert to fail with a SQLite trigger | Forces it with a name longer than the column, which MySQL strict mode refuses | `CREATE TRIGGER` commits in MySQL, ending the test's transaction. The behaviour tested is unchanged. |
 | Demo data | `SEED_DEMO_DATA=true` seeds a demo shop | Refused with a message until the sales, purchase and cashbook services exist | The old demo seed records trading through those services. |
 
 ## Documentation

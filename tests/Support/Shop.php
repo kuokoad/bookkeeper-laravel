@@ -7,12 +7,17 @@ namespace Tests\Support;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Enums\AccountType;
+use App\Enums\AdjustmentReason;
 use App\Enums\BusinessType;
 use App\Enums\JournalSourceType;
 use App\Enums\Look;
 use App\Services\Actor;
+use App\Services\CatalogService;
+use App\Services\InventoryService;
 use App\Services\JournalService;
 use App\Services\SettingsService;
+use App\Services\StockAdjustmentService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -83,6 +88,84 @@ final class Shop
             memo: 'Owner puts money in',
             isOpening: true,
         ));
+    }
+
+    /**
+     * An account's balance on its normal side, a heading including its
+     * children: the old reporting getAccountBalanceByCode, until the reports
+     * arrive in Phase 7.
+     */
+    public static function balance(string $code): int
+    {
+        $account = DB::table('accounts')->where('code', $code)->first();
+        if ($account === null) {
+            return 0;
+        }
+        $ids = DB::table('accounts')->where('parent_id', $account->id)->pluck('id')->push($account->id)->all();
+        $totals = DB::table('journal_lines')->whereIn('account_id', $ids)
+            ->selectRaw('COALESCE(SUM(debit_minor), 0) AS d, COALESCE(SUM(credit_minor), 0) AS c')->first();
+
+        return Journal::signedBalance(AccountType::from($account->type), (int) $totals->d, (int) $totals->c);
+    }
+
+    /** Every journal line together: debits equal credits. */
+    public static function trialBalanced(): bool
+    {
+        $totals = DB::table('journal_lines')->selectRaw('COALESCE(SUM(debit_minor), 0) AS d, COALESCE(SUM(credit_minor), 0) AS c')->first();
+
+        return (int) $totals->d === (int) $totals->c;
+    }
+
+    /** A product the way the old tests made one: pcs, 5.00 cost, 8.00 selling unless told otherwise. */
+    public static function product(Actor $actor, string $name, int $costPrice = 500, int $sellingPrice = 800, array $extra = []): int
+    {
+        return CatalogService::createProduct(['name' => $name, 'costPrice' => $costPrice, 'sellingPrice' => $sellingPrice, 'unit' => 'pcs', ...$extra], $actor);
+    }
+
+    /** Opening stock through a real adjustment: the only legitimate route. */
+    public static function openingStock(Actor $actor, int $productId, int $qtyMilli, int $totalCost, string $date = '2026-08-16'): array
+    {
+        return StockAdjustmentService::createStockAdjustment([
+            'businessDate' => $date,
+            'reason' => AdjustmentReason::OpeningStock,
+            'items' => [['productId' => $productId, 'direction' => 'IN', 'qty' => $qtyMilli, 'totalCost' => $totalCost]],
+        ], $actor);
+    }
+
+    /** A one-line adjustment out (DAMAGED unless told otherwise), costed at the average. */
+    public static function stockOut(Actor $actor, int $productId, int $qtyMilli, string $date = '2026-08-16', AdjustmentReason $reason = AdjustmentReason::Damaged): array
+    {
+        return StockAdjustmentService::createStockAdjustment([
+            'businessDate' => $date,
+            'reason' => $reason,
+            'items' => [['productId' => $productId, 'direction' => 'OUT', 'qty' => $qtyMilli]],
+        ], $actor);
+    }
+
+    /** A movement straight through the gateway, in its own write, as the old tests did with writeTransaction. */
+    public static function move(array $input): array
+    {
+        return Tx::run(fn (): array => InventoryService::recordStockMovement($input));
+    }
+
+    public static function productRow(int $id): object
+    {
+        return DB::table('products')->where('id', $id)->first();
+    }
+
+    public static function setting(string $column, mixed $value): void
+    {
+        DB::table('business_settings')->where('id', 1)->update([$column => $value]);
+    }
+
+    /** The stock and the books agree: trial balance, stock value against 1200, and every product's replay. */
+    public static function assertBooksHealthy(string $label): void
+    {
+        expect(self::trialBalanced())->toBeTrue("{$label}: trial balance")
+            ->and(InventoryService::getInventoryValue())->toBe(self::balance(ChartOfAccounts::INVENTORY), "{$label}: inventory vs GL");
+        foreach (DB::table('products')->pluck('id') as $id) {
+            expect(InventoryService::verifyProductStock((int) $id)['ok'])->toBeTrue("{$label}: stock drift p{$id}");
+        }
     }
 
     /** @return list<string> */

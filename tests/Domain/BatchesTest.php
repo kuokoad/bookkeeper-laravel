@@ -183,3 +183,13 @@ it('keeps batch quantities summing to the shelf across 500 movements', function 
         expect(array_sum(array_column($batches, 'qtyMilli')))->toBe($shelf, "step {$step}");
     }
 });
+
+describe('a batch quantity in a message', function () {
+    it('drops trailing zeros and does not group thousands', function () {
+        expect(Batches::formatQty(2_500))->toBe('2.5')
+            ->and(Batches::formatQty(1_200_000))->toBe('1200')
+            ->and(Batches::formatQty(-3_000))->toBe('-3')
+            ->and(Batches::formatQty(5))->toBe('0.005')
+            ->and(Batches::formatQty(0))->toBe('0');
+    });
+});

@@ -25,7 +25,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** period-lock, settings and tax tests green; reconcile passes on the trial balance of imported data.
 
-## Phase 3: Catalog and inventory ⬜ (PRD FR-2, FR-3)
+## Phase 3: Catalog and inventory ✅ (PRD FR-2, FR-3)
 - Products, units and cartons, categories, the stock gateway, adjustments, batches and expiry, import, replace, delete vs archive
 
 **Exit criteria:** catalog and inventory tests green; reconcile passes on `(Q, V)` per product.

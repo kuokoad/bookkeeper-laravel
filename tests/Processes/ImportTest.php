@@ -9,6 +9,7 @@ declare(strict_types=1);
 | commits.
 */
 
+use App\Services\InventoryService;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
@@ -133,4 +134,27 @@ it('reconcile reports a figure that moved, to the pesewa', function () {
     expect($reconcile->successful())->toBeFalse()
         ->and($reconcile->output())->toContain('difference(s)')
         ->and($reconcile->output())->toMatch('/trial balance \d+ d: old \d+, new \d+/');
+});
+
+it('leaves an imported shop whose stock the inventory service proves, product by product', function () {
+    $import = artisan('nuna:import-sqlite', oldCopy());
+    expect($import->successful())->toBeTrue($import->output());
+
+    $default = DB::getDefaultConnection();
+    DB::setDefaultConnection('import');
+    try {
+        $replayed = InventoryService::verifyAllStock();
+        $cheap = InventoryService::verifyStockAgainstLedger();
+        $coverage = InventoryService::verifyBatchCoverage();
+        $value = InventoryService::getInventoryValue();
+        $fromLedger = InventoryService::getInventoryValueFromLedger();
+    } finally {
+        DB::setDefaultConnection($default);
+    }
+
+    expect($replayed)->not->toBe([])
+        ->and(array_filter($replayed, fn (array $row): bool => ! $row['ok']))->toBe([])
+        ->and(array_filter($cheap, fn (array $row): bool => ! $row['ok']))->toBe([])
+        ->and(array_filter($coverage, fn (array $row): bool => ! $row['ok']))->toBe([])
+        ->and($value)->toBe($fromLedger);
 });

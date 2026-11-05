@@ -3,18 +3,18 @@
 declare(strict_types=1);
 
 /*
-| Ported from the purchase, product, stock and customer/supplier parts of the
-| old tests/services/module-filters.test.ts: a filter narrows in SQL before any
-| page limit, and totals come from the same clause as the rows.
-|
-| Deferred: the expense filters and "expense categories offered by the filter"
-| (cashbook, Phase 6).
+| Ported from the old tests/services/module-filters.test.ts: purchase,
+| product, stock, customer/supplier and (since Phase 6) expense filters. A
+| filter narrows in SQL before any page limit, and totals come from the same
+| clause as the rows.
 */
 
 use App\Enums\AdjustmentReason;
+use App\Services\CashbookService;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
+use App\Services\PaymentAccountService;
 use App\Services\PurchaseService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
@@ -303,5 +303,84 @@ describe('customer and supplier balance filters', function () {
 
         $highestFirst = SupplierService::listSuppliers(['sort' => 'balance', 'direction' => 'desc']);
         expect($highestFirst[0]['id'])->toBe($this->madina);
+    });
+});
+
+describe('expense filters', function () {
+    beforeEach(function () {
+        $this->rent = PaymentAccountService::createCategory('EXPENSE', 'Shed rental', $this->actor);
+        $this->transport = PaymentAccountService::createCategory('EXPENSE', 'Market runs', $this->actor);
+        $this->spend = fn (string $date, int $categoryId, int $amount, string $description, ?int $account = null) => Shop::expense(
+            $this->actor,
+            $date,
+            $categoryId,
+            $amount,
+            $description,
+            ['paymentAccountId' => $account ?? $this->cash],
+        );
+    });
+
+    it('narrows by date, category, payment method and search', function () {
+        ($this->spend)('2026-08-02', $this->rent, 80_000, 'Shop rent for August');
+        ($this->spend)('2026-08-03', $this->transport, 4_500, 'Taxi to Madina market', $this->momo);
+        ($this->spend)('2026-09-02', $this->rent, 80_000, 'Shop rent for September');
+
+        $range = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        expect(CashbookService::countExpenses($range))->toBe(2)
+            ->and(CashbookService::countExpenses([...$range, 'categoryAccountId' => $this->rent]))->toBe(1)
+            ->and(CashbookService::countExpenses([...$range, 'paymentAccountId' => $this->momo]))->toBe(1)
+            ->and(CashbookService::countExpenses([...$range, 'search' => 'madina']))->toBe(1)
+            ->and(CashbookService::countExpenses([...$range, 'staffId' => $this->actor->id]))->toBe(2)
+            ->and(CashbookService::countExpenses([...$range, 'staffId' => $this->actor->id + 1]))->toBe(0);
+    });
+
+    it('narrows by amount', function () {
+        ($this->spend)('2026-08-02', $this->rent, 80_000, 'Rent');
+        ($this->spend)('2026-08-03', $this->transport, 4_500, 'Taxi');
+
+        $range = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        expect(CashbookService::countExpenses([...$range, 'minAmount' => 10_000]))->toBe(1)
+            ->and(CashbookService::countExpenses([...$range, 'maxAmount' => 10_000]))->toBe(1);
+    });
+
+    it('reports the count, total and average of exactly what is filtered', function () {
+        ($this->spend)('2026-08-02', $this->rent, 80_000, 'Rent');
+        ($this->spend)('2026-08-03', $this->transport, 4_000, 'Taxi');
+        ($this->spend)('2026-08-04', $this->transport, 6_000, 'Taxi');
+        ($this->spend)('2026-09-01', $this->rent, 80_000, 'Next month');
+
+        $filters = ['from' => '2026-08-01', 'to' => '2026-08-31', 'categoryAccountId' => $this->transport];
+        $summary = CashbookService::getFilteredExpensesSummary($filters);
+        $rows = CashbookService::listExpenses($filters);
+
+        expect($summary['count'])->toBe(2)
+            ->and($rows)->toHaveCount(2)
+            ->and($summary['total'])->toBe(10_000)
+            ->and($summary['average'])->toBe(5_000)
+            ->and($summary['total'])->toBe(array_sum(array_column($rows, 'amountMinor')));
+    });
+
+    it('splits by category over the same filter as the table', function () {
+        ($this->spend)('2026-08-02', $this->rent, 80_000, 'Rent');
+        ($this->spend)('2026-08-03', $this->transport, 4_000, 'Taxi');
+        ($this->spend)('2026-09-01', $this->rent, 80_000, 'Next month');
+
+        $filters = ['from' => '2026-08-01', 'to' => '2026-08-31'];
+        $byCategory = CashbookService::getFilteredExpensesByCategory($filters);
+
+        expect($byCategory)->toHaveCount(2)
+            ->and(array_sum(array_column($byCategory, 'total')))->toBe(CashbookService::getFilteredExpensesSummary($filters)['total']);
+    });
+
+    it('shows an average of nothing rather than dividing by zero', function () {
+        expect(CashbookService::getFilteredExpensesSummary(['from' => '2026-08-01', 'to' => '2026-08-31']))->toBe(['count' => 0, 'total' => 0, 'average' => 0]);
+    });
+});
+
+describe('expense categories offered by the filter', function () {
+    it('come from the shop, not from a hard-coded list', function () {
+        $before = count(PaymentAccountService::listExpenseCategories());
+        PaymentAccountService::createCategory('EXPENSE', 'Night watchman', $this->actor);
+        expect(PaymentAccountService::listExpenseCategories())->toHaveCount($before + 1);
     });
 });

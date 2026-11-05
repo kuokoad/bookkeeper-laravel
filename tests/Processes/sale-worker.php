@@ -23,12 +23,9 @@ use App\Services\QuotationService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
-require __DIR__.'/../../vendor/autoload.php';
-$app = require __DIR__.'/../../bootstrap/app.php';
-$app->make(Kernel::class)->bootstrap();
+require __DIR__.'/boot.php';
 
 const SALE_WORKER_DATE = '2026-11-05';
 

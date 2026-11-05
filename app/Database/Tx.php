@@ -24,7 +24,17 @@ use Illuminate\Support\Facades\DB;
  *      to) the first and is then replayed (SaleService::createSale),
  *   1. products (by id, ascending), 2. parties (the customer row, for the
  *      credit limit, overpayment and refund cap), 3. documents (the original
- *      sale and its lines for returns and voids; a quote),
+ *      sale and its lines for returns and voids; a quote; an expense,
+ *      income, transfer or count being voided),
+ *   3a. payment accounts, by id (PaymentAccountService::lockAccounts): shared
+ *      by every writer that moves money through one (expense, income,
+ *      capital, drawings, both sides of a transfer, sale and purchase
+ *      tenders, customer and supplier payments, return refunds, and the void
+ *      of each, via lockAccountsOfEntry), exclusive where a balance is
+ *      decided on (archiving, a count's expected figure). A customer payment
+ *      takes it after the sales it settles,
+ *   3b. a chart heading (an accounts row), exclusive, before its children are
+ *      read to pick the next free code for a new payment account or category,
  *   4. the settings row (shared, via JournalService::readLockDate(), called
  *      before any number is taken; exclusive only in settings, tax and lock
  *      edits, which take it first and post nothing),

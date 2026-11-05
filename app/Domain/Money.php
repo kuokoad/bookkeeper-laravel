@@ -7,6 +7,7 @@ namespace App\Domain;
 use App\Domain\Errors\MoneyOverflowError;
 use App\Domain\Errors\ValidationError;
 use Brick\Math\BigInteger;
+use Brick\Math\RoundingMode;
 
 /**
  * Integer money. GHS 1,250.00 is 125000: a count of pesewas (minor units).
@@ -197,6 +198,19 @@ final class Money
         }
 
         return self::mulDiv($value, $basisPoints, self::BASIS_POINTS);
+    }
+
+    /**
+     * total ÷ count as the old cashbook summary rounded it, JavaScript's
+     * Math.round: halves go up, towards +∞ (2.5 → 3, −2.5 → −2). No rows is 0.
+     */
+    public static function average(int $total, int $count): int
+    {
+        if ($count === 0) {
+            return 0;
+        }
+
+        return self::fromBig(BigInteger::of($total)->dividedBy($count, RoundingMode::HalfCeiling));
     }
 
     public static function max(int $a, int $b): int

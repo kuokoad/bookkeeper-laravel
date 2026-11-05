@@ -215,6 +215,8 @@ final class SaleService
         }
 
         // --- write the sale ---------------------------------------------
+        // Lock order (Tx 3a): the tender accounts, shared, so archiving one waits for this sale.
+        $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
         JournalService::readLockDate();
         $receiptNo = SequenceService::next(DocType::Receipt);
 
@@ -321,8 +323,7 @@ final class SaleService
             if ($request['amount'] <= 0) {
                 continue;
             }
-            $account = DB::table('payment_accounts')->where('id', $request['paymentAccountId'])->first()
-                ?? throw new NotFoundError('Payment account', $request['paymentAccountId']);
+            $account = $tenderAccounts[$request['paymentAccountId']] ?? throw new NotFoundError('Payment account', $request['paymentAccountId']);
             if (! $account->is_active) {
                 throw new ValidationError("Payment account \"{$account->name}\" is not active.");
             }
@@ -489,6 +490,7 @@ final class SaleService
                 throw new ConflictError('This sale has customer payments recorded against it. Void those payments first.');
             }
 
+            PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
             JournalService::readLockDate();
             $businessDate = Clock::dateOf($now);
             $at = Clock::stamp($now);

@@ -48,7 +48,8 @@ final class SupplierPaymentService
 
             // Lock order (Tx): the supplier, then the purchases it settles.
             $supplier = SupplierService::lockSupplier($input['supplierId']) ?? throw new NotFoundError('Supplier', $input['supplierId']);
-            $account = DB::table('payment_accounts')->where('id', $input['paymentAccountId'])->first() ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
+            // Tx 3a: the account the money leaves, shared, so archiving it waits.
+            $account = PaymentAccountService::lockAccounts([$input['paymentAccountId']])[$input['paymentAccountId']] ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
             if (! $account->is_active) {
                 throw new ValidationError("Payment account \"{$account->name}\" is not active.");
             }
@@ -174,6 +175,8 @@ final class SupplierPaymentService
             if ($payment->status === 'VOIDED') {
                 throw new ConflictError('That payment has already been voided.');
             }
+            // Tx 3a: the accounts the reversal moves, shared, so archiving or counting one waits.
+            PaymentAccountService::lockAccountsOfEntry($payment->journal_entry_id);
 
             if ($payment->journal_entry_id !== null) {
                 JournalService::reverse(

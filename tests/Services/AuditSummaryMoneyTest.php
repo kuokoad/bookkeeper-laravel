@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 /*
-| Ported from the sale, purchase and payment parts of the old
+| Ported from the old
 | tests/services/audit-summary-money.test.ts: the audit log writes money in the
 | shop's format, never as raw pesewas. The exact string is the point.
-|
-| Deferred: "records a till shortage as money" (reconciliation, Phase 6).
+| The till shortage (reconciliation) arrived with the cashbook in Phase 6.
 */
 
 use App\Services\CustomerPaymentService;
+use App\Services\ReconciliationService;
 use App\Services\SaleService;
 use App\Services\SupplierPaymentService;
 use Illuminate\Support\Facades\DB;
@@ -92,5 +92,27 @@ describe('money in the audit log', function () {
         ], $this->actor);
 
         expect(auditMoneyLatest('customer_payment'))->toContain('received GHS 2,000.00 from Adom Construction Ltd');
+    });
+});
+
+describe('money in the audit log: the cashbook', function () {
+    it('records a till shortage as money, so GHS 3.50 is not written as 350', function () {
+        $product = ($this->stocked)();
+        SaleService::createSale([
+            'businessDate' => AUDIT_MONEY_TODAY,
+            'items' => [['productId' => $product, 'qty' => 100_000]],
+            'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 960_000]],
+        ], $this->actor);
+
+        ReconciliationService::createReconciliation([
+            'businessDate' => AUDIT_MONEY_TODAY,
+            'paymentAccountId' => $this->cash,
+            'actual' => 959_650,
+            'explanation' => 'Likely wrong change during the evening rush',
+            'adjust' => true,
+        ], $this->actor);
+
+        expect(auditMoneyLatest('reconciliation'))->toContain('short by GHS 3.50')
+            ->not->toContain('by 350');
     });
 });

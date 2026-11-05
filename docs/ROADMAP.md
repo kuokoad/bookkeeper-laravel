@@ -8,7 +8,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 **Goal:** an empty MySQL database gets the full schema, with every rule the old one enforced.
 - Laravel skeleton, MySQL in strict mode with UTC and `utf8mb4_0900_bin`, Pest on a real MySQL test DB, Pint (PRD FR-1)
 - All 42 migrations with CHECKs, triggers and functional unique indexes
-- Seeders: chart of accounts, sequences, units, tax components, payment accounts (demo data moves to Phase 6, once the services it records through exist)
+- Seeders: chart of accounts, sequences, units, tax components, payment accounts (demo data arrived in Phase 6, once the services it records through existed)
 
 **Exit criteria:** `php artisan migrate:fresh --seed` works on an empty database; each CHECK is shown to refuse a bad row.
 
@@ -40,8 +40,9 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** purchase tests green; reconcile passes on payables.
 
-## Phase 6: Cashbook ⬜ (FR-9, FR-10)
+## Phase 6: Cashbook ✅ (FR-9, FR-10)
 - Payment accounts, expenses, income, capital and drawings, transfers, reconciliation
+- Demo data (`SEED_DEMO_DATA=true`), checked against the old app's own demo database
 
 ## Phase 7: Reports ⬜ (FR-11 to FR-13)
 - Trial balance, P&L, balance sheet, cash flow, ledger, ageing, statements, tax return, dashboard, year-end pack and close, CSV exports

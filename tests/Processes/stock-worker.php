@@ -15,12 +15,9 @@ use App\Enums\AdjustmentReason;
 use App\Services\Actor;
 use App\Services\CatalogService;
 use App\Services\StockAdjustmentService;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
-require __DIR__.'/../../vendor/autoload.php';
-$app = require __DIR__.'/../../bootstrap/app.php';
-$app->make(Kernel::class)->bootstrap();
+require __DIR__.'/boot.php';
 
 if ($argv[1] === 'setup') {
     $id = (int) DB::table('users')->insertGetId(['username' => 'till', 'display_name' => 'Till', 'role' => 'OWNER', 'password_hash' => 'x']);

@@ -18,12 +18,9 @@ use App\Enums\DocType;
 use App\Enums\JournalSourceType;
 use App\Services\JournalService;
 use App\Services\SequenceService;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
-require __DIR__.'/../../vendor/autoload.php';
-$app = require __DIR__.'/../../bootstrap/app.php';
-$app->make(Kernel::class)->bootstrap();
+require __DIR__.'/boot.php';
 
 [$iterations, $worker] = [(int) $argv[1], (int) $argv[2]];
 $cash = (int) DB::table('accounts')->where('code', '1001')->value('id');

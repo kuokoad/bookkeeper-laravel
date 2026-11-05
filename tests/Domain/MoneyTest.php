@@ -191,3 +191,15 @@ describe('formatting', function () {
         expect(Money::toDecimalString(125_000, false))->toBe('1250.00');
     });
 });
+
+describe('the cashbook average', function () {
+    // Math.round(total / count), as the old summariseCashbook: halves go up.
+    it('rounds halves up, as JavaScript Math.round, and is zero with no rows', function () {
+        expect(Money::average(10_000, 2))->toBe(5_000)
+            ->and(Money::average(5, 2))->toBe(3)
+            ->and(Money::average(-5, 2))->toBe(-2)
+            ->and(Money::average(10, 3))->toBe(3)
+            ->and(Money::average(11, 3))->toBe(4)
+            ->and(Money::average(0, 0))->toBe(0);
+    });
+});

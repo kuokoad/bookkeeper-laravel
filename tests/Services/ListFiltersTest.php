@@ -6,7 +6,9 @@ declare(strict_types=1);
 | The filter parsers the product and stock-movement lists use: ported from the
 | "date ranges", "scalar parsers", "sorting" and "pagination" parts of the old
 | tests/lib/filters.test.ts (amounts, query strings and the return trip arrive
-| with the modules that use them, Phase 7), plus the two list parsers.
+| with the modules that use them, Phase 7), plus the list parsers: product and
+| stock movement, and since Phase 6 the cashbook and account-statement ones
+| (the old app had no tests for those two; these are new).
 |
 | Not yet ported, both with the reporting screens (Phase 7): "covers a whole
 | day at the end of a range" and "describes every preset without throwing"
@@ -161,5 +163,25 @@ describe('the product and stock-movement list parsers', function () {
 
     it('refuses a movement type that is not one', function () {
         expect(ListFilters::parseStockMovementFilters(['movement' => 'THEFT'], FILTERS_TODAY)['filters'])->not->toHaveKey('movementType');
+    });
+});
+
+describe('the cashbook and account-statement parsers', function () {
+    it('turns an expenses URL into a validated query, dropping junk', function () {
+        $parsed = ListFilters::parseCashbookFilters(['period' => 'custom', 'from' => '2026-08-01', 'to' => '2026-08-15', 'q' => ' taxi ', 'category' => '12',
+            'account' => 'x', 'staff' => '2', 'status' => 'DELETED', 'min' => '10', 'sort' => 'amount', 'direction' => 'asc'], FILTERS_TODAY);
+
+        expect($parsed['filters'])->toBe(['from' => '2026-08-01', 'to' => '2026-08-15', 'sort' => 'amount', 'direction' => 'asc',
+            'categoryAccountId' => 12, 'staffId' => 2, 'search' => 'taxi', 'minAmount' => 1_000])
+            ->and(ListFilters::parseCashbookFilters(['sort' => 'id; DROP'], FILTERS_TODAY)['filters']['sort'])->toBe('date');
+    });
+
+    it('takes a statement’s transaction type only from the journal’s own list', function () {
+        $parsed = ListFilters::parseAccountFilters(['period' => 'custom', 'from' => '2026-08-01', 'to' => '2026-08-15', 'type' => 'EXPENSE', 'flow' => 'sideways'], FILTERS_TODAY);
+
+        expect($parsed['filters'])->toBe(['from' => '2026-08-01', 'to' => '2026-08-15', 'sourceType' => 'EXPENSE'])
+            ->and(ListFilters::parseAccountFilters(['type' => 'NONSENSE'], FILTERS_TODAY)['filters'])->not->toHaveKey('sourceType')
+            ->and(ListFilters::accountFiltersHideMovements($parsed['filters']))->toBeTrue()
+            ->and(ListFilters::accountFiltersHideMovements(['from' => '2026-08-01', 'to' => '2026-08-15']))->toBeFalse();
     });
 });

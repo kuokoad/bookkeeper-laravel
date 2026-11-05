@@ -34,9 +34,9 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Concurrency: four processes taking numbers and posting at once; numbers run with no gaps or repeats despite rollbacks (tests/Processes/ConcurrencyTest.php)
 - [x] Structural test: services open transactions only through `App\Database\Tx`
 - [x] AuditService: insert-only, redaction, filters and counts share conditions
-- [ ] Port `audit-summary-money` (sale, customer-payment, purchase and supplier-payment parts done in Phases 4 and 5; the till shortage waits for Phase 6)
+- [x] Port `audit-summary-money` (sale, customer-payment, purchase and supplier-payment parts in Phases 4 and 5; the till shortage in Phase 6)
 - [x] SettingsService, TaxService: port `settings`, `tax-setup`, `tax-components-crud`, and the journal-level and lock-management parts of `period-lock`
-- [ ] Port the per-document parts of `period-lock` (sale, adjustment and purchase done; expense waits for Phase 6)
+- [x] Port the per-document parts of `period-lock` (sale, adjustment and purchase in Phases 4 and 5; expense in Phase 6)
 - [x] `nuna:import-sqlite` (all tables, ids kept, timestamps to UTC, refuses a non-empty target, FK checks off then its own orphan check, skips generated columns, lists refused rows and commits nothing)
 - [x] `nuna:reconcile` v1: rows per table, trial balance per account, stock pair per product (cache and replay), receivables, payables, tax held. Zero differences on the old app's own demo database (tests/Fixtures/old-demo.db)
 
@@ -72,8 +72,12 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Reconcile: payables per supplier (ledger, since Phase 2); `ImportTest` also checks that the imported shop's open deliveries add up to each supplier's ledger balance through the new services
 
 ## Phase 6: Cashbook
-- [ ] Port `cashbook`, `transfers` (+ `tests/app/transfer-action`), `reconciliation`, `account-statement`, `list-order-by-trading-date`
-- [ ] Payment accounts own a GL leaf (next free code, locked)
+- [x] `CashbookService` (expenses, income, capital and drawings, voids, lists, totals, by day, by category), `TransferService`, `PaymentAccountService` (accounts, categories, balances, statement, movements, source types), `ReconciliationService`; cashbook and account-statement filter parsers; `Money::average` (the old Math.round)
+- [x] Port `cashbook`, `transfers` (+ the service parts of `tests/app/transfer-action`; the action's form state, redirect and permission checks wait for the screens), `reconciliation`, `account-statement`, `list-order-by-trading-date` (the profit, P&L and cash-flow figures from journal sums or a test-side copy of the old read until Phase 7; each file header says which)
+- [x] Payment accounts and categories own a GL leaf at the next free code in the heading's block, the heading row locked; archiving and counting lock the account and read its balance after the lock
+- [x] Un-defer the expense parts of `module-filters` and `period-lock`, and the till shortage in `audit-summary-money`
+- [x] Demo data: `DemoSeeder` (port of `src/db/seed/demo*.ts`, everything through the services); `DatabaseSeeder` refuses in production and on real records unless `--force`, and prints the demo credentials. Port `tests/db/demo-seed`. Against `tests/Fixtures/old-demo.db`: run in the order the fixture was made, every account code and every product's (Q, V) equal; in today's date order, everything but the 1200/5000 split and per-product values equal (DemoSeedTest)
+- [x] Concurrency (`tests/Processes/AccountCodeConcurrencyTest.php`): four desks add payment accounts (filling 1012-1019) and expense categories at once: every code distinct, no failures. Run with the heading lock removed it failed (ConflictError from the unique code)
 
 ## Phase 7: Reports
 - [ ] Port `accounting-reports`, `financial-reports`, `report-filters`, `report-invariants`, `receivables-ageing`, `tax-return`, `dashboard`
@@ -84,6 +88,7 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 
 ## Phase 8: Users, settings and shell
 - [ ] Port `auth`, `privilege`, `users`, `tests/lib/password`, `rate-limit`, `http-throttle`
+- [ ] The demo users (`owner`, `ama`, seeded in Phase 6 with Laravel `Hash::make` hashes) sign in
 - [ ] Validate the client address taken from proxy headers before it reaches `rate_limits.key` / `audit_logs.ip_address` (the old app took it unchecked)
 - [ ] `LegacyScrypt`: RFC 7914 vectors + old-app hashes; rehash on first sign-in; measure time on the shop PC
 - [ ] Route guard test (replaces `page-guards`, `action-guards`)

@@ -139,6 +139,8 @@ final class PurchaseService
             $tender = PurchaseCalculator::tender($total, array_column($input['tenders'], 'amount'));
 
             // --- write the purchase -------------------------------------------
+            // Lock order (Tx 3a): the tender accounts, shared, so archiving one waits for this delivery.
+            $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
             JournalService::readLockDate();
             $purchaseNo = SequenceService::next(DocType::Purchase);
             $purchaseId = (int) DB::table('purchases')->insertGetId([
@@ -215,8 +217,7 @@ final class PurchaseService
                 if ($request['amount'] <= 0) {
                     continue;
                 }
-                $account = DB::table('payment_accounts')->where('id', $request['paymentAccountId'])->first()
-                    ?? throw new NotFoundError('Payment account', $request['paymentAccountId']);
+                $account = $tenderAccounts[$request['paymentAccountId']] ?? throw new NotFoundError('Payment account', $request['paymentAccountId']);
                 if (! $account->is_active) {
                     throw new ValidationError("Payment account \"{$account->name}\" is not active.");
                 }
@@ -342,6 +343,7 @@ final class PurchaseService
                 throw new ConflictError('This purchase has payments recorded against it. Void those payments first.');
             }
 
+            PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
             JournalService::readLockDate();
             $businessDate = Clock::dateOf($now);
             $at = Clock::stamp($now);

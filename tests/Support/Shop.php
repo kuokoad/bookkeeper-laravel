@@ -14,10 +14,12 @@ use App\Enums\BusinessType;
 use App\Enums\JournalSourceType;
 use App\Enums\Look;
 use App\Services\Actor;
+use App\Services\CashbookService;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
 use App\Services\JournalService;
+use App\Services\PaymentAccountService;
 use App\Services\PurchaseService;
 use App\Services\SaleService;
 use App\Services\SettingsService;
@@ -252,6 +254,59 @@ final class Shop
         foreach (DB::table('products')->pluck('id') as $id) {
             expect(InventoryService::verifyProductStock((int) $id)['ok'])->toBeTrue("{$label}: stock drift p{$id}");
         }
+    }
+
+    /** A seeded (or added) expense category's account id, by name. */
+    public static function expenseCategory(string $name): int
+    {
+        foreach (PaymentAccountService::listExpenseCategories() as $category) {
+            if ($category['name'] === $name) {
+                return $category['id'];
+            }
+        }
+        throw new \RuntimeException("No expense category \"{$name}\"");
+    }
+
+    public static function incomeCategory(string $name): int
+    {
+        foreach (PaymentAccountService::listIncomeCategories() as $category) {
+            if ($category['name'] === $name) {
+                return $category['id'];
+            }
+        }
+        throw new \RuntimeException("No income category \"{$name}\"");
+    }
+
+    /** An expense paid in cash unless told otherwise; extra keys go to recordExpense. */
+    public static function expense(Actor $actor, string $date, int $categoryId, int $amount, string $description = 'Taxi', array $extra = []): array
+    {
+        return CashbookService::recordExpense([
+            'businessDate' => $date,
+            'categoryAccountId' => $categoryId,
+            'description' => $description,
+            'amount' => $amount,
+            'paymentAccountId' => self::paymentAccount('CASH'),
+            ...$extra,
+        ], $actor);
+    }
+
+    /** Other income received in cash unless told otherwise; extra keys go to recordIncome. */
+    public static function income(Actor $actor, string $date, int $categoryId, int $amount, string $description = 'Commission', array $extra = []): array
+    {
+        return CashbookService::recordIncome([
+            'businessDate' => $date,
+            'categoryAccountId' => $categoryId,
+            'description' => $description,
+            'amount' => $amount,
+            'paymentAccountId' => self::paymentAccount('CASH'),
+            ...$extra,
+        ], $actor);
+    }
+
+    /** The owner puts real money into an account through the cashbook: the old tests' fund(). */
+    public static function capital(Actor $actor, int $paymentAccountId, int $amount, string $date = '2026-08-01'): array
+    {
+        return CashbookService::recordOwnerCapital(['businessDate' => $date, 'paymentAccountId' => $paymentAccountId, 'amount' => $amount], $actor);
     }
 
     /** @return list<string> */

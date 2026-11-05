@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Support\Filters;
 
+use App\Enums\JournalSourceType;
 use App\Enums\MovementType;
+use App\Services\CashbookService;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\PurchaseService;
@@ -191,6 +193,70 @@ final class ListFilters
             'pageSize' => $paged['pageSize'],
             'carried' => self::carry($params, ['q', 'balance', 'archived', 'sort', 'direction']),
         ];
+    }
+
+    /** Expenses and other income alike. @return array{filters: array, range: array{from: string, to: string}, preset: string, page: int, pageSize: int, carried: array<string, string>} */
+    public static function parseCashbookFilters(array $params, ?string $today = null, int $pageSize = Filters::DEFAULT_PAGE_SIZE): array
+    {
+        $resolved = Filters::resolveDateRange(self::one($params, 'period'), self::one($params, 'from'), self::one($params, 'to'), $today ?? Clock::today());
+        $sort = Filters::parseSort(self::one($params, 'sort'), self::one($params, 'direction'), CashbookService::CASHBOOK_SORTS, 'date');
+        $filters = [
+            'from' => $resolved['range']['from'],
+            'to' => $resolved['range']['to'],
+            'sort' => $sort['sort'],
+            'direction' => $sort['direction'],
+            ...array_filter([
+                'categoryAccountId' => Filters::parseId(self::one($params, 'category')),
+                'paymentAccountId' => Filters::parseId(self::one($params, 'account')),
+                'staffId' => Filters::parseId(self::one($params, 'staff')),
+                'status' => Filters::parseEnum(self::one($params, 'status'), ['POSTED', 'VOIDED']),
+                'search' => Filters::parseSearch(self::one($params, 'q')),
+            ], fn ($value): bool => $value !== null),
+            ...Filters::parseAmountRange(self::one($params, 'min'), self::one($params, 'max')),
+        ];
+        $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);
+
+        return [
+            'filters' => $filters,
+            'range' => $resolved['range'],
+            'preset' => $resolved['preset'],
+            'page' => $paged['page'],
+            'pageSize' => $paged['pageSize'],
+            'carried' => self::carry($params, ['period', 'from', 'to', 'q', 'category', 'account', 'staff', 'status', 'min', 'max', 'sort', 'direction']),
+        ];
+    }
+
+    /** One account's statement. @return array{filters: array, range: array{from: string, to: string}, preset: string, page: int, pageSize: int, carried: array<string, string>} */
+    public static function parseAccountFilters(array $params, ?string $today = null, int $pageSize = Filters::DEFAULT_PAGE_SIZE): array
+    {
+        $resolved = Filters::resolveDateRange(self::one($params, 'period'), self::one($params, 'from'), self::one($params, 'to'), $today ?? Clock::today());
+        $filters = [
+            'from' => $resolved['range']['from'],
+            'to' => $resolved['range']['to'],
+            ...array_filter([
+                // A transaction type is a fixed set: anything else narrows nothing.
+                'sourceType' => Filters::parseEnum(self::one($params, 'type'), JournalSourceType::values()),
+                'flow' => Filters::parseEnum(self::one($params, 'flow'), ['in', 'out']),
+                'search' => Filters::parseSearch(self::one($params, 'q')),
+            ], fn ($value): bool => $value !== null),
+            ...Filters::parseAmountRange(self::one($params, 'min'), self::one($params, 'max')),
+        ];
+        $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);
+
+        return [
+            'filters' => $filters,
+            'range' => $resolved['range'],
+            'preset' => $resolved['preset'],
+            'page' => $paged['page'],
+            'pageSize' => $paged['pageSize'],
+            'carried' => self::carry($params, ['period', 'from', 'to', 'q', 'type', 'flow', 'min', 'max']),
+        ];
+    }
+
+    /** True when filters beyond the dates hide movements, so the statement's figures are filtered subtotals, not the balance. */
+    public static function accountFiltersHideMovements(array $filters): bool
+    {
+        return isset($filters['sourceType']) || isset($filters['flow']) || isset($filters['search']) || isset($filters['minAmount']) || isset($filters['maxAmount']);
     }
 
     /** @return array{filters: array, page: int, pageSize: int, carried: array<string, string>} */

@@ -20,12 +20,9 @@ use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SupplierPaymentService;
 use App\Services\SupplierService;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
-require __DIR__.'/../../vendor/autoload.php';
-$app = require __DIR__.'/../../bootstrap/app.php';
-$app->make(Kernel::class)->bootstrap();
+require __DIR__.'/boot.php';
 
 const PURCHASE_WORKER_DATE = '2026-11-05';
 

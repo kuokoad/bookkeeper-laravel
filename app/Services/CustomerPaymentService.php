@@ -49,7 +49,11 @@ final class CustomerPaymentService
 
             // Lock order (Tx): the customer, then the sales it settles.
             $customer = CustomerService::lockCustomer($input['customerId']) ?? throw new NotFoundError('Customer', $input['customerId']);
-            $account = DB::table('payment_accounts')->where('id', $input['paymentAccountId'])->first() ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
+            // The sales this may settle, locked, so a void cannot slip between the
+            // outstanding read and the allocation.
+            DB::table('sales')->where('customer_id', $input['customerId'])->where('status', 'POSTED')->orderBy('id')->lockForUpdate()->get(['id']);
+            // Then (Tx 3a) the account the money goes into, shared, so archiving it waits.
+            $account = PaymentAccountService::lockAccounts([$input['paymentAccountId']])[$input['paymentAccountId']] ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
             if (! $account->is_active) {
                 throw new ValidationError("Payment account \"{$account->name}\" is not active.");
             }
@@ -66,10 +70,6 @@ final class CustomerPaymentService
                     ['currentBalance' => $currentBalance, 'amount' => $input['amount']],
                 );
             }
-
-            // The sales this may settle, locked, so a void cannot slip between the
-            // outstanding read and the allocation.
-            DB::table('sales')->where('customer_id', $input['customerId'])->where('status', 'POSTED')->orderBy('id')->lockForUpdate()->get(['id']);
 
             JournalService::readLockDate();
             $paymentNo = SequenceService::next(DocType::PaymentIn);
@@ -196,6 +196,8 @@ final class CustomerPaymentService
             if ($payment->status === 'VOIDED') {
                 throw new ConflictError('That payment has already been voided.');
             }
+            // Tx 3a: the accounts the reversal moves, shared, so archiving or counting one waits.
+            PaymentAccountService::lockAccountsOfEntry($payment->journal_entry_id);
 
             if ($payment->journal_entry_id !== null) {
                 JournalService::reverse(

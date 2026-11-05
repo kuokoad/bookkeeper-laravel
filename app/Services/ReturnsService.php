@@ -72,6 +72,8 @@ final class ReturnsService
             }
             $originalLines = DB::table('sale_items')->where('sale_id', $originalSaleId)->orderBy('line_no')->lockForUpdate()->get();
 
+            // Tx 3a: the refund accounts, shared, so archiving one waits for this return.
+            $refundAccounts = PaymentAccountService::lockTenderAccounts($input['refunds'] ?? []);
             JournalService::readLockDate();
             $receiptNo = SequenceService::next(DocType::SaleReturn);
 
@@ -249,7 +251,7 @@ final class ReturnsService
                 if ($refund['amount'] <= 0) {
                     continue;
                 }
-                $account = DB::table('payment_accounts')->where('id', $refund['paymentAccountId'])->first() ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
+                $account = $refundAccounts[$refund['paymentAccountId']] ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
                 DB::table('sale_payments')->insert([
                     'sale_id' => $returnId,
                     'payment_account_id' => $refund['paymentAccountId'],
@@ -334,6 +336,8 @@ final class ReturnsService
             $lockedById = DB::table('purchase_items')->where('purchase_id', $originalPurchaseId)->orderBy('line_no')->lockForUpdate()->get()
                 ->keyBy(fn (object $l): int => (int) $l->id);
 
+            // Tx 3a: the refund accounts, shared, so archiving one waits for this return.
+            $refundAccounts = PaymentAccountService::lockTenderAccounts($input['refunds'] ?? []);
             $allowNegative = (bool) DB::table('business_settings')->where('id', 1)->value('allow_negative_stock');
             JournalService::readLockDate();
             $purchaseNo = SequenceService::next(DocType::PurchaseReturn);
@@ -481,7 +485,7 @@ final class ReturnsService
                 if ($refund['amount'] <= 0) {
                     continue;
                 }
-                $account = DB::table('payment_accounts')->where('id', $refund['paymentAccountId'])->first() ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
+                $account = $refundAccounts[$refund['paymentAccountId']] ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
                 DB::table('purchase_payments')->insert([
                     'purchase_id' => $returnId,
                     'payment_account_id' => $refund['paymentAccountId'],

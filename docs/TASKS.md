@@ -1,0 +1,93 @@
+# Tasks
+
+**Last updated:** 2026-11-05 · Legend: `[ ]` todo · `[~]` in progress · `[x]` done
+
+Each "port X" task means: the Laravel test asserts the same shop-owner-visible figures, in minor units, as the old `tests/services/X.test.ts` (or the `tests/domain/` / `tests/app/` / `tests/lib/` / `tests/db/` file named).
+
+## Blocked
+- [ ] Demo data seeder: needs the sales, purchase and cashbook services (Phases 4–6).
+
+## Phase 0: Foundation
+- [x] Create the Laravel project: Laravel 13.40.0 on PHP 8.4.19
+- [x] MySQL connection: strict mode, `time_zone '+00:00'`, `utf8mb4_0900_bin`, InnoDB; test DB `nunabooks_test`
+- [x] Pest + Pint set up: `php artisan test` and `vendor/bin/pint --test` run clean
+- [x] Enums for every CHECK list (`app/Enums`)
+- [x] 42 tables per [DATA_MODEL.md](DATA_MODEL.md), including self-reference triggers, the audit-log insert-only triggers, `open_start_year` and the `LOWER()` unique indexes
+- [x] Schema tests: each of the 161 CHECKs refuses a bad row by name; triggers; parity with the old tables, CHECKs and unique indexes
+- [x] Core seeder: settings, chart of accounts, sequences (15 prefixes), units, tax components, payment accounts (port of `seedCore`)
+- [ ] Demo data equal to `src/db/seed/demo*.ts` (blocked, see above); demo seeding is already refused in production
+- [x] Port `tests/db/foundation` (schema and seed parts; its numbering tests move to SequenceService in Phase 2)
+- [ ] Port `tests/db/demo-seed` (with the demo seeder), `transaction-behaviour` (Phase 2), `units-migration` (Phase 3)
+
+## Phase 1: Domain
+- [ ] Port and pass `money`, `quantity`, `rate` (all 10,001 rates round-trip)
+- [~] Port and pass `tax-components` (`totalRateBp` done for the seeder), `sale-calculate`, `sale-present`
+- [ ] Port and pass `costing`, `costing-properties`, `batch-allocation`
+- [ ] Port and pass `journal`, `year-end-close`, `financial-year`, `business-date`
+- [ ] `allocate()` matches the old output across the weight range (PLAN Q4)
+
+## Phase 2: Ledger core
+- [ ] JournalService: balanced, period-locked, leaf accounts only, reversal links
+- [ ] SequenceService: gap-free under rollback (`FOR UPDATE`)
+- [ ] AuditService: insert-only; money in summaries formatted (port `audit-summary-money`)
+- [ ] SettingsService, TaxService: port `period-lock`, `settings`, `tax-setup`, `tax-components-crud`
+- [ ] `nuna:import-sqlite` (all tables, ids kept, timestamps to UTC, refuses a non-empty target, FK checks off then its own orphan check, skips generated columns, lists refused rows and commits nothing)
+- [ ] `nuna:reconcile` v1: trial balance per account
+
+## Phase 3: Catalog and inventory
+- [ ] Port `inventory`, `catalog-lookup`, `product-delete`, `units`, `module-filters`
+- [ ] Port `batch-gateway`, `batch-integrity`, `batch-reporting`, `stock-integrity-check`, `stock-ledger-dates`, `costing-vs-ledger`
+- [ ] Port `product-import` (+ `tests/app/product-import-action`), `product-replace-unit` (+ `product-replace-action`, `product-replace-guards`)
+- [ ] Carton locks and stale-size refusal (port `tests/app/carton-size-actions`)
+- [ ] Adjustment by unit cost or total value (port `tests/app/adjustment-cost-fields`, `tests/ui/adjustment-form`)
+- [ ] Reconcile: `(Q, V)` per product + full replay
+
+## Phase 4: Sales
+- [ ] Port `sales`, `sales-tax`, `sale-idempotency`, `sale-price-override`, `invoicing`, `sale-line-earnings`, `sale-profit-tax`, `sales-filters` (reads never write), `top-product`
+- [ ] Port `sale-batches-by-date`, `sale-expiry`, `tests/app/sale-date-action`
+- [ ] Port `sale-void`, `sale-void-reporting`, `void-ageing`
+- [ ] Port `refund-cap`, `refunds-after-returns`, `credited-returns`, `return-tax`
+- [ ] Port `payment-allocation`, `payment-void`, `overpayment`
+- [ ] Port `quotations`, `tests/app/quotation-convert-date`
+- [ ] Concurrency: two connections selling the last unit, only one succeeds; 50 concurrent sales give gap-free receipts
+- [ ] Receipt, invoice and statement pages (port `tests/app/print`, `document-figures`)
+- [ ] Reconcile: receivables per customer
+
+## Phase 5: Purchases
+- [ ] Port `purchases`, `purchase-tax`, `tests/app/purchase-form-parity`
+- [ ] Free-goods delivery, non-stock lines (6900), costing residual on void
+- [ ] Reconcile: payables per supplier
+
+## Phase 6: Cashbook
+- [ ] Port `cashbook`, `transfers` (+ `tests/app/transfer-action`), `reconciliation`, `account-statement`, `list-order-by-trading-date`
+- [ ] Payment accounts own a GL leaf (next free code, locked)
+
+## Phase 7: Reports
+- [ ] Port `accounting-reports`, `financial-reports`, `report-filters`, `report-invariants`, `receivables-ageing`, `tax-return`, `dashboard`
+- [ ] Port `year-end`, `year-end-close`, `year-end-ageing-as-at`, `year-end-check-line`
+- [ ] CSV exports share each page's filter parser (port `tests/lib/csv`, `filters`, `tests/app/account-export*`, `sales-export-profit`)
+- [ ] Invariant tests (old ARCHITECTURE §9, items 1–5)
+- [ ] Reconcile: P&L, balance sheet, tax payable, ageing for every financial year
+
+## Phase 8: Users, settings and shell
+- [ ] Port `auth`, `privilege`, `users`, `tests/lib/password`, `rate-limit`, `http-throttle`
+- [ ] Validate the client address taken from proxy headers before it reaches `rate_limits.key` / `audit_logs.ip_address` (the old app took it unchecked)
+- [ ] `LegacyScrypt`: RFC 7914 vectors + old-app hashes; rehash on first sign-in; measure time on the shop PC
+- [ ] Route guard test (replaces `page-guards`, `action-guards`)
+- [ ] Settings screen, logo upload (port `tests/lib/image`), looks and light/dark (port `look`, `theme`, `motion`)
+- [ ] Port `search`, `notifications`, `backup-status`, `update`, `preflight-money`
+- [ ] Help pages from `resources/docs` (port `tests/lib/help`, `markdown`); carry over `docs/how-to`, `reference`, `explanation`, `tutorials`
+- [ ] `nuna:backup` / `nuna:restore` / `nuna:preflight`; rewrite `how-to/back-up-and-restore.md` (port `tests/db/backup`, `restore`, `preflight`)
+- [ ] Windows installer and update scripts (PLAN Q1)
+
+## Phase 9: Proof and cut-over
+- [ ] `nuna:reconcile` reports zero differences on a copy of the real shop data
+- [ ] Backup → restore into an empty DB → reports match
+- [ ] Playwright CLI click-through of every module, screenshots in `screenshots/`, figures match the old app
+- [ ] README and ARCHITECTURE list every behaviour difference and why
+
+## Backlog
+- [ ] HTTPS on the LAN
+- [ ] Off-site backup copy
+
+Phases defined in [ROADMAP.md](ROADMAP.md).

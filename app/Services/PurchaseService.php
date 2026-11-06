@@ -25,6 +25,7 @@ use App\Support\Clock;
 use App\Support\Row;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -385,10 +386,7 @@ final class PurchaseService
             // The goods leave at the cost they arrived at, read back from the
             // ledger (the discount and levies were spread into it), and from the
             // crates this delivery filled, consumed in the order they were made.
-            $wentInAt = [];
-            foreach (DB::table('stock_ledger')->where('source_type', 'PURCHASE')->where('source_id', $purchaseId)->orderBy('id')->get(['product_id', 'total_cost_minor']) as $row) {
-                $wentInAt[(int) $row->product_id][] = (int) $row->total_cost_minor;
-            }
+            $wentInAt = self::stockCostQueues($purchaseId);
             $wentInTo = [];
             foreach ($items as $item) {
                 $wentInTo[(int) $item->product_id] ??= InventoryService::readBatchSplits('PURCHASE', $purchaseId, (int) $item->product_id);
@@ -461,29 +459,7 @@ final class PurchaseService
                 DB::table('purchases')->where('id', $reversalId)->update(['journal_entry_id' => $reversed['entryId'], 'updated_at' => $at]);
             }
 
-            // Value the shelf could not keep, as its own entry: the reversal says
-            // what the original said, backwards; this says what averaging cost.
-            if ($residual !== 0) {
-                $cogs = JournalService::accountIdByCode(ChartOfAccounts::COST_OF_GOODS_SOLD);
-                $inventory = JournalService::accountIdByCode(ChartOfAccounts::INVENTORY);
-                JournalService::post(
-                    $businessDate,
-                    JournalSourceType::PurchaseReturn,
-                    $residual > 0
-                        ? [
-                            Journal::debit($cogs, $residual, ['description' => "{$purchaseNo} costing difference"]),
-                            Journal::credit($inventory, $residual, ['description' => "{$purchaseNo} stock value released"]),
-                        ]
-                        : [
-                            Journal::debit($inventory, Money::negate($residual), ['description' => "{$purchaseNo} stock value restored"]),
-                            Journal::credit($cogs, Money::negate($residual), ['description' => "{$purchaseNo} costing difference"]),
-                        ],
-                    sourceId: $reversalId,
-                    memo: "Stock costing difference on voiding {$original->purchase_no}",
-                    occurredAt: $now,
-                    actor: $actor,
-                );
-            }
+            self::postCostingResidual($residual, $businessDate, $purchaseNo, $reversalId, "Stock costing difference on voiding {$original->purchase_no}", $now, $actor);
 
             DB::table('purchases')->where('id', $purchaseId)->update([
                 'status' => 'VOIDED',
@@ -496,6 +472,77 @@ final class PurchaseService
 
             return ['reversalPurchaseId' => $reversalId, 'purchaseNo' => $purchaseNo];
         });
+    }
+
+    /**
+     * Value the shelf could not keep, as its own entry: the reversal (or
+     * return) says what the original said, backwards; this says what
+     * averaging cost. A void and a supplier return both post it.
+     */
+    public static function postCostingResidual(int $residual, string $businessDate, string $docNo, int $sourceId, string $memo, Carbon $occurredAt, Actor $actor): void
+    {
+        if ($residual === 0) {
+            return;
+        }
+        $cogs = JournalService::accountIdByCode(ChartOfAccounts::COST_OF_GOODS_SOLD);
+        $inventory = JournalService::accountIdByCode(ChartOfAccounts::INVENTORY);
+        JournalService::post(
+            $businessDate,
+            JournalSourceType::PurchaseReturn,
+            $residual > 0
+                ? [
+                    Journal::debit($cogs, $residual, ['description' => "{$docNo} costing difference"]),
+                    Journal::credit($inventory, $residual, ['description' => "{$docNo} stock value released"]),
+                ]
+                : [
+                    Journal::debit($inventory, Money::negate($residual), ['description' => "{$docNo} stock value restored"]),
+                    Journal::credit($cogs, Money::negate($residual), ['description' => "{$docNo} costing difference"]),
+                ],
+            sourceId: $sourceId,
+            memo: $memo,
+            occurredAt: $occurredAt,
+            actor: $actor,
+        );
+    }
+
+    /**
+     * What each delivery line went in at, per product in ledger order, read
+     * back from the stock ledger (the discount and folded levies were spread
+     * into it). @return array<int, list<int>> by product id
+     */
+    private static function stockCostQueues(int $purchaseId): array
+    {
+        $queues = [];
+        foreach (DB::table('stock_ledger')->where('source_type', 'PURCHASE')->where('source_id', $purchaseId)->orderBy('id')->get(['product_id', 'total_cost_minor']) as $row) {
+            $queues[(int) $row->product_id][] = (int) $row->total_cost_minor;
+        }
+
+        return $queues;
+    }
+
+    /**
+     * What each line of a delivery cost the shop: the stock ledger's figure
+     * for a line that went onto the shelf, as a void reads it, and for any
+     * other line the same spread of invoice discount and folded levies the
+     * purchase expensed. tracked says which, as it was on the day bought.
+     *
+     * @param  Collection<int, object>  $items  the purchase's lines, in line order
+     * @return array<int, array{cost: int, tracked: bool}> by purchase_items.id
+     */
+    public static function goodsCostByItem(object $purchase, Collection $items): array
+    {
+        $nonRecoverable = (int) DB::table('purchase_taxes')->where('purchase_id', $purchase->id)->where('is_recoverable', false)->sum('amount_minor');
+        $spread = PurchaseCalculator::lineCosts($items->map(fn (object $i): int => (int) $i->line_total_minor)->values()->all(), (int) $purchase->discount_minor, $nonRecoverable);
+        $wentInAt = self::stockCostQueues((int) $purchase->id);
+
+        $costs = [];
+        foreach ($items->values() as $index => $item) {
+            $wentInAt[(int) $item->product_id] ??= [];
+            $fromLedger = array_shift($wentInAt[(int) $item->product_id]);
+            $costs[(int) $item->id] = ['cost' => $fromLedger ?? $spread[$index], 'tracked' => $fromLedger !== null];
+        }
+
+        return $costs;
     }
 
     /** Supplier payments still standing against one purchase. */

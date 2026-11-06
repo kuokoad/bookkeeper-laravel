@@ -342,8 +342,16 @@ final class ReturnsService
             JournalService::readLockDate();
             $purchaseNo = SequenceService::next(DocType::PurchaseReturn);
 
+            // What each line cost the shop, as a void reads it (D2): the stock
+            // ledger's figure, invoice discount and folded levies spread in.
+            $goodsCost = PurchaseService::goodsCostByItem($original, $lockedById);
+
             // --- each line against what is still returnable, as locked ----------
+            // Shares are cumulative (what has come back so far, after less
+            // before), so partial returns add up to exactly a full one.
             $resolved = [];
+            $returnedBefore = $lockedById->map(fn (object $l): int => (int) $l->returned_qty_milli)->all();
+            $returnedAfter = $returnedBefore;
             foreach ($input['items'] as $request) {
                 $item = $lockedById->get((int) $request['itemId']);
                 if ($item === null) {
@@ -354,46 +362,65 @@ final class ReturnsService
                 if ($request['qty'] <= 0) {
                     throw new ValidationError('Return quantity must be greater than zero.');
                 }
-                $returnable = (int) $item->qty_milli - (int) $item->returned_qty_milli;
+                $before = (int) $item->returned_qty_milli;
+                $returnable = (int) $item->qty_milli - $before;
                 if ($request['qty'] > $returnable) {
                     throw new ValidationError('Only '.self::formatQtyLabel($returnable)." of {$item->product_name} can still be returned.");
                 }
-                $resolved[] = ['request' => $request, 'item' => $item, 'costShare' => Money::mulDiv((int) $item->line_total_minor, $request['qty'], (int) $item->qty_milli)];
+                $after = $before + $request['qty'];
+                $returnedAfter[(int) $item->id] = $after;
+                $resolved[] = [
+                    'request' => $request,
+                    'item' => $item,
+                    'tracked' => $goodsCost[(int) $item->id]['tracked'],
+                    'costShare' => self::cumulativeShare($goodsCost[(int) $item->id]['cost'], $before, $after, (int) $item->qty_milli),
+                    'valueShare' => self::cumulativeShare((int) $item->line_total_minor, $before, $after, (int) $item->qty_milli),
+                ];
             }
 
             $totalCost = Money::sum(array_column($resolved, 'costShare'));
-            if ($totalCost === 0) {
-                throw new ValidationError('This return has no value to record.');
-            }
-
+            $stockCost = Money::sum(array_column(array_filter($resolved, fn (array $l): bool => $l['tracked']), 'costShare'));
             $sourceBatches = PurchaseService::batchSplitByPurchaseItem($originalPurchaseId);
 
-            // The reclaim goes back with the goods, component by component, from
-            // what the ORIGINAL purchase carried, on the basis the costs were
-            // prorated from. Recoverability is carried across: it is a fact of the day bought.
-            $purchaseNet = Money::subtract((int) $original->subtotal_minor, (int) $original->discount_minor);
-            $paidRows = TaxService::readPurchaseTaxes($originalPurchaseId);
+            // The tax goes back with the goods (D1), component by component, from
+            // what the ORIGINAL purchase carried, on the line values it was worked
+            // from. Recoverability is carried across: it is a fact of the day bought.
+            $measure = fn (array $returned): int => Money::sum($lockedById->map(fn (object $l): int => Money::mulDiv((int) $l->line_total_minor, $returned[(int) $l->id], (int) $l->qty_milli))->all());
+            $basis = Money::sum($lockedById->map(fn (object $l): int => (int) $l->line_total_minor)->all());
+            $basisBefore = $measure($returnedBefore);
+            $basisAfter = $measure($returnedAfter);
+            $paidRows = TaxService::readPurchaseTaxes($originalPurchaseId)->values();
             $returnedLines = [];
             $returnedIds = [];
-            if ($paidRows->isNotEmpty() && $purchaseNet !== 0) {
+            $legacyTax = 0;
+            if ($paidRows->isNotEmpty() && $basis !== 0) {
+                // Each component on its own running share, never a split of a
+                // rounded total, so no piece can step a component backwards.
                 foreach ($paidRows as $row) {
                     $returnedLines[] = new TaxLine(
                         new TaxComponent($row->code, $row->name, (int) $row->rate_bp, TaxBasis::from($row->basis), (bool) $row->is_recoverable),
-                        Money::mulDiv((int) $row->amount_minor, $totalCost, $purchaseNet),
+                        self::cumulativeShare((int) $row->amount_minor, $basisBefore, $basisAfter, $basis),
                     );
                     if ($row->component_id !== null) {
                         $returnedIds[$row->code] = (int) $row->component_id;
                     }
                 }
+            } elseif ((int) $original->tax_minor !== 0 && $basis !== 0) {
+                // A delivery with no tax rows (old data): its tax back off VAT Payable, as before.
+                // Safe to treat as reclaimed: the old app wrote tax rows from its components commit
+                // (ba771f7) on, and before it debited the single tax to 2100 in full, never folded.
+                $legacyTax = self::cumulativeShare((int) $original->tax_minor, $basisBefore, $basisAfter, $basis);
             }
-            $taxShare = match (true) {
-                $returnedLines !== [] => Money::sum(array_map(fn (TaxLine $l): int => $l->amount, $returnedLines)),
-                (int) $original->tax_minor === 0 || $purchaseNet === 0 => 0,
-                default => Money::mulDiv((int) $original->tax_minor, $totalCost, $purchaseNet),
-            };
+            $taxShare = Money::add($legacyTax, Money::sum(array_map(fn (TaxLine $l): int => $l->amount, $returnedLines)));
+            // A levy that was not reclaimable is already inside the goods' cost.
+            $recoverableShare = Money::add($legacyTax, TaxService::recoverableTotal($returnedLines));
 
-            // What the supplier owes back: the goods and the tax charged on them.
-            $returnedValue = Money::add($totalCost, $taxShare);
+            // What the supplier owes back: what the goods cost and the tax reclaimed on them.
+            $returnedValue = Money::add($totalCost, $recoverableShare);
+            if ($returnedValue === 0) {
+                throw new ValidationError('This return has no value to record.');
+            }
+            $returnedSubtotal = Money::sum(array_column($resolved, 'valueShare'));
 
             // Read before the return exists, after the supplier and purchase locks.
             $outstandingOnOriginal = PurchaseService::getPurchaseOutstanding($originalPurchaseId);
@@ -409,8 +436,10 @@ final class ReturnsService
                 'business_date' => $input['businessDate'],
                 'occurred_at' => $at,
                 'invoice_no' => $original->invoice_no,
-                'subtotal_minor' => Money::negate($totalCost),
-                'discount_minor' => 0,
+                // Mirror figures, so subtotal − discount + tax = total holds here too.
+                'subtotal_minor' => Money::negate($returnedSubtotal),
+                // Derived so the identity holds, not prorated: can differ by a pesewa on a partial return.
+                'discount_minor' => Money::negate(Money::subtract($returnedSubtotal, Money::subtract($returnedValue, $taxShare))),
                 'tax_minor' => Money::negate($taxShare),
                 'total_minor' => Money::negate($returnedValue),
                 'status' => 'POSTED',
@@ -422,12 +451,13 @@ final class ReturnsService
             ]);
             TaxService::writePurchaseTaxes($returnId, array_map(fn (TaxLine $l): TaxLine => $l->withAmount(Money::negate($l->amount)), $returnedLines), $returnedIds, $occurredAt);
 
+            $residual = 0;
             foreach ($resolved as $index => $line) {
                 $item = $line['item'];
-                if (DB::table('products')->where('id', $item->product_id)->value('track_inventory')) {
-                    // From the crate THIS supplier delivered, at what THIS supplier charged.
+                if ($line['tracked']) {
+                    // From the crate THIS supplier delivered, at what it cost the shop.
                     $cameFrom = $sourceBatches[(int) $item->id] ?? null;
-                    InventoryService::recordStockMovement([
+                    $movement = InventoryService::recordStockMovement([
                         'productId' => (int) $item->product_id,
                         'direction' => 'OUT',
                         'qty' => $line['request']['qty'],
@@ -444,6 +474,7 @@ final class ReturnsService
                         'note' => "Return to supplier against {$original->purchase_no}",
                         'isDemo' => $isDemo,
                     ]);
+                    $residual = Money::add($residual, $movement['residual']);
                 }
 
                 DB::table('purchase_items')->insert([
@@ -455,7 +486,7 @@ final class ReturnsService
                     'qty_milli' => -$line['request']['qty'],
                     'unit_cost_minor' => Quantity::perBaseUnitPrice((int) $item->unit_cost_minor, $item->entry_factor_milli === null ? null : (int) $item->entry_factor_milli),
                     'discount_minor' => 0,
-                    'line_total_minor' => Money::negate($line['costShare']),
+                    'line_total_minor' => Money::negate($line['valueShare']),
                     'created_at' => $at,
                 ]);
                 DB::table('purchase_items')->where('id', $item->id)->update(['returned_qty_milli' => (int) $item->returned_qty_milli + $line['request']['qty']]);
@@ -476,10 +507,23 @@ final class ReturnsService
             }
             $creditApplied = Money::subtract($returnedValue, $refundTotal);
 
-            $lines = [Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::INVENTORY), $totalCost, ['description' => "{$purchaseNo} stock returned to supplier"])];
-            // Nothing left to reclaim on goods that went back.
-            if ($taxShare !== 0) {
-                $lines[] = Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::TAX_PAYABLE), $taxShare, ['description' => "{$purchaseNo} tax on goods returned"]);
+            // Each part back where the purchase put it: stock, non-stock expense,
+            // and each reclaimed tax out of its own account.
+            $lines = [];
+            if ($stockCost !== 0) {
+                $lines[] = Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::INVENTORY), $stockCost, ['description' => "{$purchaseNo} stock returned to supplier"]);
+            }
+            if ($totalCost !== $stockCost) {
+                $lines[] = Journal::credit(JournalService::accountIdByCode('6900'), Money::subtract($totalCost, $stockCost), ['description' => "{$purchaseNo} non-stock items returned"]);
+            }
+            foreach ($returnedLines as $line) {
+                if (! $line->component->isRecoverable || $line->amount === 0) {
+                    continue;
+                }
+                $lines[] = Journal::credit(TaxService::accountFor($returnedIds[$line->component->code] ?? null, $line->component->code), $line->amount, ['description' => "{$purchaseNo} {$line->component->name} on goods returned"]);
+            }
+            if ($legacyTax !== 0) {
+                $lines[] = Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::TAX_PAYABLE), $legacyTax, ['description' => "{$purchaseNo} tax on goods returned"]);
             }
             foreach ($refunds as $refund) {
                 if ($refund['amount'] <= 0) {
@@ -516,6 +560,7 @@ final class ReturnsService
                 actor: $actor,
             );
             DB::table('purchases')->where('id', $returnId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
+            PurchaseService::postCostingResidual($residual, $input['businessDate'], $purchaseNo, $returnId, "Stock costing difference on returning {$original->purchase_no}", $occurredAt, $actor);
 
             AuditService::write(AuditAction::Create, 'purchase_return', "{$purchaseNo}: return to supplier against {$original->purchase_no}", $returnId, $actor, [
                 'valueMinor' => $totalCost,
@@ -526,6 +571,12 @@ final class ReturnsService
 
             return ['returnPurchaseId' => $returnId, 'purchaseNo' => $purchaseNo, 'refunded' => $refundTotal, 'creditApplied' => $creditApplied];
         });
+    }
+
+    /** This return's part of $amount: the share up to $after out of $of, less the share up to $before. */
+    private static function cumulativeShare(int $amount, int $before, int $after, int $of): int
+    {
+        return Money::subtract(Money::mulDiv($amount, $after, $of), Money::mulDiv($amount, $before, $of));
     }
 
     /** Two requests for one line would each pass the returnable check against the same figure. */

@@ -86,6 +86,16 @@ final class SupplierPaymentService
             ]);
 
             $allocations = $input['allocations'] ?? self::autoAllocate($input['supplierId'], $input['amount']);
+            // D3: as the customer side, or 10.00 paid could settle 50.00 of a purchase;
+            // a negative line would let a larger one under that cap.
+            foreach ($allocations as $allocation) {
+                if ($allocation['amount'] <= 0) {
+                    throw new ValidationError('Each amount allocated to a purchase must be greater than zero.');
+                }
+            }
+            if (Money::sum(array_column($allocations, 'amount')) > $input['amount']) {
+                throw new ValidationError('The amounts allocated to purchases exceed the payment.');
+            }
             foreach ($allocations as $allocation) {
                 if ($allocation['amount'] <= 0) {
                     continue;

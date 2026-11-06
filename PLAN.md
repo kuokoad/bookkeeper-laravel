@@ -200,7 +200,8 @@ the port reproduces exactly; reviews showed it produces wrong figures. Nothing
 changes until you decide. Imported history is unaffected either way: the
 importer copies posted rows unchanged, so a fix applies only to new documents.
 
-**D1. A supplier return puts its whole tax share on VAT Payable (2100).**
+**D1. A supplier return puts its whole tax share on VAT Payable (2100). DONE
+(2026-11-06, approved by the owner).**
 Old `returns.service.ts:761` (new `ReturnsService.php`, supplier side).
 Ghana taxes, 10 bags at 65.00 on credit, all returned:
 - levies reclaimable (the default): after the return 2100 = +32.50,
@@ -212,21 +213,31 @@ Ghana taxes, 10 bags at 65.00 on credit, all returned:
 Proposed: credit each recoverable tax line to its own account
 (`TaxService::accountFor`), and take a non-recoverable line back where it
 went in: 1200 through the stock movement for stock lines, 6900 for non-stock.
+Now: `ReturnsService::createSupplierReturn` credits each reclaimed tax to its
+own account and leaves folded levies inside the goods' cost; shares are
+cumulative, so partial returns sum to a full one (`SupplierReturnPostingTest`).
 
 **D2. A supplier return values the goods before the invoice discount and
-without folded levies, and ignores the costing residual.** Old
+without folded levies, and ignores the costing residual. DONE (2026-11-06,
+approved by the owner).** Old
 `returns.service.ts:573` and :695. Example: 10 × 65.00 less a 65.00 invoice
 discount, on credit (owed 585.00); return all 10: the credit applied is
 650.00, so the supplier "owes" the shop 65.00 that was never paid, and
 Inventory ends at -65.00 with an empty shelf.
 Proposed: value the goods at their own stock-ledger cost, prorated (as a
 purchase void already does), and post any residual like the void.
+Now: the return reads the cost through the void's own helper
+(`PurchaseService::goodsCostByItem`) and posts a residual with
+`PurchaseService::postCostingResidual` (`SupplierReturnPostingTest`).
 
 **D3. A supplier payment's explicit allocations are not checked against the
-payment amount.** Old `supplier-payment.service.ts` allocation loop. Paying
+payment amount. DONE (2026-11-06, approved by the owner).** Old `supplier-payment.service.ts` allocation loop. Paying
 10.00 with an allocation of 50.00 to one purchase settles 50.00 of it while
 the payable falls by 10.00. Proposed: refuse allocations that add up to more
 than the payment. (Check the customer side for the same.)
+Now: refused with "The amounts allocated to purchases exceed the payment."
+The customer side already refused ("...to invoices exceed the payment.");
+both are tested in `AllocationCapTest`.
 
 The items below are reports, not postings: they change what a screen or
 export shows, never a stored figure.

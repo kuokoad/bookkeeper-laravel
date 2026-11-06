@@ -91,6 +91,13 @@ final class CustomerPaymentService
             ]);
 
             $allocations = $input['allocations'] ?? self::autoAllocate($input['customerId'], $input['amount']);
+            // The old app skipped lines of nothing or less, so a negative one could
+            // let a larger one under the cap below (D3).
+            foreach ($allocations as $allocation) {
+                if ($allocation['amount'] <= 0) {
+                    throw new ValidationError('Each amount allocated to an invoice must be greater than zero.');
+                }
+            }
             if (Money::sum(array_column($allocations, 'amount')) > $input['amount']) {
                 throw new ValidationError('The amounts allocated to invoices exceed the payment.');
             }

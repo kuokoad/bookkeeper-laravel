@@ -136,7 +136,7 @@ final class Show extends Component
 
             return;
         }
-        session()->flash('status', 'Return recorded. Stock went out at the price this supplier charged.');
+        session()->flash('status', 'Return recorded. Stock went out at what it cost from this supplier.');
         $this->redirect("/purchases/{$this->purchaseId}");
     }
 

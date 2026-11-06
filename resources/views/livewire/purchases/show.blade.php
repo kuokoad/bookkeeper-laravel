@@ -123,7 +123,7 @@
         <div class="mt-8" x-data="{ open: {{ $returnErrors ? 'true' : 'false' }} }">
             <div x-show="! open" class="rounded-xl border border-line bg-surface-raised p-4">
                 <h2 class="text-sm font-semibold text-content">Return goods to this supplier</h2>
-                <p class="mt-1 mb-3 text-sm text-content-muted">Send some or all of this delivery back. Stock leaves at the price this supplier charged, not the blended average.</p>
+                <p class="mt-1 mb-3 text-sm text-content-muted">Send some or all of this delivery back. Stock leaves at what it cost from this supplier (after any invoice discount), not the blended average.</p>
                 <x-button variant="secondary" x-on:click="open = true">Record a return…</x-button>
             </div>
             <form x-show="open" x-cloak wire:submit="recordReturn" class="rounded-xl border border-line bg-surface-raised p-4" novalidate>
@@ -173,7 +173,7 @@
                         <x-input id="return-reason" wire:model="returnReason" placeholder="e.g. Damaged" />
                     </div>
                 </div>
-                <p class="mt-3 text-xs text-content-subtle">Value of goods being returned: {{ $currency }} {{ Money::toDecimalString($estimate) }}. Anything not refunded in cash reduces what you owe them.</p>
+                <p class="mt-3 text-xs text-content-subtle">Value of goods being returned: {{ $currency }} {{ Money::toDecimalString($estimate) }} at the supplier's price; the recorded return takes off its share of any invoice discount and adds its tax. Anything not refunded in cash reduces what you owe them.</p>
                 <div class="mt-4 flex items-center gap-3">
                     <x-button type="submit" wire:loading.attr="disabled">
                         <span wire:loading.remove wire:target="recordReturn">Record return to supplier</span>

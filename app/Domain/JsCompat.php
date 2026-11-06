@@ -26,6 +26,28 @@ final class JsCompat
     }
 
     /**
+     * String.prototype.localeCompare for codes made of [A-Z0-9_]: ICU puts
+     * "_" before digits and digits before letters, where strcmp puts "_"
+     * last (COVID_19 sorts before COVIDX). Outside that alphabet it is only
+     * an approximation.
+     */
+    public static function compareCodes(string $a, string $b): int
+    {
+        return strcmp(strtr($a, '_', '!'), strtr($b, '_', '!'));
+    }
+
+    /**
+     * Math.round: half towards +∞ (Math.round(-2.5) is -2; PHP's round()
+     * gives -3). Used where the old reports rounded a float ratio.
+     */
+    public static function round(float $x): int
+    {
+        $floor = floor($x);
+
+        return (int) ($x - $floor >= 0.5 ? $floor + 1 : $floor);
+    }
+
+    /**
      * Number.prototype.toFixed(digits), as the scaled integer: the n for
      * which n / 10^digits is closest to the EXACT binary value of $x, the
      * larger n on a tie, sign applied to the magnitude. sprintf() rounds ties

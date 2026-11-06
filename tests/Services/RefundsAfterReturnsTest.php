@@ -6,17 +6,15 @@ declare(strict_types=1);
 | Ported from the old tests/services/refunds-after-returns.test.ts: hand back
 | no more than was paid, and reverse goods only once.
 |
-| The P&L's net sales (Phase 7) is read here as the August journal lines on
-| Sales Revenue, Sales Discounts and Sales Returns, credits less debits: the
-| figure getProfitAndLoss(...).netSales reports. Nothing is deferred: the
-| purchase void case arrived with the purchases in Phase 5.
+| Net sales is the real August P&L. Nothing is deferred: the purchase void
+| case arrived with the purchases in Phase 5.
 */
 
-use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ValidationError;
 use App\Services\CustomerPaymentService;
 use App\Services\PurchaseService;
+use App\Services\Reporting\FinancialService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use Illuminate\Support\Carbon;
@@ -50,13 +48,7 @@ beforeEach(function () {
 
     $this->onHand = fn (int $productId): int => (int) DB::table('products')->where('id', $productId)->value('qty_on_hand_milli');
 
-    $this->netSales = fn (): int => (int) DB::table('journal_lines')
-        ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
-        ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
-        ->whereIn('accounts.code', [ChartOfAccounts::SALES_REVENUE, ChartOfAccounts::SALES_DISCOUNTS, ChartOfAccounts::SALES_RETURNS])
-        ->whereBetween('journal_entries.entry_date', ['2026-08-01', '2026-08-31'])
-        ->selectRaw('COALESCE(SUM(`journal_lines`.`credit_minor` - `journal_lines`.`debit_minor`), 0) AS n')
-        ->value('n');
+    $this->netSales = fn (): int => FinancialService::getProfitAndLoss(['from' => '2026-08-01', 'to' => '2026-08-31'])['netSales'];
 });
 
 describe('a return of a discounted sale', function () {

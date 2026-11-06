@@ -93,6 +93,18 @@ final class Filters
         return ['range' => ['from' => substr($today, 0, 7).'-01', 'to' => $today], 'preset' => 'month'];
     }
 
+    /** @param  array{from: string, to: string}  $range  Human description of a range, for a report header. */
+    public static function describeDateRange(array $range, string $preset, string $today): string
+    {
+        return match (true) {
+            $preset === 'all' => "Everything up to {$range['to']}",
+            $range['from'] === $range['to'] => $range['from'],
+            $range['from'] === self::EARLIEST_DATE => "Up to {$range['to']}",
+            $range['to'] === $today && $preset !== 'custom' => "{$range['from']} to today",
+            default => "{$range['from']} to {$range['to']}",
+        };
+    }
+
     /** A positive integer id, or null. Rejects 0, negatives and junk. */
     public static function parseId(?string $value): ?int
     {

@@ -7,11 +7,6 @@ declare(strict_types=1);
 |
 | A duplicate typed in by mistake can be deleted; a product with any history
 | cannot. Archiving hides a product, so it must not hide stock the books carry.
-|
-| Deferred: the stock-valuation report half of the archive refusal and of
-| "still values stock that comes back onto an archived product" (reports,
-| Phase 7); their stock-summary halves, against the inventory account, are
-| asserted here.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -20,6 +15,7 @@ use App\Domain\Errors\NotFoundError;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
 use App\Services\QuotationService;
+use App\Services\Reporting\OperationsService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +82,7 @@ describe('archiving a product', function () {
 
         expect(fn () => CatalogService::setProductActive($id, false, $this->actor))->toThrow(ConflictError::class)
             ->and(CatalogService::getProduct($id)['isActive'])->toBeTrue()
+            ->and(OperationsService::getStockValuation()['totalCostValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY))
             ->and(CatalogService::getStockSummary()['totalStockValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
     });
 
@@ -104,9 +101,10 @@ describe('archiving a product', function () {
             'refunds' => [['paymentAccountId' => $cash, 'amount' => 800]],
         ], $this->actor);
 
-        // The dashboard and inventory tiles read the summary.
-        expect(CatalogService::getStockSummary()['totalStockValue'])->toBe(500)
-            ->and(Shop::balance(ChartOfAccounts::INVENTORY))->toBe(500);
+        expect(OperationsService::getStockValuation()['totalCostValue'])->toBe(500)
+            // The dashboard and inventory tiles read the summary, not the report.
+            ->and(CatalogService::getStockSummary()['totalStockValue'])->toBe(500)
+            ->and(OperationsService::getStockValuation()['totalCostValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
     });
 
     it('archives and restores a product with no stock', function () {

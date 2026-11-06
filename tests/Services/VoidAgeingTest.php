@@ -6,20 +6,20 @@ declare(strict_types=1);
 | Ported from the old tests/services/void-ageing.test.ts: a void's mirror is
 | not a debt going the other way.
 |
-| The receivables and payables ageing reports are Phase 7; both are read
-| through Tests\Support\Ageing, a test-side copy of the old
-| getReceivablesAgeing / getPayablesAgeing line for line, and the ledger side
-| is the control account's journal lines dated up to the day (the old
-| getAccountBalanceByCode with a to date). Nothing is deferred.
+| Both ageing reports are read through LedgerService, and the ledger side
+| through BalancesService::getAccountBalanceByCode with a to date, as the old
+| test did. Nothing is deferred.
 */
 
+use App\Domain\Accounting\ChartOfAccounts;
 use App\Services\CustomerService;
 use App\Services\PurchaseService;
+use App\Services\Reporting\BalancesService;
+use App\Services\Reporting\LedgerService;
 use App\Services\SaleService;
 use App\Services\SupplierService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Tests\Support\Ageing;
 use Tests\Support\Shop;
 
 const VA_BEFORE_VOID = '2026-08-20';
@@ -41,8 +41,8 @@ beforeEach(function () {
         'tenders' => $tendered > 0 ? [['paymentAccountId' => $this->cash, 'amount' => $tendered]] : [],
     ], $this->actor);
     $this->creditPurchase = fn (int $units): array => Shop::purchase($this->actor, $this->supplier, [[$this->product, $units * 1000, 10_000]], [], ['businessDate' => '2026-08-10']);
-    $this->agedPayables = fn (string $asAt): int => array_sum(array_column(Ageing::payables($asAt), 'total'));
-    $this->aged = fn (string $asAt): int => array_sum(array_column(Ageing::receivables($asAt), 'total'));
+    $this->agedPayables = fn (string $asAt): int => array_sum(array_column(LedgerService::getPayablesAgeing($asAt), 'total'));
+    $this->aged = fn (string $asAt): int => array_sum(array_column(LedgerService::getReceivablesAgeing($asAt), 'total'));
 });
 
 describe('receivables ageing after a void', function () {
@@ -70,7 +70,7 @@ describe('receivables ageing after a void', function () {
         $only = ($this->creditSale)(10);
         SaleService::voidSale($only['saleId'], 'wrong customer', $this->actor, $this->voidAt);
 
-        expect(Ageing::receivables(VA_AFTER_VOID))->toBe([]);
+        expect(LedgerService::getReceivablesAgeing(VA_AFTER_VOID))->toBe([]);
     });
 
     it('counts only what was left unpaid on a part-paid sale, before the void', function () {
@@ -86,7 +86,7 @@ describe('receivables ageing after a void', function () {
         $voided = ($this->creditSale)(10);
         SaleService::voidSale($voided['saleId'], 'wrong customer', $this->actor, $this->voidAt);
 
-        expect(($this->aged)($asAt))->toBe(Ageing::receivablesAt($asAt));
+        expect(($this->aged)($asAt))->toBe(BalancesService::getAccountBalanceByCode(ChartOfAccounts::ACCOUNTS_RECEIVABLE, ['to' => $asAt]));
     })->with([
         ['before the void', VA_BEFORE_VOID],
         ['on the day of the void', VA_VOID_DAY],
@@ -120,7 +120,7 @@ describe('payables ageing after a void', function () {
         $voided = ($this->creditPurchase)(5);
         PurchaseService::voidPurchase($voided['purchaseId'], 'wrong supplier', $this->actor, $this->voidAt);
 
-        expect(($this->agedPayables)($asAt))->toBe(Ageing::payablesAt($asAt));
+        expect(($this->agedPayables)($asAt))->toBe(BalancesService::getAccountBalanceByCode(ChartOfAccounts::ACCOUNTS_PAYABLE, ['to' => $asAt]));
     })->with([
         ['before the void', VA_BEFORE_VOID],
         ['on the day of the void', VA_VOID_DAY],

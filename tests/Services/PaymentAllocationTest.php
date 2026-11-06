@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/payment-allocation.test.ts: which
 | invoices a payment pays, and how an entry is unwound. Account balances come
-| from Shop::balance until the reports arrive (Phase 7).
+| from Shop::balance, which is the real BalancesService::getAccountBalanceByCode.
 */
 
 use App\Database\Tx;

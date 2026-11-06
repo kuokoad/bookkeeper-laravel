@@ -14,6 +14,9 @@
         <testsuite name="Services">
             <directory>tests/Services</directory>
         </testsuite>
+        <testsuite name="Invariants">
+            <directory>tests/Invariants</directory>
+        </testsuite>
         <testsuite name="Processes">
             <directory>tests/Processes</directory>
         </testsuite>

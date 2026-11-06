@@ -8,7 +8,6 @@ use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
 use App\Domain\FinancialYear;
-use App\Enums\AccountType;
 use App\Enums\AdjustmentReason;
 use App\Enums\BusinessType;
 use App\Enums\JournalSourceType;
@@ -21,6 +20,7 @@ use App\Services\InventoryService;
 use App\Services\JournalService;
 use App\Services\PaymentAccountService;
 use App\Services\PurchaseService;
+use App\Services\Reporting\BalancesService;
 use App\Services\SaleService;
 use App\Services\SettingsService;
 use App\Services\StockAdjustmentService;
@@ -97,30 +97,16 @@ final class Shop
         ));
     }
 
-    /**
-     * An account's balance on its normal side, a heading including its
-     * children: the old reporting getAccountBalanceByCode, until the reports
-     * arrive in Phase 7.
-     */
-    public static function balance(string $code): int
+    /** An account's balance on its normal side, a heading including its children: the real report. */
+    public static function balance(string $code, array $range = []): int
     {
-        $account = DB::table('accounts')->where('code', $code)->first();
-        if ($account === null) {
-            return 0;
-        }
-        $ids = DB::table('accounts')->where('parent_id', $account->id)->pluck('id')->push($account->id)->all();
-        $totals = DB::table('journal_lines')->whereIn('account_id', $ids)
-            ->selectRaw('COALESCE(SUM(debit_minor), 0) AS d, COALESCE(SUM(credit_minor), 0) AS c')->first();
-
-        return Journal::signedBalance(AccountType::from($account->type), (int) $totals->d, (int) $totals->c);
+        return BalancesService::getAccountBalanceByCode($code, $range);
     }
 
-    /** Every journal line together: debits equal credits. */
+    /** Every journal line together: debits equal credits, from the real trial balance. */
     public static function trialBalanced(): bool
     {
-        $totals = DB::table('journal_lines')->selectRaw('COALESCE(SUM(debit_minor), 0) AS d, COALESCE(SUM(credit_minor), 0) AS c')->first();
-
-        return (int) $totals->d === (int) $totals->c;
+        return BalancesService::getTrialBalance()['balanced'];
     }
 
     /** A product the way the old tests made one: pcs, 5.00 cost, 8.00 selling unless told otherwise. */

@@ -6,6 +6,12 @@ namespace App\Services\Migration;
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Inventory\Costing;
+use App\Services\Reporting\BalancesService;
+use App\Services\Reporting\FinancialService;
+use App\Services\Reporting\LedgerService;
+use App\Services\Reporting\OperationsService;
+use App\Services\Reporting\TaxReturnService;
+use App\Services\Reporting\YearEndService;
 use Illuminate\Support\Facades\DB;
 use PDO;
 
@@ -17,8 +23,15 @@ use PDO;
  * Version 1 (Phase 2) checks every column of every row of every table, then
  * the figures: the trial balance per account, the running stock pair per product (cached
  * and replayed from the stock ledger), receivables per customer, payables per
- * supplier and tax held per account. Later phases add the P&L, balance sheet,
- * ageing and tax return, read through the new reporting services.
+ * supplier and tax held per account.
+ *
+ * Version 2 (Phase 7) then reads the reports through the NEW reporting
+ * services, for every financial year in the data and as at the latest date
+ * (or --as-at): the trial balance, the P&L, the balance sheet with its
+ * per-account lines, receivables and payables ageing, the tax return per
+ * component, the cash flow per source and per payment account, sales by day
+ * and the stock valuation, each against the same figures worked out from the
+ * old SQLite copy by OldReports.
  */
 final class Reconciler
 {
@@ -39,6 +52,7 @@ final class Reconciler
         $this->subledger($old, ChartOfAccounts::ACCOUNTS_RECEIVABLE, 'customer_id', 'receivables', $asAt);
         $this->subledger($old, ChartOfAccounts::ACCOUNTS_PAYABLE, 'supplier_id', 'payables', $asAt);
         $this->taxHeld($old, $asAt);
+        $this->reports($old, $asAt);
 
         return ['differences' => $this->differences, 'checked' => $this->checked];
     }
@@ -181,6 +195,166 @@ final class Reconciler
         $oldRows = $this->oldRows($old, $sql, [$asAt, $asAt]);
         $newRows = DB::select($sql, [$asAt, $asAt]);
         $this->compareKeyed('tax held', $this->keyed($oldRows, 'code'), $this->keyed($newRows, 'code'));
+    }
+
+    /** Version 2: the reports, through the new services, against the old figures from plain SQL. */
+    private function reports(PDO $old, ?string $asAt): void
+    {
+        $years = OldReports::years($old);
+        $newYears = YearEndService::availableFinancialYears();
+        $this->compare('financial years', count($years), count($newYears));
+        foreach ($years as $i => $year) {
+            $this->compare("financial year {$year['label']} start year", $year['startYear'], isset($newYears[$i]) ? $newYears[$i]->startYear : null);
+        }
+        $latest = $asAt ?? OldReports::latestDate($old);
+        $figures = 0;
+        $check = function (string $label, array $oldFigures, array $newFigures) use (&$figures): void {
+            ksort($oldFigures);
+            ksort($newFigures);
+            foreach (array_unique([...array_keys($oldFigures), ...array_keys($newFigures)]) as $key) {
+                $this->compare("{$label} {$key}", $oldFigures[$key] ?? null, $newFigures[$key] ?? null);
+                $figures++;
+            }
+        };
+
+        $dates = array_map(fn (array $year): string => $year['end'], $years);
+        if ($latest !== null) {
+            $dates[] = $latest;
+        }
+        foreach (array_unique($dates) as $date) {
+            $check("trial balance at {$date}", OldReports::trialBalance($old, $date), $this->newTrialBalance($date));
+            $check("balance sheet at {$date}", OldReports::balanceSheet($old, $date), $this->newBalanceSheet($date));
+            foreach (['receivables', 'payables'] as $side) {
+                $check("{$side} ageing at {$date}", OldReports::ageing($old, $side, $date), $this->newAgeing($side, $date));
+            }
+        }
+        foreach ($years as ['label' => $label, 'start' => $from, 'end' => $to]) {
+            $check("P&L {$label}", OldReports::profitAndLoss($old, $from, $to), $this->newProfitAndLoss($from, $to));
+            $check("tax return {$label}", OldReports::taxReturn($old, $from, $to), $this->newTaxReturn($from, $to));
+            $check("cash flow {$label}", OldReports::cashFlow($old, $from, $to), $this->newCashFlow($from, $to));
+            $check("sales by day {$label}", OldReports::salesByDay($old, $from, $to), $this->newSalesByDay($from, $to));
+        }
+        $check('stock valuation', OldReports::stockValuation($old), $this->newStockValuation());
+
+        $this->checked['financial years, each with its P&L, tax return, cash flow and sales by day'] = count($years);
+        $this->checked['report dates (each year end and the latest), each with its trial balance, balance sheet and ageing'] = count(array_unique($dates));
+        $this->checked['report figures'] = $figures;
+    }
+
+    private function newTrialBalance(string $to): array
+    {
+        $lines = [];
+        foreach (BalancesService::getTrialBalance(['to' => $to])['lines'] as $line) {
+            $lines[$line['code']] = $line['debit'] - $line['credit'];
+        }
+
+        return $lines;
+    }
+
+    private function newProfitAndLoss(string $from, string $to): array
+    {
+        $pl = FinancialService::getProfitAndLoss(['from' => $from, 'to' => $to]);
+        $figures = array_intersect_key($pl, array_flip(['salesRevenue', 'salesDiscounts', 'salesReturns', 'netSales', 'totalOtherIncome', 'costOfGoodsSold', 'grossProfit', 'totalExpenses', 'netProfit']));
+        foreach ($pl['otherIncome'] as $line) {
+            $figures["other income {$line['code']}"] = $line['amount'];
+        }
+        foreach ($pl['expenses'] as $line) {
+            $figures["expense {$line['code']}"] = $line['amount'];
+        }
+
+        return $figures;
+    }
+
+    private function newBalanceSheet(string $asAt): array
+    {
+        $sheet = FinancialService::getBalanceSheet($asAt);
+        $figures = array_intersect_key($sheet, array_flip([
+            'totalCash', 'receivables', 'customerCredits', 'inventory', 'totalAssets', 'payables', 'supplierAdvances', 'taxPayable',
+            'totalLiabilities', 'ownersCapital', 'drawings', 'openingBalanceEquity', 'retainedEarnings', 'totalEquity', 'difference',
+        ]));
+        foreach (['cash' => 'cashAccounts', 'other asset' => 'otherAssets', 'other liability' => 'otherLiabilities'] as $section => $key) {
+            foreach ($sheet[$key] as $line) {
+                $figures["{$section} {$line['code']}"] = $line['amount'];
+            }
+        }
+
+        return $figures;
+    }
+
+    private function newCashFlow(string $from, string $to): array
+    {
+        $flow = FinancialService::getCashFlow(['from' => $from, 'to' => $to]);
+        $figures = ['opening' => $flow['openingBalance'], 'total in' => $flow['totalIn'], 'total out' => $flow['totalOut'], 'closing' => $flow['closingBalance']];
+        foreach ($flow['lines'] as $line) {
+            $figures["{$line['sourceType']} in"] = $line['inMinor'];
+            $figures["{$line['sourceType']} out"] = $line['outMinor'];
+        }
+        foreach ($flow['byAccount'] as $account) {
+            foreach (['opening', 'in', 'out', 'closing'] as $field) {
+                $figures["account {$account['id']} {$field}"] = $account[$field];
+            }
+        }
+
+        return $figures;
+    }
+
+    private function newSalesByDay(string $from, string $to): array
+    {
+        $figures = [];
+        foreach (OperationsService::getSalesByDay(['from' => $from, 'to' => $to]) as $day) {
+            $figures["{$day['businessDate']} receipts"] = $day['saleCount'];
+            $figures["{$day['businessDate']} total"] = $day['total'];
+            $figures["{$day['businessDate']} tax"] = $day['tax'];
+            $figures["{$day['businessDate']} cost"] = $day['cogs'];
+        }
+
+        return $figures;
+    }
+
+    private function newStockValuation(): array
+    {
+        $valuation = OperationsService::getStockValuation();
+        $figures = ['total cost' => $valuation['totalCostValue'], 'total retail' => $valuation['totalRetailValue']];
+        foreach ($valuation['rows'] as $row) {
+            $figures["product {$row['productId']} qty"] = $row['qtyOnHand'];
+            $figures["product {$row['productId']} cost"] = $row['stockValue'];
+            $figures["product {$row['productId']} retail"] = $row['retailValue'];
+        }
+
+        return $figures;
+    }
+
+    private function newAgeing(string $side, string $asAt): array
+    {
+        $flat = [];
+        foreach ($side === 'receivables' ? LedgerService::getReceivablesAgeing($asAt) : LedgerService::getPayablesAgeing($asAt) as $row) {
+            foreach (['total', 'current', 'days1to30', 'days31to60', 'days61to90', 'over90'] as $bucket) {
+                if ($row[$bucket] !== 0) {
+                    $flat["{$row['partyId']} {$bucket}"] = $row[$bucket];
+                }
+            }
+        }
+
+        return $flat;
+    }
+
+    private function newTaxReturn(string $from, string $to): array
+    {
+        $tax = TaxReturnService::getTaxReturn(['from' => $from, 'to' => $to]);
+        $figures = [
+            'taxable sales' => $tax['taxableSalesMinor'],
+            'taxable purchases' => $tax['taxablePurchasesMinor'],
+            'sales documents' => $tax['saleCount'],
+            'purchases documents' => $tax['purchaseCount'],
+        ];
+        foreach ($tax['components'] as $c) {
+            $figures["{$c['code']} output"] = $c['outputMinor'];
+            $figures["{$c['code']} recoverable input"] = $c['recoverableInputMinor'];
+            $figures["{$c['code']} non-recoverable input"] = $c['nonRecoverableInputMinor'];
+            $figures["{$c['code']} net"] = $c['netMinor'];
+        }
+
+        return $figures;
     }
 
     private function oldRows(PDO $old, string $sql, array $bindings): array

@@ -6,17 +6,9 @@ declare(strict_types=1);
 | Ported from the old tests/services/credited-returns.test.ts: goods put back
 | on account come off the sale they were bought on.
 |
-| The receivables ageing (Phase 7) is not built yet. Where the old test summed
-| getReceivablesAgeing, this sums getOutstandingBySale as at the same date
-| (the read the ageing is built from), and the ledger figure is the A/R
-| journal lines dated up to that day.
-|
-| The purchase block reads the payables ageing through Tests\Support\Ageing
-| (a test-side copy of the old getPayablesAgeing, line for line) and the A/P
-| journal lines dated up to that day.
-|
-| Deferred to Phase 7 (reports): "ages the credit with the sale it came off,
-| not on the day it was given" (needs the ageing buckets).
+| The ageing and the control accounts are read through the real reports
+| (LedgerService ageing, BalancesService::getAccountBalanceByCode as at a
+| date). The whole file is ported; nothing is deferred.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -24,11 +16,12 @@ use App\Domain\Errors\ValidationError;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
 use App\Services\PurchaseService;
+use App\Services\Reporting\BalancesService;
+use App\Services\Reporting\LedgerService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use App\Services\SupplierService;
 use Illuminate\Support\Facades\DB;
-use Tests\Support\Ageing;
 use Tests\Support\Shop;
 
 const CRET_DAY = '2026-08-10';
@@ -78,13 +71,8 @@ beforeEach(function () {
         'refunds' => $refund === 0 ? [] : [['paymentAccountId' => $this->cash, 'amount' => $refund]],
     ], $this->actor);
 
-    $this->receivablesAsAt = fn (string $asAt): int => (int) DB::table('journal_lines')
-        ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
-        ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
-        ->where('accounts.code', ChartOfAccounts::ACCOUNTS_RECEIVABLE)
-        ->where('journal_entries.entry_date', '<=', $asAt)
-        ->selectRaw('COALESCE(SUM(`journal_lines`.`debit_minor` - `journal_lines`.`credit_minor`), 0) AS b')
-        ->value('b');
+    $this->receivablesAsAt = fn (string $asAt): int => BalancesService::getAccountBalanceByCode(ChartOfAccounts::ACCOUNTS_RECEIVABLE, ['to' => $asAt]);
+    $this->aged = fn (array $rows): int => array_sum(array_column($rows, 'total'));
 });
 
 describe('a sale after goods come back on account', function () {
@@ -198,9 +186,8 @@ describe('the receivables ageing with goods back on account', function () {
         $sale = ($this->creditSale)(2);
         ($this->bringBack)($sale, 1);
 
-        $outstanding = SaleService::getOutstandingBySale(['asAt' => $asAt]);
-        expect($outstanding[$sale])->toBe($owing)
-            ->and(array_sum($outstanding))->toBe($owing)
+        expect(SaleService::getOutstandingBySale(['asAt' => $asAt])[$sale])->toBe($owing)
+            ->and(($this->aged)(LedgerService::getReceivablesAgeing($asAt)))->toBe($owing)
             ->and(($this->receivablesAsAt)($asAt))->toBe($owing);
     })->with([
         'before the return' => [CRET_BEFORE_RETURN, 24_000],
@@ -208,12 +195,21 @@ describe('the receivables ageing with goods back on account', function () {
         'after the return' => [CRET_AFTER_RETURN, 12_000],
     ]);
 
+    it('ages the credit with the sale it came off, not on the day it was given', function () {
+        $sale = ($this->creditSale)(2, '2026-06-01');
+        ($this->bringBack)($sale, 1);
+
+        $row = LedgerService::getReceivablesAgeing(CRET_AFTER_RETURN)[0];
+        expect($row['current'])->toBe(0)
+            ->and($row['days61to90'])->toBe(12_000);
+    });
+
     it('keeps a customer in credit in step with the ledger', function () {
         $sale = ($this->creditSale)(1);
         ($this->pay)(12_000);
         ($this->bringBack)($sale, 1);
 
-        expect(array_sum(SaleService::getOutstandingBySale(['asAt' => CRET_AFTER_RETURN])))->toBe(($this->receivablesAsAt)(CRET_AFTER_RETURN));
+        expect(($this->aged)(LedgerService::getReceivablesAgeing(CRET_AFTER_RETURN)))->toBe(($this->receivablesAsAt)(CRET_AFTER_RETURN));
     });
 
     it('keeps the credit on the return when its sale was voided', function () {
@@ -260,8 +256,8 @@ describe('a purchase after goods go back on account', function () {
         ($this->sendBack)($purchase, 1);
 
         expect(PurchaseService::getOutstandingByPurchase(['asAt' => $asAt])[$purchase])->toBe($owing)
-            ->and(array_sum(array_column(Ageing::payables($asAt), 'total')))->toBe($owing)
-            ->and(Ageing::payablesAt($asAt))->toBe($owing);
+            ->and(($this->aged)(LedgerService::getPayablesAgeing($asAt)))->toBe($owing)
+            ->and(BalancesService::getAccountBalanceByCode(ChartOfAccounts::ACCOUNTS_PAYABLE, ['to' => $asAt]))->toBe($owing);
     })->with([
         'before the return' => [CRET_BEFORE_RETURN, 16_000],
         'after the return' => [CRET_AFTER_RETURN, 8_000],

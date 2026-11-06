@@ -5,9 +5,8 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/reconciliation.test.ts: what the books
 | expect, agreeing counts, shortages, surpluses, history never rewritten,
-| voids, the books lock, the overview and the audit row.
-| The worked example's Profit & Loss (Phase 7) is asserted from journal sums:
-| 5910 is the only P&L account with a balance, so total expenses = 5910.
+| voids, the books lock, the overview and the audit row. The worked
+| example's Profit & Loss is the real report (FinancialService).
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -17,6 +16,7 @@ use App\Domain\Errors\ValidationError;
 use App\Services\PaymentAccountService;
 use App\Services\PeriodLockService;
 use App\Services\ReconciliationService;
+use App\Services\Reporting\FinancialService;
 use App\Services\SaleService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
@@ -104,6 +104,11 @@ describe('a shortage', function () {
             ->and([(int) $lines[1]->account_id, (int) $lines[1]->credit_minor, (int) $lines[1]->payment_account_id, $lines[1]->description])->toBe([Shop::accountId('1001'), 5_000, $this->cash, 'REC-00001 shortage'])
             ->and(DB::table('journal_entries')->where('id', $result['journalEntryId'])->value('entry_date'))->toBe(REC_TODAY)
             ->and(DB::table('accounts')->where('code', '5910')->value('name'))->toBe('Cash Over / Short');
+
+        // It reduces profit, which is the honest treatment.
+        $pl = FinancialService::getProfitAndLoss(['from' => '2026-08-01', 'to' => '2026-08-31']);
+        expect(collect($pl['expenses'])->contains('name', 'Cash Over / Short'))->toBeTrue()
+            ->and($pl['totalExpenses'])->toBe(5_000);
     });
 
     it('can be recorded WITHOUT adjusting, leaving the money to be looked for', function () {

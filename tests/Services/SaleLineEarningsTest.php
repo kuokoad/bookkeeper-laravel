@@ -6,86 +6,40 @@ declare(strict_types=1);
 | Ported from the old tests/services/sale-line-earnings.test.ts: what a line
 | of a sale earned, net of its receipt's tax and discount.
 |
-| The old test read the figures through reporting/operations.service
-| (getSalesByProduct, getSalesByCategory, getSalesLinesByDay,
-| getSalesLinesByCustomer, getTopProductByRevenue) and the P&L, which arrive
-| in Phase 7. Until then the line tables are tallied here from the stored sale
-| rows exactly as the old earnedLines did (SaleCalculator::lineEarnings over
-| each whole receipt, then filtered), and the P&L's net sales and gross profit
-| come from journal-line sums (4000 − 4100 − 4150, less 5000). Every figure
-| asserted is the old one.
+| Read through the real reports: OperationsService (by product, category,
+| day and customer, and the top product) and the P&L. The whole old file is
+| ported; nothing is deferred.
 */
 
-use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Money;
-use App\Domain\Sales\SaleCalculator;
 use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
+use App\Services\Reporting\FinancialService;
+use App\Services\Reporting\OperationsService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
 const SLE_DAY = '2026-08-10';
 const SLE_AUGUST = ['from' => '2026-08-01', 'to' => '2026-08-31'];
 
-/** The old earnedLines: every line of every receipt dated in the window, shared out by the receipt, then filtered. */
-function sleEarnedLines(array $query): array
-{
-    $rows = DB::table('sale_items')
-        ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-        ->leftJoin('products', 'products.id', '=', 'sale_items.product_id')
-        ->leftJoin('customers', 'customers.id', '=', 'sales.customer_id')
-        ->where('sales.business_date', '>=', $query['from'])
-        ->where('sales.business_date', '<=', $query['to'])
-        ->orderBy('sale_items.sale_id')->orderBy('sale_items.line_no')
-        ->get(['sale_items.sale_id', 'sales.business_date', 'sales.customer_id', 'sales.total_minor', 'sales.tax_minor',
-            'sale_items.product_id', 'products.category_id', 'sale_items.qty_milli', 'sale_items.line_total_minor', 'sale_items.total_cost_minor'])
-        ->groupBy('sale_id');
-
-    $lines = [];
-    foreach ($rows as $receipt) {
-        $earned = SaleCalculator::lineEarnings((int) $receipt[0]->total_minor, (int) $receipt[0]->tax_minor, $receipt->map(fn ($r): int => (int) $r->line_total_minor)->all());
-        foreach ($receipt->values() as $i => $row) {
-            if (isset($query['productId']) && (int) $row->product_id !== $query['productId']) {
-                continue;
-            }
-            if (isset($query['categoryId']) && (int) $row->category_id !== $query['categoryId']) {
-                continue;
-            }
-            $lines[] = ['saleId' => (int) $row->sale_id, 'day' => $row->business_date, 'customerId' => $row->customer_id, 'productId' => (int) $row->product_id,
-                'categoryId' => $row->category_id, 'qty' => (int) $row->qty_milli, 'earned' => $earned[$i], 'cost' => (int) $row->total_cost_minor];
-        }
-    }
-
-    return $lines;
-}
-
-/** Lines added up by a key, revenue first then the key: the old tallyLines and its sorts. */
+/** The line table a key names, from the real report. */
 function sleTally(array $query, string $key): array
 {
-    $tallies = [];
-    foreach (sleEarnedLines($query) as $line) {
-        $k = (string) $line[$key];
-        $tallies[$k] ??= ['key' => $line[$key], 'qty' => 0, 'revenue' => 0, 'cost' => 0, 'receipts' => []];
-        $tallies[$k]['qty'] += $line['qty'];
-        $tallies[$k]['revenue'] = Money::add($tallies[$k]['revenue'], $line['earned']);
-        $tallies[$k]['cost'] = Money::add($tallies[$k]['cost'], $line['cost']);
-        $tallies[$k]['receipts'][$line['saleId']] = true;
-    }
-    $rows = array_map(fn (array $t): array => [...$t, 'profit' => $t['revenue'] - $t['cost'], 'saleCount' => count($t['receipts']),
-        'marginBp' => SaleCalculator::marginBp($t['revenue'], $t['cost'])], array_values($tallies));
-    usort($rows, fn (array $a, array $b): int => $b['revenue'] <=> $a['revenue'] ?: $a['key'] <=> $b['key']);
-
-    return $rows;
+    return match ($key) {
+        'productId' => OperationsService::getSalesByProduct($query),
+        'categoryId' => OperationsService::getSalesByCategory($query),
+        'day' => OperationsService::getSalesLinesByDay($query),
+        'customerId' => OperationsService::getSalesLinesByCustomer($query),
+    };
 }
 
 function sleRevenueOf(int $productId): ?int
 {
     foreach (sleTally(SLE_AUGUST, 'productId') as $row) {
-        if ($row['key'] === $productId) {
+        if ($row['productId'] === $productId) {
             return $row['revenue'];
         }
     }
@@ -93,22 +47,14 @@ function sleRevenueOf(int $productId): ?int
     return null;
 }
 
-/** The head of the by-product table with positive revenue and quantity, as the dashboard card. */
 function sleTopProduct(): ?array
 {
-    foreach (sleTally(SLE_AUGUST, 'productId') as $row) {
-        if ($row['revenue'] > 0 && $row['qty'] > 0) {
-            return $row;
-        }
-    }
-
-    return null;
+    return OperationsService::getTopProductByRevenue(SLE_AUGUST);
 }
 
-/** P&L net sales and gross profit from the journal (every posting here is in August). */
 function sleNetSales(): int
 {
-    return Shop::balance(ChartOfAccounts::SALES_REVENUE) - Shop::balance(ChartOfAccounts::SALES_DISCOUNTS) - Shop::balance(ChartOfAccounts::SALES_RETURNS);
+    return FinancialService::getProfitAndLoss(SLE_AUGUST)['netSales'];
 }
 
 function sleSum(array $rows, string $field): int
@@ -160,7 +106,7 @@ describe('line figures under tax-inclusive prices', function () {
             ->and(sleSum(sleTally(SLE_AUGUST, 'categoryId'), 'revenue'))->toBe($net)
             ->and(sleSum(sleTally(SLE_AUGUST, 'day'), 'revenue'))->toBe($net)
             ->and(sleSum(sleTally(SLE_AUGUST, 'customerId'), 'revenue'))->toBe($net)
-            ->and(sleSum(sleTally(SLE_AUGUST, 'productId'), 'profit'))->toBe($net - Shop::balance(ChartOfAccounts::COST_OF_GOODS_SOLD));
+            ->and(sleSum(sleTally(SLE_AUGUST, 'productId'), 'profit'))->toBe(FinancialService::getProfitAndLoss(SLE_AUGUST)['grossProfit']);
     });
 
     it('keeps every pesewa when the shares do not divide evenly', function () {

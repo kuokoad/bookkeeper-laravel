@@ -7,15 +7,13 @@ declare(strict_types=1);
 | mirror dated the day of the correction, and the takings the owner reads
 | agree with the Profit & Loss on each day.
 |
-| The P&L and the operations reports are Phase 7. Until then the same figures
-| are read here the way the old reports built them: net sales is Sales Revenue
-| less Sales Discounts and Sales Returns over journal lines dated in the
-| window (financial.service); sales-by-day sums sales.total_minor per business
-| date over every document dated in it; money-by-method sums sale_payments of
-| every sale dated in it (operations.service salesDatedIn).
+| Read through the real reports (FinancialService, OperationsService). The
+| whole old file is ported; nothing is deferred.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
+use App\Services\Reporting\FinancialService;
+use App\Services\Reporting\OperationsService;
 use App\Services\SaleService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -23,19 +21,6 @@ use Tests\Support\Shop;
 
 const SVR_SALE_DAY = '2026-08-10';
 const SVR_VOID_DAY = '2026-08-17';
-
-/** P&L net sales: revenue less discounts and returns, journal lines dated in the window. */
-function svrNetSales(string $from, string $to): int
-{
-    $signed = fn (string $code): int => (int) DB::table('journal_lines')
-        ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
-        ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
-        ->where('accounts.code', $code)
-        ->whereBetween('journal_entries.entry_date', [$from, $to])
-        ->selectRaw('COALESCE(SUM(journal_lines.credit_minor - journal_lines.debit_minor), 0) AS b')->value('b');
-
-    return $signed(ChartOfAccounts::SALES_REVENUE) + $signed(ChartOfAccounts::SALES_DISCOUNTS) + $signed(ChartOfAccounts::SALES_RETURNS);
-}
 
 beforeEach(function () {
     $this->actor = Shop::owner();
@@ -73,12 +58,12 @@ describe('the reversing document', function () {
 describe('the takings the owner reads', function () {
     it('agrees with the Profit & Loss on the day of the sale', function () {
         ($this->sellThenVoid)();
-        expect(SaleService::getSalesSummary(SVR_SALE_DAY, SVR_SALE_DAY)['total'])->toBe(svrNetSales(SVR_SALE_DAY, SVR_SALE_DAY));
+        expect(SaleService::getSalesSummary(SVR_SALE_DAY, SVR_SALE_DAY)['total'])->toBe(FinancialService::getProfitAndLoss(['from' => SVR_SALE_DAY, 'to' => SVR_SALE_DAY])['netSales']);
     });
 
     it('agrees with the Profit & Loss on the day of the void', function () {
         ($this->sellThenVoid)();
-        expect(SaleService::getSalesSummary(SVR_VOID_DAY, SVR_VOID_DAY)['total'])->toBe(svrNetSales(SVR_VOID_DAY, SVR_VOID_DAY));
+        expect(SaleService::getSalesSummary(SVR_VOID_DAY, SVR_VOID_DAY)['total'])->toBe(FinancialService::getProfitAndLoss(['from' => SVR_VOID_DAY, 'to' => SVR_VOID_DAY])['netSales']);
     });
 
     it('nets to nothing across both days, like the ledger does', function () {
@@ -126,15 +111,14 @@ describe('the operations reports', function () {
         ($this->sellThenVoid)();
         // Per day, not over the span: dropping both halves of a void nets out across a span.
         foreach ([SVR_SALE_DAY, SVR_VOID_DAY] as $day) {
-            $reported = (int) DB::table('sales')->where('business_date', $day)->sum('total_minor');
-            expect($reported)->toBe(svrNetSales($day, $day), "takings on {$day}");
+            $reported = array_sum(array_column(OperationsService::getSalesByDay(['from' => $day, 'to' => $day]), 'total'));
+            expect($reported)->toBe(FinancialService::getProfitAndLoss(['from' => $day, 'to' => $day])['netSales'], "takings on {$day}");
         }
     });
 
     it('money-taken-by-method nets out too', function () {
         ($this->sellThenVoid)();
-        $received = (int) DB::table('sale_payments')->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
-            ->whereBetween('sales.business_date', [SVR_SALE_DAY, SVR_VOID_DAY])->sum('sale_payments.amount_minor');
+        $received = array_sum(array_column(OperationsService::getSalesByPaymentMethod(['from' => SVR_SALE_DAY, 'to' => SVR_VOID_DAY]), 'received'));
 
         // The cash went into the till and came back out of it.
         expect($received)->toBe(0);

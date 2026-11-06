@@ -12,7 +12,7 @@ use Tests\TestCase;
 */
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Database', 'Feature', 'Services');
+    ->in('Database', 'Feature', 'Services', 'Invariants');
 
 pest()->extend(TestCase::class)->in('Domain');
 

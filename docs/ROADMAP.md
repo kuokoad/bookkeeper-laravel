@@ -44,7 +44,7 @@ Every phase follows the same loop: port the old tests → write the code → com
 - Payment accounts, expenses, income, capital and drawings, transfers, reconciliation
 - Demo data (`SEED_DEMO_DATA=true`), checked against the old app's own demo database
 
-## Phase 7: Reports ⬜ (FR-11 to FR-13)
+## Phase 7: Reports ✅ (FR-11 to FR-13)
 - Trial balance, P&L, balance sheet, cash flow, ledger, ageing, statements, tax return, dashboard, year-end pack and close, CSV exports
 
 **Exit criteria:** report and invariant tests green; reconcile passes on the P&L, balance sheet and tax payable for every year.

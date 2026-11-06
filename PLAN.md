@@ -227,3 +227,68 @@ payment amount.** Old `supplier-payment.service.ts` allocation loop. Paying
 10.00 with an allocation of 50.00 to one purchase settles 50.00 of it while
 the payable falls by 10.00. Proposed: refuse allocations that add up to more
 than the payment. (Check the customer side for the same.)
+
+The items below are reports, not postings: they change what a screen or
+export shows, never a stored figure.
+
+**D4. Account balances with "leave out closing entries" and no dates still
+count the closing entries.** Old `reporting/balances.service.ts:80-84`
+(new `BalancesService::getAccountBalances`, `periodOnlyWhenDated`): the
+WHERE that drops lines outside the window is applied only when a from or to
+is given, and the totals sum journal lines, not entries, so the closing
+condition in the JOIN filters nothing. Example: 2025 closed with sales of
+10,000.00; all-time balances with `excludeClosing` show Sales Revenue (4000)
+at 0.00, not 10,000.00. The P&L and year-end close always pass dates, so
+neither is affected today. Proposed: apply the conditions whenever any is set.
+
+**D5. The dashboard's "week" is 8 days, "month" 31 and "quarter" 91.** Old
+`lib/dashboard.ts:9,16`: the range runs `today − 7 .. today`, both ends
+inclusive. Example: on Friday 2026-11-06 "this week" covers Friday
+2026-10-30 to Friday 2026-11-06, so last Friday's takings are counted with
+today's. Proposed: `today − 6 .. today` (and 29 and 89), or calendar
+week/month/quarter to date.
+
+**D6. The money trend counts a transfer between your own accounts as money
+in and money out, while the shop-wide cash flow leaves transfers out.** Old
+`reporting/money-trend.ts:80-95` sums every debit and credit on the money
+accounts; `financial.service.ts:460` drops `TRANSFER` shop-wide. Example:
+moving 2,000.00 from the till to the bank in March shows March's trend
+with 2,000.00 more in and 2,000.00 more out than the cash-flow report for
+March (the net is the same). Proposed: drop transfers from the trend too.
+
+**D7. Purchases by product adds quantities across a unit change and shows one
+unit.** Old `reporting/operations.service.ts:658-672` groups by product only
+and takes any row's `unit`. Example: 5 cartons of Milo bought before the unit
+changed to pieces (24 a carton), then 10 pieces: the report reads "15 pcs"
+(or "15 carton"), where 130 pieces came in. Proposed: group by product and
+unit, one row per unit bought in.
+
+**D8. Payables are aged from the purchase date; purchases have no due date.**
+Old `reporting/ledger.service.ts:585` (receivables use the due date, :523).
+Example: a delivery on 60-day terms received 45 days ago shows as 31–60 days
+overdue when nothing is due yet. Proposed: add a due date (or supplier terms)
+to purchases and age from it, falling back to the purchase date.
+
+**D9. The taxable-sales box counts a voided sale and its void.** Old
+`reporting/tax-return.service.ts:151` sums `subtotal − discount` over every
+sales row in the period, voided originals and their negative mirrors
+included. A void in the same period nets to zero, but the document count
+goes up by two. Example: one sale of 100.00 and a void of another of 50.00
+reads "taxable sales 100.00 over 3 sales". Across periods (sale in March,
+void in April) April shows −50.00. Proposed: count only `POSTED` sales and
+returns for the count; keep the value netting as is.
+
+**D10. An invalid report `from` falls back to the 1st of this month, and a
+`from` after `to` is not swapped.** Old `app/api/reports/[report]/route.ts:59`.
+Example: `from=2026-02-30&to=2026-01-31` on 2026-11-06 becomes
+2026-11-01..2026-01-31, an empty report with no warning. Proposed: refuse or
+swap the pair, and show the resolved dates.
+
+**D11. Margins are `Math.round` of a float ratio.** Old
+`reporting/financial.service.ts:198,202` and `operations.service.ts:397`
+(new: `JsCompat::round`). Math.round sends a tie towards +∞, where every
+money figure in the app rounds half away from zero, and the float division
+can land a hair either side of a tie. Example: a loss of 1.00 on sales of
+20,000.00 is exactly −0.5 bp: the old app shows a margin of 0 bp (0.00%),
+half away from zero gives −1 bp (−0.01%). The effect is at most 1 bp.
+Proposed: integer `Money::divRoundHalf(profit × 10,000, revenue)`.

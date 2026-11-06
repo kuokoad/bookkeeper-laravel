@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 /*
 | Ported from the old tests/services/sales.test.ts: the till, credit, stock
-| rules, voids and reads. Account balances come from Shop::balance until the
-| reports arrive (Phase 7).
+| rules, voids and reads. Account balances come from Shop::balance, which is
+| the real BalancesService::getAccountBalanceByCode.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;

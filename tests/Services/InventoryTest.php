@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /*
 | Ported from the old tests/services/inventory.test.ts. Account balances come
-| from Shop::balance until the reports arrive (Phase 7).
+| from Shop::balance, which is the real BalancesService::getAccountBalanceByCode.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;

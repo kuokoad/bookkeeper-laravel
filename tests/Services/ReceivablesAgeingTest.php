@@ -6,17 +6,18 @@ declare(strict_types=1);
 | Ported from the old tests/services/receivables-ageing.test.ts: who owes the
 | shop, and for how long, as at a date.
 |
-| The ageing report is Phase 7 (reporting/ledger.service getReceivablesAgeing).
-| Until then Tests\Support\Ageing is that report's read, line for line,
-| over SaleService::getOutstandingBySale(asAt); the control account as at a
-| date is the A/R journal lines dated by then.
+| Read through the real report, LedgerService::getReceivablesAgeing, and the
+| control account through BalancesService::getAccountBalanceByCode with a to
+| date. The whole file is ported.
 */
 
+use App\Domain\Accounting\ChartOfAccounts;
 use App\Services\CustomerPaymentService;
+use App\Services\Reporting\BalancesService;
+use App\Services\Reporting\LedgerService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use Illuminate\Support\Facades\DB;
-use Tests\Support\Ageing;
 use Tests\Support\Shop;
 
 beforeEach(function () {
@@ -30,7 +31,7 @@ beforeEach(function () {
 
         return SaleService::createSale(['businessDate' => $date, 'customerId' => $this->customer, 'items' => [['productId' => $id, 'qty' => $units * 1000]], 'tenders' => []], $this->actor)['saleId'];
     };
-    $this->owedAt = fn (string $asAt): int => collect(Ageing::receivables($asAt))->firstWhere('partyId', $this->customer)['total'] ?? 0;
+    $this->owedAt = fn (string $asAt): int => collect(LedgerService::getReceivablesAgeing($asAt))->firstWhere('partyId', $this->customer)['total'] ?? 0;
     $this->pay = fn () => CustomerPaymentService::recordCustomerPayment(['businessDate' => '2026-05-10', 'customerId' => $this->customer, 'paymentAccountId' => $this->cash, 'amount' => 20_000], $this->actor);
     // One case came back; nothing refunded in cash, so it goes to their account.
     $this->returnOne = fn (int $saleId) => ReturnsService::createCustomerReturn($saleId, [
@@ -53,7 +54,7 @@ describe('"as at" a date in the past', function () {
         ($this->creditSale)('2026-03-01', 2);
         ($this->pay)();
 
-        expect(($this->owedAt)('2026-03-31'))->toBe(Ageing::receivablesAt('2026-03-31'));
+        expect(($this->owedAt)('2026-03-31'))->toBe(BalancesService::getAccountBalanceByCode(ChartOfAccounts::ACCOUNTS_RECEIVABLE, ['to' => '2026-03-31']));
     });
 });
 
@@ -65,12 +66,12 @@ describe('a credit note', function () {
 
     it('keeps the ageing tied to the control account', function () {
         ($this->returnOne)(($this->creditSale)('2026-03-01', 3));
-        expect(($this->owedAt)('2026-03-31'))->toBe(Ageing::receivablesAt('2026-03-31'));
+        expect(($this->owedAt)('2026-03-31'))->toBe(BalancesService::getAccountBalanceByCode(ChartOfAccounts::ACCOUNTS_RECEIVABLE, ['to' => '2026-03-31']));
     });
 
     it('leaves the buckets adding up to the total', function () {
         ($this->returnOne)(($this->creditSale)('2026-03-01', 3));
-        $row = collect(Ageing::receivables('2026-06-30'))->firstWhere('partyId', $this->customer);
+        $row = collect(LedgerService::getReceivablesAgeing('2026-06-30'))->firstWhere('partyId', $this->customer);
 
         expect($row['current'] + $row['days1to30'] + $row['days31to60'] + $row['days61to90'] + $row['over90'])->toBe($row['total']);
     });

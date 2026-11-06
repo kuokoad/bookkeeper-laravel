@@ -8,8 +8,8 @@ declare(strict_types=1);
 | returns block of that file is already covered by the Phase 4 ports
 | (SalesTest, RefundCapTest, CreditedReturnsTest) and is repeated here because
 | it sits in the same old file and the same figures must still hold.
-| Account balances come from Shop::balance (journal sums, the old
-| getAccountBalanceByCode) until the reports arrive in Phase 7.
+| Account balances come from Shop::balance, which is the real
+| BalancesService::getAccountBalanceByCode.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;

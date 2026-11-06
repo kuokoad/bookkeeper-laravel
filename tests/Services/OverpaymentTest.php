@@ -3,33 +3,20 @@
 declare(strict_types=1);
 
 /*
-| Ported from the old tests/services/overpayment.test.ts.
-|
-| The balance sheet and the receivables split are Phase 7 reports. Until they
-| arrive, "receivables" and "customer credits" are asserted as the sum of the
-| positive and of the negative customer balances (what getReceivablesSplit
-| summed), against the 1100 control account, and "the balance sheet balances"
-| as the trial balance balancing.
+| Ported from the old tests/services/overpayment.test.ts, through the real
+| balance sheet and receivables split. Nothing is deferred.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Errors\ValidationError;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
+use App\Services\Reporting\FinancialService;
+use App\Services\Reporting\SubledgerSplit;
 use App\Services\SaleService;
 use Tests\Support\Shop;
 
 const OVERPAY_TODAY = '2026-08-16';
-
-/** @return array{owed: int, inCredit: int, net: int, creditCount: int} */
-function overpaymentSplit(): array
-{
-    $balances = CustomerService::getAllCustomerBalances();
-    $owed = array_sum(array_filter($balances, fn (int $b): bool => $b > 0));
-    $credits = array_filter($balances, fn (int $b): bool => $b < 0);
-
-    return ['owed' => $owed, 'inCredit' => -array_sum($credits), 'net' => array_sum($balances), 'creditCount' => count($credits)];
-}
 
 beforeEach(function () {
     $this->actor = Shop::owner();
@@ -54,7 +41,8 @@ beforeEach(function () {
     );
     $this->healthy = function (string $label): void {
         expect(Shop::trialBalanced())->toBeTrue("{$label}: trial balance")
-            ->and(CustomerService::getTotalReceivables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE), "{$label}: A/R subledger vs control");
+            ->and(CustomerService::getTotalReceivables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE), "{$label}: A/R subledger vs control")
+            ->and(FinancialService::getBalanceSheet(OVERPAY_TODAY)['balances'])->toBeTrue("{$label}: balance sheet");
     };
 });
 
@@ -125,10 +113,11 @@ describe('a customer in credit on the balance sheet', function () {
         ($this->sellOnCredit)($credited);
         ($this->pay)($credited, 50_000);
 
-        $split = overpaymentSplit();
-        expect($split['owed'])->toBe(30_000)
-            ->and($split['inCredit'])->toBe(20_000)
-            ->and(Shop::trialBalanced())->toBeTrue();
+        $sheet = FinancialService::getBalanceSheet(OVERPAY_TODAY);
+        // Netting these would report 100.00 owed and no liability at all.
+        expect($sheet['receivables'])->toBe(30_000)
+            ->and($sheet['customerCredits'])->toBe(20_000)
+            ->and($sheet['balances'])->toBeTrue();
     });
 
     it('still sums to the control account, so nothing is invented', function () {
@@ -139,7 +128,7 @@ describe('a customer in credit on the balance sheet', function () {
         ($this->sellOnCredit)($credited);
         ($this->pay)($credited, 50_000);
 
-        $split = overpaymentSplit();
+        $split = SubledgerSplit::getReceivablesSplit();
         expect($split['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE))
             ->and($split['owed'] - $split['inCredit'])->toBe($split['net'])
             ->and($split['creditCount'])->toBe(1);
@@ -149,7 +138,7 @@ describe('a customer in credit on the balance sheet', function () {
         $customerId = Shop::customer($this->actor, 'Ama Serwaa');
         ($this->sellOnCredit)($customerId);
 
-        $split = overpaymentSplit();
-        expect($split['inCredit'])->toBe(0)->and($split['owed'])->toBe(30_000);
+        $sheet = FinancialService::getBalanceSheet(OVERPAY_TODAY);
+        expect($sheet['customerCredits'])->toBe(0)->and($sheet['receivables'])->toBe(30_000);
     });
 });

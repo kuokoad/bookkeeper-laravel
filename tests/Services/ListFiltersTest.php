@@ -5,14 +5,13 @@ declare(strict_types=1);
 /*
 | The filter parsers the product and stock-movement lists use: ported from the
 | "date ranges", "scalar parsers", "sorting" and "pagination" parts of the old
-| tests/lib/filters.test.ts (amounts, query strings and the return trip arrive
-| with the modules that use them, Phase 7), plus the list parsers: product and
+| tests/lib/filters.test.ts (its amount cases are in SalesFiltersTest; "query
+| strings" and "the return trip from a form" test URL helpers the screens use,
+| Phase 9), plus the list parsers: product and
 | stock movement, and since Phase 6 the cashbook and account-statement ones
-| (the old app had no tests for those two; these are new).
-|
-| Not yet ported, both with the reporting screens (Phase 7): "covers a whole
-| day at the end of a range" and "describes every preset without throwing"
-| (describeDateRange, which only the screens use).
+| (the old app had no tests for those two; these are new). Phase 7 added
+| "covers a whole day at the end of a range", "describes every preset without
+| throwing" (Filters::describeDateRange) and the report parsers.
 */
 
 use App\Support\Filters\Filters;
@@ -24,6 +23,12 @@ describe('date ranges', function () {
     it('includes both ends of an explicit range', function () {
         expect(Filters::resolveDateRange('custom', '2026-08-01', '2026-08-15', FILTERS_TODAY))
             ->toBe(['range' => ['from' => '2026-08-01', 'to' => '2026-08-15'], 'preset' => 'custom']);
+    });
+
+    it('covers a whole day at the end of a range, whatever time a sale happened', function () {
+        $range = Filters::resolveDateRange('custom', '2026-08-01', '2026-08-15', FILTERS_TODAY)['range'];
+        $lateEvening = '2026-08-15';
+        expect($lateEvening >= $range['from'] && $lateEvening <= $range['to'])->toBeTrue();
     });
 
     it('answers today and yesterday', function () {
@@ -79,6 +84,21 @@ describe('date ranges', function () {
 
     it('rejects a date that looks right but is not a real day', function () {
         expect(Filters::resolveDateRange('custom', '2026-02-30', null, FILTERS_TODAY)['preset'])->toBe('month');
+    });
+
+    it('describes every preset without throwing', function () {
+        foreach (Filters::DATE_PRESETS as $preset) {
+            $resolved = Filters::resolveDateRange($preset, FILTERS_TODAY, FILTERS_TODAY, FILTERS_TODAY);
+            expect(strlen(Filters::describeDateRange($resolved['range'], $resolved['preset'], FILTERS_TODAY)))->toBeGreaterThan(0);
+        }
+    });
+
+    it('describes a range the way a report header reads it', function () {
+        expect(Filters::describeDateRange(['from' => '0000-01-01', 'to' => FILTERS_TODAY], 'all', FILTERS_TODAY))->toBe('Everything up to 2026-08-15')
+            ->and(Filters::describeDateRange(['from' => '2026-08-15', 'to' => '2026-08-15'], 'today', FILTERS_TODAY))->toBe('2026-08-15')
+            ->and(Filters::describeDateRange(['from' => '0000-01-01', 'to' => '2026-08-10'], 'custom', FILTERS_TODAY))->toBe('Up to 2026-08-10')
+            ->and(Filters::describeDateRange(['from' => '2026-08-01', 'to' => FILTERS_TODAY], 'month', FILTERS_TODAY))->toBe('2026-08-01 to today')
+            ->and(Filters::describeDateRange(['from' => '2026-08-01', 'to' => FILTERS_TODAY], 'custom', FILTERS_TODAY))->toBe('2026-08-01 to 2026-08-15');
     });
 });
 

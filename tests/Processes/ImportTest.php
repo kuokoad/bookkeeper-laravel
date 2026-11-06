@@ -217,3 +217,38 @@ it('leaves an imported shop whose payables the purchase and supplier services ag
     expect($total)->toBe($control)
         ->and(array_filter($bySupplier, fn (int $owed): bool => $owed !== 0))->toEqual(array_filter($balances, fn (int $owed): bool => $owed !== 0));
 });
+
+it('reconcile v2 compares every report through the new services and finds zero differences', function () {
+    $copy = oldCopy();
+    expect(artisan('nuna:import-sqlite', $copy)->successful())->toBeTrue();
+
+    $reconcile = artisan('nuna:reconcile', $copy);
+    expect($reconcile->successful())->toBeTrue($reconcile->output())
+        ->and($reconcile->output())->toContain('financial years, each with its P&L, tax return, cash flow and sales by day')
+        ->and($reconcile->output())->toContain('each with its trial balance, balance sheet and ageing')
+        ->and($reconcile->output())->toMatch('/Checked [1-9]\d* report figures/')
+        ->and($reconcile->output())->toContain('Zero differences.');
+
+    // As at a date of the user's choosing too.
+    $asAt = artisan('nuna:reconcile', $copy, '--as-at=2026-09-30');
+    expect($asAt->successful())->toBeTrue($asAt->output())
+        ->and($asAt->output())->toContain('Zero differences.');
+});
+
+it('reconcile v2 reports a report figure that moved', function () {
+    $copy = oldCopy();
+    expect(artisan('nuna:import-sqlite', $copy)->successful())->toBeTrue();
+    // Credit sales made due long ago: the ageing moves buckets, though no journal line moved.
+    DB::connection('import')->table('sales')->whereNotNull('customer_id')->update(['due_date' => '2026-01-01']);
+    // A taxable value moved: the tax return's box disagrees.
+    DB::connection('import')->statement('UPDATE sales SET subtotal_minor = subtotal_minor + 1, total_minor = total_minor + 1 ORDER BY id LIMIT 1');
+    // A pesewa more into a till: the cash flow (per source and per account) and the balance sheet's cash line disagree.
+    DB::connection('import')->statement('UPDATE journal_lines SET debit_minor = debit_minor + 1 WHERE payment_account_id IS NOT NULL AND debit_minor > 0 ORDER BY id LIMIT 1');
+
+    $output = artisan('nuna:reconcile', $copy)->output();
+    expect($output)->toMatch('/receivables ageing at \S+ \d+ \w+: old (-?\d+|NULL), new/')
+        ->and($output)->toMatch('/tax return \S+ taxable sales: old \d+, new \d+/')
+        ->and($output)->toMatch('/cash flow \S+ [A-Z_]+ in: old \d+, new \d+/')
+        ->and($output)->toMatch('/cash flow \S+ account \d+ in: old \d+, new \d+/')
+        ->and($output)->toMatch('/balance sheet at \S+ cash \d+: old -?\d+, new -?\d+/');
+});

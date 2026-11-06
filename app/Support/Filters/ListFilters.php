@@ -313,4 +313,63 @@ final class ListFilters
             'carried' => self::carry($params, ['period', 'from', 'to', 'q', 'product', 'category', 'movement', 'user']),
         ];
     }
+
+    // --- reports: a whole answer for a whole period, never paged -----------
+
+    /** @return array{filters: array{from: string, to: string}, range: array{from: string, to: string}, preset: string, carried: array<string, string>} */
+    public static function parseReportPeriod(array $params, ?string $today = null): array
+    {
+        $resolved = Filters::resolveDateRange(self::one($params, 'period'), self::one($params, 'from'), self::one($params, 'to'), $today ?? Clock::today());
+
+        return ['filters' => $resolved['range'], 'range' => $resolved['range'], 'preset' => $resolved['preset'], 'carried' => self::carry($params, ['period', 'from', 'to'])];
+    }
+
+    /** @return array{filters: array, range: array{from: string, to: string}, preset: string, carried: array<string, string>} */
+    public static function parseSalesReportFilters(array $params, ?string $today = null): array
+    {
+        return self::reportFilters($params, $today, ['customerId' => 'customer', 'productId' => 'product', 'categoryId' => 'category', 'paymentAccountId' => 'account']);
+    }
+
+    /** @return array{filters: array, range: array{from: string, to: string}, preset: string, carried: array<string, string>} */
+    public static function parsePurchaseReportFilters(array $params, ?string $today = null): array
+    {
+        return self::reportFilters($params, $today, ['supplierId' => 'supplier', 'productId' => 'product', 'categoryId' => 'category', 'paymentAccountId' => 'account']);
+    }
+
+    /** The inventory report is a position, not a period: no dates. @return array{filters: array, carried: array<string, string>} */
+    public static function parseInventoryReportFilters(array $params): array
+    {
+        $filters = array_filter([
+            'categoryId' => Filters::parseId(self::one($params, 'category')),
+            'supplierId' => Filters::parseId(self::one($params, 'supplier')),
+            'stockStatus' => Filters::parseEnum(self::one($params, 'stock'), CatalogService::STOCK_STATUSES),
+        ], fn ($value): bool => $value !== null);
+
+        return ['filters' => $filters, 'carried' => self::carry($params, ['category', 'supplier', 'stock'])];
+    }
+
+    /** One account, for the cash-flow report. @return array{filters: array{from: string, to: string}, range: array{from: string, to: string}, preset: string, carried: array<string, string>, accountId: ?int} */
+    public static function parseCashFlowFilters(array $params, ?string $today = null): array
+    {
+        return [
+            ...self::parseReportPeriod($params, $today),
+            'accountId' => Filters::parseId(self::one($params, 'account')),
+            'carried' => self::carry($params, ['period', 'from', 'to', 'account']),
+        ];
+    }
+
+    /** @param  array<string, string>  $ids  filter key => query-string key */
+    private static function reportFilters(array $params, ?string $today, array $ids): array
+    {
+        $resolved = Filters::resolveDateRange(self::one($params, 'period'), self::one($params, 'from'), self::one($params, 'to'), $today ?? Clock::today());
+        $filters = $resolved['range'];
+        foreach ($ids as $key => $param) {
+            $id = Filters::parseId(self::one($params, $param));
+            if ($id !== null) {
+                $filters[$key] = $id;
+            }
+        }
+
+        return ['filters' => $filters, 'range' => $resolved['range'], 'preset' => $resolved['preset'], 'carried' => self::carry($params, ['period', 'from', 'to', ...array_values($ids)])];
+    }
 }

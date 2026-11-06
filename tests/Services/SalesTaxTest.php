@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/sales-tax.test.ts: selling at prices that
 | already include tax, and at prices that do not. The trial balance and
-| account balances come from Shop until the reports arrive (Phase 7).
+| account balances come from Shop, which calls the real BalancesService.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;

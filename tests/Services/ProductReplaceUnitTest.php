@@ -6,9 +6,7 @@ declare(strict_types=1);
 | Ported from the old tests/services/product-replace-unit.test.ts: replacing a
 | product with locked units, and its stock value coming through to the pesewa.
 |
-| "still voids an ordinary adjustment whose product was archived later" checks
-| the stock summary against the inventory account; its stock-valuation report
-| half waits for Phase 7. "refuses dated stock" lands its dated crate through
+| "refuses dated stock" lands its dated crate through
 | the gateway, as the old test did.
 */
 
@@ -19,6 +17,7 @@ use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
 use App\Services\ProductReplaceService;
+use App\Services\Reporting\OperationsService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
 use App\Support\Clock;
@@ -179,6 +178,7 @@ describe('replacing a product to change its units', function () {
         StockAdjustmentService::voidStockAdjustment($writeOff['adjustmentId'], 'Counted wrong', $this->actor);
 
         expect(($this->row)($id)->qty_on_hand_milli)->toBe(2_000)
+            ->and(OperationsService::getStockValuation()['totalCostValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY))
             ->and(CatalogService::getStockSummary()['totalStockValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
     });
 

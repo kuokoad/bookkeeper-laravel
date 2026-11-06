@@ -6,8 +6,8 @@ declare(strict_types=1);
 | Ported from the old tests/services/quotations.test.ts: a quote leaves the
 | books alone until it converts, and converting charges what was promised.
 | "A quote changes nothing in the books" is the old quotation-moves-nothing
-| check. The trial balance comes from Shop::trialBalanced until the reports
-| arrive (Phase 7).
+| check. The trial balance comes from Shop::trialBalanced, which is the real
+| BalancesService::getTrialBalance.
 */
 
 use App\Domain\Errors\DomainError;

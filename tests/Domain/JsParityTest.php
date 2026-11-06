@@ -30,6 +30,24 @@ it('rounds an exact binary tie the way toFixed does, away from zero', function (
         ->and(JsCompat::toFixedScaled(1e21, 2)->__toString())->toBe('100000000000000000000000');
 });
 
+it('sorts tax codes the way localeCompare does, "_" before digits and letters', function () {
+    // Node: [...].sort((a, b) => a.localeCompare(b)).
+    $codes = ['COVIDX', 'VAT2', 'COVID1', 'VAT_2', 'COVID_19', 'NHIL', 'COVIDA', 'VAT'];
+    usort($codes, JsCompat::compareCodes(...));
+
+    expect($codes)->toBe(['COVID_19', 'COVID1', 'COVIDA', 'COVIDX', 'NHIL', 'VAT', 'VAT_2', 'VAT2'])
+        ->and(JsCompat::compareCodes('COVID_19', 'COVIDX'))->toBeLessThan(0)
+        ->and(JsCompat::compareCodes('VAT', 'VAT'))->toBe(0);
+});
+
+it('rounds a ratio the way Math.round does, half towards +∞', function () {
+    expect(JsCompat::round(2.5))->toBe(3)
+        ->and(JsCompat::round(-2.5))->toBe(-2)
+        ->and(JsCompat::round(-2.51))->toBe(-3)
+        ->and(JsCompat::round(0.49999999999999994))->toBe(0)
+        ->and(JsCompat::round(-0.4))->toBe(0);
+});
+
 it('refuses a date with a trailing newline, as the old pattern did', function () {
     expect(fn () => BusinessDate::assert("2025-01-31\n"))->toThrow(ValidationError::class)
         ->and(fn () => BusinessDate::addDays("2025-01-31\n", 1))->toThrow(ValidationError::class)

@@ -5,27 +5,18 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/sale-profit-tax.test.ts: tax is not
 | profit, on every screen that shows a sale's profit.
-|
-| The old test also read the P&L and the by-customer and by-day reports
-| (Phase 7). Until they arrive, the P&L gross profit is the journal sum
-| 4000 − 4100 − 4150 − 5000, and the by-customer and by-day rows are the
-| filtered sales summary for that customer or that day: the same whole-sale
-| figures (total, and total − tax − cogs) those reports add up.
+| The P&L and the by-customer and by-day reports are the real reports.
+| Nothing is deferred.
 */
 
-use App\Domain\Accounting\ChartOfAccounts;
+use App\Services\Reporting\FinancialService;
+use App\Services\Reporting\OperationsService;
 use App\Services\SaleService;
 use Illuminate\Support\Carbon;
 use Tests\Support\Shop;
 
 const SPT_DAY = '2026-08-10';
 const SPT_PERIOD = ['from' => '2026-08-01', 'to' => '2026-08-31'];
-
-function sptGrossProfit(): int
-{
-    return Shop::balance(ChartOfAccounts::SALES_REVENUE) - Shop::balance(ChartOfAccounts::SALES_DISCOUNTS)
-        - Shop::balance(ChartOfAccounts::SALES_RETURNS) - Shop::balance(ChartOfAccounts::COST_OF_GOODS_SOLD);
-}
 
 beforeEach(function () {
     $this->actor = Shop::owner();
@@ -55,7 +46,7 @@ describe('profit on a taxed sale', function () {
     it('matches the Profit & Loss on the sales list', function () {
         ($this->taxedSale)();
 
-        expect(SaleService::listSales()[0]['profitMinor'])->toBe(2_000)->and(sptGrossProfit())->toBe(2_000);
+        expect(SaleService::listSales()[0]['profitMinor'])->toBe(2_000)->and(FinancialService::getProfitAndLoss(SPT_PERIOD)['grossProfit'])->toBe(2_000);
     });
 
     it('matches the Profit & Loss in the totals above the list', function () {
@@ -74,15 +65,15 @@ describe('profit on a taxed sale', function () {
     it('agrees between the by-customer and by-day reports', function () {
         ($this->taxedSale)($this->customer);
 
-        $byCustomer = SaleService::getFilteredSalesSummary([...SPT_PERIOD, 'customerId' => $this->customer]);
-        $byDay = SaleService::getFilteredSalesSummary(['from' => SPT_DAY, 'to' => SPT_DAY]);
-        expect($byCustomer['grossProfit'])->toBe(2_000)->and($byCustomer['grossProfit'])->toBe($byDay['grossProfit']);
+        $byCustomer = OperationsService::getSalesByCustomer(SPT_PERIOD)[0];
+        $byDay = OperationsService::getSalesByDay(SPT_PERIOD)[0];
+        expect($byCustomer['profit'])->toBe(2_000)->and($byCustomer['profit'])->toBe($byDay['profit']);
     });
 
     it('still shows what the customer paid as the takings', function () {
         ($this->taxedSale)($this->customer);
 
-        expect(SaleService::getFilteredSalesSummary([...SPT_PERIOD, 'customerId' => $this->customer])['revenue'])->toBe(12_000)
+        expect(OperationsService::getSalesByCustomer(SPT_PERIOD)[0]['total'])->toBe(12_000)
             ->and(SaleService::getFilteredSalesSummary()['revenue'])->toBe(12_000);
     });
 
@@ -92,8 +83,7 @@ describe('profit on a taxed sale', function () {
 
         expect(SaleService::getFilteredSalesSummary()['grossProfit'])->toBe(0)
             ->and(SaleService::getSalesSummary(SPT_PERIOD['from'], SPT_PERIOD['to'])['grossProfit'])->toBe(0)
-            // Walk-in customers: every sale here is one.
-            ->and(SaleService::getFilteredSalesSummary(SPT_PERIOD)['grossProfit'])->toBe(0);
+            ->and(OperationsService::getSalesByCustomer(SPT_PERIOD)[0]['profit'])->toBe(0);
     });
 
     it('sorts by the profit shown, not by the tax on top of it', function () {

@@ -8,9 +8,8 @@ declare(strict_types=1);
 | and the words the refusal uses). The action's own state, field errors,
 | redirect and permission checks wait for the screens (Phase 8).
 |
-| A transfer changes WHERE the money is and nothing else. The profit and the
-| cash flow are Phase 7 reports: they are asserted here from journal sums and
-| a test-side copy of the old getCashFlow read (transfersCashFlow below).
+| A transfer changes WHERE the money is and nothing else: the profit and the
+| cash flow are read through the real reports (FinancialService).
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
@@ -19,46 +18,11 @@ use App\Domain\Errors\PeriodLockedError;
 use App\Domain\Errors\ValidationError;
 use App\Services\PaymentAccountService;
 use App\Services\PeriodLockService;
+use App\Services\Reporting\FinancialService;
 use App\Services\TransferService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
-
-/**
- * The old reporting getCashFlow, shop-wide or for one account: money in and
- * out by source type over the lines that sit on a payment account, transfers
- * left out shop-wide because they net to nothing.
- */
-function transfersCashFlow(string $from, string $to, ?int $paymentAccountId = null): array
-{
-    $q = DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
-        ->whereNotNull('journal_lines.payment_account_id')
-        ->where('journal_entries.entry_date', '>=', $from)->where('journal_entries.entry_date', '<=', $to);
-    if ($paymentAccountId !== null) {
-        $q->where('journal_lines.payment_account_id', $paymentAccountId);
-    }
-    $lines = $q->groupBy('journal_entries.source_type')
-        ->selectRaw('journal_entries.source_type AS source_type, SUM(journal_lines.debit_minor) AS in_minor, SUM(journal_lines.credit_minor) AS out_minor')
-        ->get()
-        ->filter(fn (object $r): bool => ! ($paymentAccountId === null && $r->source_type === 'TRANSFER'))
-        ->map(fn (object $r): array => ['sourceType' => $r->source_type, 'inMinor' => (int) $r->in_minor, 'outMinor' => (int) $r->out_minor])
-        ->filter(fn (array $l): bool => $l['inMinor'] !== 0 || $l['outMinor'] !== 0)
-        ->values();
-    $totalIn = $lines->sum('inMinor');
-    $totalOut = $lines->sum('outMinor');
-
-    return ['lines' => $lines->all(), 'totalIn' => $totalIn, 'totalOut' => $totalOut, 'netMovement' => $totalIn - $totalOut];
-}
-
-/** The old getNetProfit: income less costs over the period, from the journal. */
-function transfersNetProfit(string $from, string $to): int
-{
-    return (int) DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
-        ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
-        ->whereIn('accounts.type', ['REVENUE', 'CONTRA_REVENUE', 'COGS', 'EXPENSE'])
-        ->where('journal_entries.entry_date', '>=', $from)->where('journal_entries.entry_date', '<=', $to)
-        ->selectRaw('COALESCE(SUM(journal_lines.credit_minor - journal_lines.debit_minor), 0) AS p')->value('p');
-}
 
 beforeEach(function () {
     $this->actor = Shop::owner();
@@ -98,7 +62,7 @@ describe('banking cash', function () {
 
         ($this->bankCash)(60_000);
 
-        expect(transfersNetProfit('2026-08-01', '2026-08-31'))->toBe(0)
+        expect(FinancialService::getNetProfit(['from' => '2026-08-01', 'to' => '2026-08-31']))->toBe(0)
             ->and(Shop::balance(ChartOfAccounts::OWNERS_CAPITAL))->toBe($capital)
             ->and(Shop::balance(ChartOfAccounts::OWNERS_DRAWINGS))->toBe($drawings)
             ->and(Shop::trialBalanced())->toBeTrue();
@@ -141,7 +105,7 @@ describe('banking cash', function () {
         TransferService::voidTransfer($id, 'Wrong amount', $this->actor, $this->voidAt);
         ($this->bankCash)(25_000, '2026-08-21');
 
-        $shop = transfersCashFlow('2026-08-01', '2026-08-31');
+        $shop = FinancialService::getCashFlow(['from' => '2026-08-01', 'to' => '2026-08-31']);
         expect(collect($shop['lines'])->firstWhere('sourceType', 'TRANSFER'))->toBeNull()
             // Only the owner's GHS 1,000 actually came into the business.
             ->and($shop['totalIn'])->toBe(100_000)
@@ -151,10 +115,10 @@ describe('banking cash', function () {
             ->and($shop['netMovement'])->toBe(($this->totalHeld)());
 
         // Each account on its own still shows the money arriving or leaving.
-        $bankOnly = transfersCashFlow('2026-08-01', '2026-08-31', $this->bank);
+        $bankOnly = FinancialService::getCashFlow(['from' => '2026-08-01', 'to' => '2026-08-31'], $this->bank);
         expect(collect($bankOnly['lines'])->firstWhere('sourceType', 'TRANSFER')['inMinor'])->toBe(85_000)
             ->and($bankOnly['netMovement'])->toBe(25_000)
-            ->and(transfersCashFlow('2026-08-01', '2026-08-31', $this->cash)['netMovement'])->toBe(75_000);
+            ->and(FinancialService::getCashFlow(['from' => '2026-08-01', 'to' => '2026-08-31'], $this->cash)['netMovement'])->toBe(75_000);
     });
 });
 

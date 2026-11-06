@@ -6,7 +6,7 @@ declare(strict_types=1);
 | Ported from the old tests/services/purchase-tax.test.ts: tax paid to a
 | supplier. VAT paid on a purchase is set against VAT collected, so it is an
 | asset; tax that cannot be reclaimed is part of what the goods cost. Account
-| balances come from Shop::balance (journal sums) until Phase 7.
+| balances come from Shop::balance, which is the real getAccountBalanceByCode.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;

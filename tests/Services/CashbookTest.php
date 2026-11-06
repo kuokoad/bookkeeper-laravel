@@ -5,8 +5,8 @@ declare(strict_types=1);
 /*
 | Ported from the old tests/services/cashbook.test.ts: expenses, other income,
 | payment accounts, account movements, categories, owner capital and drawings,
-| and the lists. Account balances come from Shop::balance (journal sums, the
-| old getAccountBalanceByCode) until the reports arrive in Phase 7.
+| and the lists. Account balances come from Shop::balance, which is the real
+| BalancesService::getAccountBalanceByCode.
 */
 
 use App\Domain\Accounting\ChartOfAccounts;

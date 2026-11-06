@@ -79,7 +79,7 @@ describe('product import preview', function () {
 
     it('skips a code that an existing product already uses', function () {
         CatalogService::createProduct(['name' => 'Old bowl', 'sku' => 'jcg-kb-r1000', 'costPrice' => 0, 'sellingPrice' => 100], $this->actor);
-        expect(($this->lineOf)(($this->preview)(IMPORT_SHEET), 3)['problems'])->toBe(['Code JCG-KB-R1000 is already used by a product.']);
+        expect(($this->lineOf)(($this->preview)(IMPORT_SHEET), 3)['problems'])->toBe(['Code JCG-KB-R1000 is already used by a stock item.']);
     });
 
     it('writes nothing', function () {
@@ -176,7 +176,7 @@ describe('importing opening stock', function () {
         ));
         expect(array_column($preview['rows'], 'problems'))->toBe([
             ['Opening quantity: pcs is counted in whole numbers, and 1.5 is not one.'],
-            ['Only a product whose stock is tracked can have opening stock.'],
+            ['Only a stock item whose stock is tracked can have opening stock.'],
             ['Opening stock needs a cost price or an opening value.'],
             ['Opening value needs the opening quantity it is for.'],
             ['Opening quantity cannot be negative.'],
@@ -190,7 +190,7 @@ describe('importing opening stock', function () {
         $rows = ($this->sheet)(['Milo', '', '35', '45', 'drinks', '', '', ''], ['Bread', '', '5', '6', 'Bakery', 'No', '', '']);
         $preview = ($this->preview)($rows);
         expect($preview['rows'][0])->toMatchArray(['categoryName' => 'Drinks', 'problems' => []])
-            ->and($preview['rows'][1]['problems'])->toBe(['Category Bakery is not on your Categories list.']);
+            ->and($preview['rows'][1]['problems'])->toBe(['Stock group Bakery is not on your Stock groups list.']);
 
         ($this->run)($rows);
         $milo = DB::table('products')->first();

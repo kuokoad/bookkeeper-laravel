@@ -59,7 +59,7 @@
     <h2 class="mb-3 text-sm font-semibold text-content">Items</h2>
     <x-table class="mb-6">
         <x-slot:head>
-            <x-th>Product</x-th><x-th numeric>Qty</x-th><x-th numeric>Price</x-th><x-th numeric>Discount</x-th><x-th numeric>Total</x-th><x-th numeric>Cost</x-th>
+            <x-th>Stock item</x-th><x-th numeric>Qty</x-th><x-th numeric>Price</x-th><x-th numeric>Discount</x-th><x-th numeric>Total</x-th><x-th numeric>Cost</x-th>
         </x-slot:head>
         @foreach ($sale['items'] as $item)
             <tr class="border-b border-line last:border-0">

@@ -50,7 +50,7 @@
     <h2 class="mb-3 text-sm font-semibold text-content">Items</h2>
     <x-table class="mb-6">
         <x-slot:head>
-            <x-th>Product</x-th>
+            <x-th>Stock item</x-th>
             <x-th numeric>Qty</x-th>
             <x-th numeric>Cost each</x-th>
             <x-th numeric>Discount</x-th>

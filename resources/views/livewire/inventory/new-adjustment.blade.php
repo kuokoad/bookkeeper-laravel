@@ -6,8 +6,8 @@
     <x-page-header title="Stock adjustment" description="Record stock that came in or went out for any reason other than a sale or purchase." />
 
     @if ($products === [])
-        <x-empty-state title="No stock-tracked products yet" description="Add a product first, then come back to record its opening stock.">
-            <x-slot:action><x-button href="/products/new">Add a product</x-button></x-slot:action>
+        <x-empty-state title="No stock-tracked stock items yet" description="Add a stock item first, then come back to record its opening stock.">
+            <x-slot:action><x-button href="/products/new">Add a stock item</x-button></x-slot:action>
         </x-empty-state>
     @else
         <form wire:submit="save" class="space-y-6" novalidate>
@@ -32,7 +32,7 @@
             </div>
 
             <div class="rounded-xl border border-line bg-surface-raised p-4">
-                <h2 class="mb-3 text-sm font-semibold text-content">Products</h2>
+                <h2 class="mb-3 text-sm font-semibold text-content">Stock items</h2>
 
                 <div class="space-y-3">
                     @foreach ($rows as $i => $row)
@@ -46,9 +46,9 @@
                         @endphp
                         <div class="grid gap-3 rounded-lg border border-line p-3 sm:grid-cols-12" wire:key="row-{{ $i }}">
                             <div class="sm:col-span-3">
-                                <label for="product-{{ $i }}" class="{{ $label }}">Product</label>
+                                <label for="product-{{ $i }}" class="{{ $label }}">Stock item</label>
                                 <select id="product-{{ $i }}" wire:model.live="rows.{{ $i }}.productId" class="{{ $select }}">
-                                    <option value="">Choose a product…</option>
+                                    <option value="">Choose a stock item…</option>
                                     @foreach ($products as $option)
                                         <option value="{{ $option['id'] }}">{{ $option['name'] }} ({{ $option['qtyOnHandLabel'] }})</option>
                                     @endforeach
@@ -108,7 +108,7 @@
                 </div>
 
                 <div class="mt-3">
-                    <x-button variant="secondary" size="sm" wire:click="addRow">Add another product</x-button>
+                    <x-button variant="secondary" size="sm" wire:click="addRow">Add another stock item</x-button>
                 </div>
 
                 <x-alert tone="info" class="mt-4">

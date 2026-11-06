@@ -11,7 +11,7 @@ start with [Developer setup](developer-setup.md) instead.
 - The app open in a browser — double-click the shop's icon on the desktop to
   get there
 - Your shop's name
-- One product you sell, its cost and its price
+- One stock item you sell, its cost and its price
 
 ## Step 1: Create your shop
 
@@ -47,16 +47,16 @@ You are now signed in, looking at the dashboard. It is empty. That is correct.
 
 ## Step 2: Add something you sell
 
-**Products → Add product.**
+**Stock items → Add stock item.**
 
 Fill in the name, what it costs you, and what you sell it for. A soft drink, a bag of
 rice — anything real.
 
-Already keep a price list in Excel? **Products → Import** reads an .xlsx or .csv,
+Already keep a price list in Excel? **Stock items → Import** reads an .xlsx or .csv,
 shows you every row it would add (and why any row would be skipped), and saves
-nothing until you press **Import**. It adds products only, never stock.
+nothing until you press **Import**. It adds stock items only, never stock.
 
-Save. The product exists, with **no stock**. That is deliberate and it is the most
+Save. The stock item exists, with **no stock**. That is deliberate and it is the most
 important idea in the app: you cannot type a stock figure in. Every unit on the shelf
 has to arrive through a recorded event.
 
@@ -65,12 +65,12 @@ has to arrive through a recorded event.
 **Inventory → New adjustment.**
 
 - **Reason:** `Opening stock`
-- Add your product, direction **In**, the quantity you have, and what it cost you in
+- Add your stock item, direction **In**, the quantity you have, and what it cost you in
   total.
 
 Save.
 
-Go back to **Products**. Your product now shows a quantity and a stock value. That
+Go back to **Stock items**. Your stock item now shows a quantity and a stock value. That
 figure did not come from a form field — it came from a movement you recorded, and
 you can click **History** to see it.
 
@@ -80,7 +80,7 @@ you can click **History** to see it.
 
 **Sales → New sale.**
 
-Type the product name or scan its barcode. Set a quantity. Choose how the customer
+Type the stock item name or scan its barcode. Set a quantity. Choose how the customer
 paid — cash, mobile money, bank. Complete the sale.
 
 You get a receipt. Print it or move on.
@@ -99,7 +99,7 @@ The profit is real. It uses what the goods **actually cost when you sold them**,
 from the stock movement in step 3 — not today's cost price. Change your cost price
 tomorrow and this sale's profit does not move.
 
-Check **Products** again: the quantity has gone down by what you sold.
+Check **Stock items** again: the quantity has gone down by what you sold.
 
 ## Step 6: Follow the money
 
@@ -160,7 +160,7 @@ balance or a report, and switching back and forth is safe at any time.
 
 ## Troubleshooting
 
-**I cannot type a stock number on the product form.** Correct — there is no such
+**I cannot type a stock number on the stock item form.** Correct — there is no such
 field. Stock only changes through a purchase, a sale or a recorded adjustment. That is
 what lets any figure be traced back to its cause.
 

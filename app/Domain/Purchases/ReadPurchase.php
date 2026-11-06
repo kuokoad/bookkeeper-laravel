@@ -48,7 +48,7 @@ final class ReadPurchase
 
         $errors = [];
         if ($product === null) {
-            $errors['product'] = 'Choose a product.';
+            $errors['product'] = 'Choose a stock item.';
         }
         $qty = self::qty($entry, $product);
         if (isset($qty['error'])) {
@@ -99,7 +99,7 @@ final class ReadPurchase
                 return ['qty' => $qty];
             }
             if ($product['altUnit'] === null || $product['altFactorMilli'] === null) {
-                return ['error' => 'This product has no alternate unit.'];
+                return ['error' => 'This stock item has no alternate unit.'];
             }
             Quantity::assertUnitDecimals($qty, $product['altUnitDecimals'] ?? Quantity::DECIMALS, $product['altUnit']);
             Quantity::assertUnitDecimals(Quantity::toBase($qty, $product['altFactorMilli']), $product['unitDecimals'], $product['unit']);

@@ -16,6 +16,9 @@ declare(strict_types=1);
 |   3. Σ stock_ledger value per product = the product cache, and their sum = GL 1200;
 |   4. A/R subledger = GL 1100, A/P subledger = GL 2000;
 |   5. a rolled-back operation leaves zero partial rows.
+|
+| Invariant 3 runs again with negative stock allowed and a thin opening shelf,
+| so stock goes below zero and comes back at other prices (D26).
 */
 
 use App\Database\Tx;
@@ -24,6 +27,7 @@ use App\Domain\BusinessDate;
 use App\Domain\Errors\DomainError;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
+use App\Services\InventoryService;
 use App\Services\PurchaseService;
 use App\Services\Reporting\BalancesService;
 use App\Services\Reporting\FinancialService;
@@ -83,13 +87,13 @@ function invAttempt(callable $step): bool
 }
 
 /** The seeded run. Returns the last trading day. */
-function invTrade(): string
+function invTrade(bool $allowNegative = false): string
 {
     mt_srand(INV_SEED);
     $pick = fn (array $list) => $list[mt_rand(0, count($list) - 1)];
 
     // The run states the settings it relies on, rather than trusting whatever the database holds.
-    DB::table('business_settings')->where('id', 1)->update(['books_locked_before' => null, 'tax_enabled' => false, 'allow_negative_stock' => false, 'allow_overpayment' => false, 'expiry_blocks_sales' => false]);
+    DB::table('business_settings')->where('id', 1)->update(['books_locked_before' => null, 'tax_enabled' => false, 'allow_negative_stock' => $allowNegative, 'allow_overpayment' => false, 'expiry_blocks_sales' => false]);
     $actor = Shop::owner();
     $cash = Shop::paymentAccount('CASH');
     $bank = Shop::paymentAccount('BANK');
@@ -100,7 +104,8 @@ function invTrade(): string
     $products = [];
     foreach ([['Rice 5kg', 6_000, 9_500], ['Milo 400g', 3_200, 4_500], ['Oil 1L', 2_100, 3_000], ['Sugar 1kg', 1_150, 1_600]] as [$name, $cost, $price]) {
         $id = Shop::product($actor, $name, $cost, $price);
-        Shop::openingStock($actor, $id, 40_000, 40 * $cost, INV_START);
+        $opening = $allowNegative ? 2 : 40;
+        Shop::openingStock($actor, $id, $opening * 1000, $opening * $cost, INV_START);
         $products[$id] = $cost;
     }
     $customers = [Shop::customer($actor, 'Mensah Provisions'), Shop::customer($actor, 'Auntie Akos')];
@@ -173,85 +178,106 @@ function invTrade(): string
     return $date;
 }
 
-beforeEach(function () {
-    $this->lastDay = invTrade();
-});
+describe('with negative stock refused', function () {
+    beforeEach(function () {
+        $this->lastDay = invTrade();
+    });
 
-it('1. balances every journal entry', function () {
-    $unbalanced = DB::select('SELECT journal_lines.entry_id FROM journal_lines GROUP BY journal_lines.entry_id HAVING SUM(journal_lines.debit_minor) <> SUM(journal_lines.credit_minor)');
+    it('1. balances every journal entry', function () {
+        $unbalanced = DB::select('SELECT journal_lines.entry_id FROM journal_lines GROUP BY journal_lines.entry_id HAVING SUM(journal_lines.debit_minor) <> SUM(journal_lines.credit_minor)');
 
-    // Enough trading to mean something: voids, returns and deliveries among it.
-    expect(DB::table('sales')->count())->toBeGreaterThan(15)
-        ->and(DB::table('sales')->whereNotNull('voids_sale_id')->count())->toBeGreaterThan(0)
-        ->and(DB::table('sales')->whereNotNull('returns_sale_id')->count())->toBeGreaterThan(0)
-        ->and(DB::table('purchases')->count())->toBeGreaterThan(3)
-        ->and(DB::table('expenses')->count() + DB::table('account_transfers')->count())->toBeGreaterThan(0);
+        // Enough trading to mean something: voids, returns and deliveries among it.
+        expect(DB::table('sales')->count())->toBeGreaterThan(15)
+            ->and(DB::table('sales')->whereNotNull('voids_sale_id')->count())->toBeGreaterThan(0)
+            ->and(DB::table('sales')->whereNotNull('returns_sale_id')->count())->toBeGreaterThan(0)
+            ->and(DB::table('purchases')->count())->toBeGreaterThan(3)
+            ->and(DB::table('expenses')->count() + DB::table('account_transfers')->count())->toBeGreaterThan(0);
 
-    expect($unbalanced)->toBe([])
-        ->and(LedgerService::checkBooksIntegrity()['unbalancedEntries'])->toBe([])
-        ->and(BalancesService::getTrialBalance()['balanced'])->toBeTrue();
-});
+        expect($unbalanced)->toBe([])
+            ->and(LedgerService::checkBooksIntegrity()['unbalancedEntries'])->toBe([])
+            ->and(BalancesService::getTrialBalance()['balanced'])->toBeTrue();
+    });
 
-it('2. balances the balance sheet at every month end and on the last day', function () {
-    $dates = [$this->lastDay];
-    for ($month = '2026-01'; $month.'-01' <= $this->lastDay; $month = substr(BusinessDate::addDays($month.'-28', 7), 0, 7)) {
-        $dates[] = Shop::monthOf($month.'-01')['to'];
-    }
+    it('2. balances the balance sheet at every month end and on the last day', function () {
+        $dates = [$this->lastDay];
+        for ($month = '2026-01'; $month.'-01' <= $this->lastDay; $month = substr(BusinessDate::addDays($month.'-28', 7), 0, 7)) {
+            $dates[] = Shop::monthOf($month.'-01')['to'];
+        }
 
-    foreach ($dates as $asAt) {
-        $sheet = FinancialService::getBalanceSheet($asAt);
-        expect($sheet['difference'])->toBe(0, "balance sheet as at {$asAt}")
-            ->and($sheet['balances'])->toBeTrue()
-            ->and(BalancesService::getTrialBalance(['to' => $asAt])['balanced'])->toBeTrue("trial balance as at {$asAt}");
-    }
-});
+        foreach ($dates as $asAt) {
+            $sheet = FinancialService::getBalanceSheet($asAt);
+            expect($sheet['difference'])->toBe(0, "balance sheet as at {$asAt}")
+                ->and($sheet['balances'])->toBeTrue()
+                ->and(BalancesService::getTrialBalance(['to' => $asAt])['balanced'])->toBeTrue("trial balance as at {$asAt}");
+        }
+    });
 
-it('3. keeps each product\'s stock ledger, its cache and GL 1200 equal', function () {
-    $total = 0;
-    foreach (DB::table('products')->get(['id', 'qty_on_hand_milli', 'stock_value_minor']) as $product) {
-        $ledger = DB::table('stock_ledger')->where('stock_ledger.product_id', $product->id)->selectRaw(
-            'COALESCE(SUM(stock_ledger.qty_in_milli - stock_ledger.qty_out_milli), 0) AS q,
-             COALESCE(SUM(CASE WHEN stock_ledger.qty_in_milli > 0 THEN stock_ledger.total_cost_minor ELSE -stock_ledger.total_cost_minor END), 0) AS v'
-        )->first();
-        expect((int) $ledger->q)->toBe((int) $product->qty_on_hand_milli, "product {$product->id} quantity")
-            ->and((int) $ledger->v)->toBe((int) $product->stock_value_minor, "product {$product->id} value");
-        $total += (int) $ledger->v;
-    }
+    it('3. keeps each product\'s stock ledger, its cache and GL 1200 equal', function () {
+        $total = 0;
+        foreach (DB::table('products')->get(['id', 'qty_on_hand_milli', 'stock_value_minor']) as $product) {
+            $ledger = DB::table('stock_ledger')->where('stock_ledger.product_id', $product->id)->selectRaw(
+                'COALESCE(SUM(stock_ledger.qty_in_milli - stock_ledger.qty_out_milli), 0) AS q,
+                 COALESCE(SUM(CASE WHEN stock_ledger.qty_in_milli > 0 THEN stock_ledger.total_cost_minor ELSE -stock_ledger.total_cost_minor END), 0) AS v'
+            )->first();
+            expect((int) $ledger->q)->toBe((int) $product->qty_on_hand_milli, "product {$product->id} quantity")
+                ->and((int) $ledger->v)->toBe((int) $product->stock_value_minor, "product {$product->id} value");
+            $total += (int) $ledger->v;
+        }
 
-    expect($total)->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
-});
+        expect($total)->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
+    });
 
-it('4. keeps A/R equal to GL 1100 and A/P equal to GL 2000', function () {
-    expect(CustomerService::getTotalReceivables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE))
-        ->and(SupplierService::getTotalPayables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_PAYABLE))
-        ->and(SubledgerSplit::getReceivablesSplit()['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE))
-        ->and(SubledgerSplit::getPayablesSplit()['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_PAYABLE))
-        ->and(LedgerService::checkBooksIntegrity())->toMatchArray(['receivablesMatch' => true, 'payablesMatch' => true]);
-});
+    it('4. keeps A/R equal to GL 1100 and A/P equal to GL 2000', function () {
+        expect(CustomerService::getTotalReceivables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE))
+            ->and(SupplierService::getTotalPayables())->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_PAYABLE))
+            ->and(SubledgerSplit::getReceivablesSplit()['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE))
+            ->and(SubledgerSplit::getPayablesSplit()['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_PAYABLE))
+            ->and(LedgerService::checkBooksIntegrity())->toMatchArray(['receivablesMatch' => true, 'payablesMatch' => true]);
+    });
 
-it('5. leaves zero partial rows when an operation rolls back', function () {
-    $actor = Shop::owner('ama');
-    $product = (int) DB::table('products')->orderBy('id')->value('id');
-    $before = invSnapshot();
-
-    // A whole sale written, then the write fails after it: everything goes.
-    expect(fn () => Tx::run(function () use ($actor, $product): void {
-        SaleService::createSale(['businessDate' => $this->lastDay, 'items' => [['productId' => $product, 'qty' => 1_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 1_000_000]]], $actor);
-        throw new RuntimeException('power cut');
-    }))->toThrow(RuntimeException::class, 'power cut');
-    expect(invSnapshot())->toBe($before);
-
-    // A sale whose second line cannot be filled: the first line's stock and journal go too.
-    $empty = Shop::product($actor, 'Nothing on the shelf');
-    $before = invSnapshot();
-    expect(fn () => SaleService::createSale(['businessDate' => $this->lastDay, 'items' => [['productId' => $product, 'qty' => 1_000], ['productId' => $empty, 'qty' => 1_000]], 'tenders' => []], $actor))
-        ->toThrow(DomainError::class);
-    expect(invSnapshot())->toBe($before);
-
-    // The snapshot itself sees a change that only UPDATEs (else the checks above prove nothing for one).
-    foreach (['customers' => 'name', 'suppliers' => 'name', 'products' => 'qty_on_hand_milli', 'business_settings' => 'business_name'] as $table => $column) {
-        DB::table($table)->orderBy("{$table}.id")->limit(1)->update([$column => $column === 'qty_on_hand_milli' ? DB::raw('qty_on_hand_milli + 1') : 'Renamed']);
-        expect(invSnapshot())->not->toBe($before, "an UPDATE to {$table}");
+    it('5. leaves zero partial rows when an operation rolls back', function () {
+        $actor = Shop::owner('ama');
+        $product = (int) DB::table('products')->orderBy('id')->value('id');
         $before = invSnapshot();
-    }
+
+        // A whole sale written, then the write fails after it: everything goes.
+        expect(fn () => Tx::run(function () use ($actor, $product): void {
+            SaleService::createSale(['businessDate' => $this->lastDay, 'items' => [['productId' => $product, 'qty' => 1_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 1_000_000]]], $actor);
+            throw new RuntimeException('power cut');
+        }))->toThrow(RuntimeException::class, 'power cut');
+        expect(invSnapshot())->toBe($before);
+
+        // A sale whose second line cannot be filled: the first line's stock and journal go too.
+        $empty = Shop::product($actor, 'Nothing on the shelf');
+        $before = invSnapshot();
+        expect(fn () => SaleService::createSale(['businessDate' => $this->lastDay, 'items' => [['productId' => $product, 'qty' => 1_000], ['productId' => $empty, 'qty' => 1_000]], 'tenders' => []], $actor))
+            ->toThrow(DomainError::class);
+        expect(invSnapshot())->toBe($before);
+
+        // The snapshot itself sees a change that only UPDATEs (else the checks above prove nothing for one).
+        foreach (['customers' => 'name', 'suppliers' => 'name', 'products' => 'qty_on_hand_milli', 'business_settings' => 'business_name'] as $table => $column) {
+            DB::table($table)->orderBy("{$table}.id")->limit(1)->update([$column => $column === 'qty_on_hand_milli' ? DB::raw('qty_on_hand_milli + 1') : 'Renamed']);
+            expect(invSnapshot())->not->toBe($before, "an UPDATE to {$table}");
+            $before = invSnapshot();
+        }
+    });
+});
+
+describe('with negative stock allowed', function () {
+    beforeEach(function () {
+        $this->lastDay = invTrade(true);
+    });
+
+    it('3. keeps GL 1200 equal to the summed stock value after stock went below zero and came back', function () {
+        // The run did go below zero and come back at other prices, or this proves nothing.
+        expect(DB::table('stock_ledger')->where('stock_ledger.balance_qty_milli', '<', 0)->count())->toBeGreaterThan(0)
+            ->and(DB::table('journal_lines')->where('journal_lines.description', 'like', '%costing difference')->count())->toBeGreaterThan(0)
+            ->and(BalancesService::getTrialBalance()['balanced'])->toBeTrue();
+
+        // A residual is posted to the accounts, not the stock ledger, so each cache is proved by replay.
+        foreach (DB::table('products')->pluck('id') as $id) {
+            expect(InventoryService::verifyProductStock((int) $id)['ok'])->toBeTrue("product {$id} replay");
+        }
+        expect((int) DB::table('products')->sum('products.stock_value_minor'))->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
+    });
 });

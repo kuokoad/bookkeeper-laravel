@@ -15,7 +15,9 @@ use App\Domain\Inventory\Costing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const STOCK_DB = 'nunabooks_concurrency';
+require_once __DIR__.'/run.php';
+
+define('STOCK_DB', runDatabase('nunabooks_concurrency'));
 
 function stockEnv(): array
 {
@@ -31,27 +33,26 @@ beforeEach(function () {
     config(['database.connections.stock' => array_merge(config('database.connections.mysql'), ['database' => STOCK_DB])]);
 });
 
+afterEach(fn () => dropRunDatabases(STOCK_DB));
+
 it('keeps the stock pair, its ledger and the Inventory account in step when four tills adjust one product at once', function () {
-    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-stock-go';
-    @unlink($go);
+    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-stock-go-'.STOCK_DB;
+    clearStartLine($go);
     $workers = 4;
     $iterations = 20;
 
     $pool = Process::pool(function ($pool) use ($workers, $iterations) {
         for ($w = 1; $w <= $workers; $w++) {
-            $pool->as("till-{$w}")->env(stockEnv())->path(base_path())->timeout(300)
+            $pool->as("till-{$w}")->env([...stockEnv(), 'NUNA_WORKERS' => (string) $workers])->path(base_path())->timeout(300)
                 ->command([PHP_BINARY, 'tests/Processes/stock-worker.php', 'run', (string) $iterations, (string) $w]);
         }
     })->start();
     usleep(1_500_000);
-    $waitsBefore = (int) DB::selectOne("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'")->Value;
     touch($go);
     $results = $pool->wait();
-    @unlink($go);
+    clearStartLine($go);
 
-    foreach ($results as $name => $result) {
-        expect($result->successful())->toBeTrue("{$name}: ".$result->errorOutput().$result->output());
-    }
+    expectOverlapEachRound(workerRows($results), $workers);
 
     $db = DB::connection('stock');
     $product = $db->table('products')->first();
@@ -64,8 +65,7 @@ it('keeps the stock pair, its ledger and the Inventory account in step when four
         ->selectRaw('SUM(journal_lines.debit_minor) - SUM(journal_lines.credit_minor) AS b')->value('b');
 
     // Each till moved as much in as out, so the count is back where it started.
-    expect((int) DB::selectOne("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'")->Value - $waitsBefore)->toBeGreaterThan(5)
-        ->and($movements)->toHaveCount(1 + $workers * $iterations)
+    expect($movements)->toHaveCount(1 + $workers * $iterations)
         ->and((int) $product->qty_on_hand_milli)->toBe(100_000)
         ->and([$replayed->qty, $replayed->value])->toBe([(int) $product->qty_on_hand_milli, (int) $product->stock_value_minor])
         ->and($inventory)->toBe((int) $product->stock_value_minor)

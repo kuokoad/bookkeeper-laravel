@@ -9,6 +9,7 @@
         'ledger' => ['light' => ['#eae0d1', '#faf6ee', '#36281d', '#4d744e'], 'dark' => ['#1b140f', '#282019', '#36281d', '#81b482']],
         'classic' => ['light' => ['#fbfcfd', '#ffffff', '#1b2025', '#00885e'], 'dark' => ['#1f2730', '#28313b', '#0f171f', '#65cead']],
         'jinu' => ['light' => ['#f1f6f3', '#ffffff', '#ffffff', '#13784b'], 'dark' => ['#121a19', '#19231f', '#0e1513', '#5cc18c']],
+        'quikbooks' => ['light' => ['#f4f5f8', '#ffffff', '#ffffff', '#108000'], 'dark' => ['#1b1c1f', '#232427', '#151618', '#53b700']],
     ];
     $basisLabel = ['NET' => 'the goods value', 'NET_PLUS_LEVIES' => 'the value plus the taxes above it'];
 @endphp
@@ -168,7 +169,7 @@
                 <x-card>
                     <h2 class="mb-4 text-sm font-semibold text-content">Stock</h2>
                     <div class="space-y-4">
-                        <x-field label="Warn me when stock falls to" for="lowStock" name="form.lowStock" hint="In whole units. Products at or below this are flagged as low." required>
+                        <x-field label="Warn me when stock falls to" for="lowStock" name="form.lowStock" hint="In whole units. Stock items at or below this are flagged as low." required>
                             <x-input id="lowStock" inputmode="decimal" class="tabular max-w-40" wire:model="form.lowStock" :invalid="$errors->has('form.lowStock')" />
                         </x-field>
                         @include('livewire.settings.partials.toggle', ['model' => 'form.allowOverpayment', 'label' => 'Allow paying more than is owed', 'hint' => 'Off is safer: at a counter an amount larger than the balance is usually a typo, and refusing it catches the mistake while the customer is still standing there. Switch it on to take deposits and advance payments — the extra stays on their account as a credit and comes off their next purchase.'])

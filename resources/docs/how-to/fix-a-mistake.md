@@ -85,7 +85,7 @@ delivery.
    | `INTERNAL_USE` | goods the shop consumed itself |
    | `OTHER` | anything else, with a note |
 
-3. Add each product, the direction (in or out), and the quantity.
+3. Add each stock item, the direction (in or out), and the quantity.
 4. Confirm.
 
 Every adjustment writes to the stock ledger and posts to the accounts, so stock value
@@ -117,7 +117,7 @@ After any correction:
 - The original document is still there, marked as voided or returned against.
 
 If the Inventory page does warn, run `php artisan nuna:preflight` (or open **Settings → Health & backup**, which runs the same checks) — it replays the whole ledger
-and names the product where the cache and the ledger parted company.
+and names the stock item where the cache and the ledger parted company.
 
 ## Troubleshooting
 

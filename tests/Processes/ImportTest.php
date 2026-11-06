@@ -19,7 +19,9 @@ use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const IMPORT_DB = 'nunabooks_import';
+require_once __DIR__.'/run.php';
+
+define('IMPORT_DB', runDatabase('nunabooks_import'));
 
 function importEnv(): array
 {
@@ -53,6 +55,8 @@ beforeEach(function () {
     expect($fresh->successful())->toBeTrue($fresh->errorOutput().$fresh->output());
     config(['database.connections.import' => array_merge(config('database.connections.mysql'), ['database' => IMPORT_DB])]);
 });
+
+afterEach(fn () => dropRunDatabases(IMPORT_DB));
 
 it('imports the old database unchanged, and reconcile finds zero differences', function () {
     $copy = oldCopy();

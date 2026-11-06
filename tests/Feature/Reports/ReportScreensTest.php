@@ -85,8 +85,8 @@ describe('over the demo shop', function () {
             ->assertSee('By payment method');
 
         $html = signedIn($this->ownerId)->get('/reports/sales?period=all&product='.$product['productId'])->assertOk()
-            ->assertSee('Product revenue (net)')
-            ->assertSee('Not shown while a product or category filter is on.')->getContent();
+            ->assertSee('Stock item revenue (net)')
+            ->assertSee('Not shown while a stock item or stock group filter is on.')->getContent();
         expect($html)->toMatch('/<option value="'.$product['productId'].'"\s+selected/');
     });
 
@@ -107,7 +107,7 @@ describe('over the demo shop', function () {
         $low = OperationsService::getStockValuation(['stockStatus' => 'low']);
         $html = signedIn($this->ownerId)->get('/reports/inventory?stock=low&category=junk')->assertOk()
             ->assertSee(Format::money($low['totalCostValue']))
-            ->assertSee('Both tables below cover only the products matching these filters')->getContent();
+            ->assertSee('Both tables below cover only the stock items matching these filters')->getContent();
         expect($html)->toMatch('/<option value="low"\s+selected/');
     });
 

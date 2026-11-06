@@ -5,7 +5,8 @@ declare(strict_types=1);
 /*
 | Tills selling at the same moment, as real PHP processes against one MySQL
 | database. SQLite's single writer hid both races; here they are made to
-| happen, and InnoDB's row-lock waits prove the tills really collided.
+| happen. The outcome is what is checked: one winner, no negative stock,
+| unique numbers and balanced books.
 |
 |   1. The last unit: four tills sell the last unit of a product at once, five
 |      products in a row. One sale per product; the rest are told there is
@@ -24,16 +25,13 @@ use App\Domain\Accounting\ChartOfAccounts;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const SALE_RACE_DB = 'nunabooks_concurrency';
+require_once __DIR__.'/run.php';
+
+define('SALE_RACE_DB', runDatabase('nunabooks_concurrency'));
 
 function saleRaceEnv(): array
 {
     return ['DB_DATABASE' => SALE_RACE_DB, 'APP_ENV' => 'testing'];
-}
-
-function saleRaceLockWaits(): int
-{
-    return (int) DB::selectOne("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'")->Value;
 }
 
 /** Set up the shop, start the tills, release them together, and collect what each printed. */
@@ -45,31 +43,23 @@ function saleRaceRun(string $mode, int $workers, int $rounds, int $products, int
         expect($run->successful())->toBeTrue($run->errorOutput().$run->output());
     }
 
-    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-sale-go';
-    @unlink($go);
+    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-sale-go-'.SALE_RACE_DB;
+    clearStartLine($go);
     $pool = Process::pool(function ($pool) use ($mode, $workers, $rounds) {
         for ($w = 1; $w <= $workers; $w++) {
-            $pool->as("till-{$w}")->env(saleRaceEnv())->path(base_path())->timeout(300)
+            $pool->as("till-{$w}")->env([...saleRaceEnv(), 'NUNA_WORKERS' => (string) $workers])->path(base_path())->timeout(300)
                 ->command([PHP_BINARY, 'tests/Processes/sale-worker.php', $mode, (string) $rounds, (string) $w]);
         }
     })->start();
     usleep(1_500_000); // every till booted and waiting at the line
-    $waitsBefore = saleRaceLockWaits();
     touch($go);
     $results = $pool->wait();
-    @unlink($go);
+    clearStartLine($go);
 
-    $rows = [];
-    foreach ($results as $name => $result) {
-        expect($result->successful())->toBeTrue("{$name}: ".$result->errorOutput().$result->output());
-        foreach (array_filter(explode("\n", trim($result->output()))) as $line) {
-            $row = json_decode($line, true);
-            expect($row)->toBeArray("{$name} printed something other than a result: {$line}");
-            $rows[] = $row;
-        }
-    }
+    $rows = workerRows($results);
+    expectOverlapEachRound($rows, $workers);
 
-    return ['rows' => $rows, 'waits' => saleRaceLockWaits() - $waitsBefore];
+    return ['rows' => $rows];
 }
 
 beforeEach(function () {
@@ -77,13 +67,14 @@ beforeEach(function () {
     config(['database.connections.salerace' => array_merge(config('database.connections.mysql'), ['database' => SALE_RACE_DB])]);
 });
 
+afterEach(fn () => dropRunDatabases(SALE_RACE_DB));
+
 it('sells the last unit once when four tills ring it up at the same moment', function () {
     [$workers, $rounds] = [4, 5];
     $run = saleRaceRun('last-unit', $workers, $rounds, $rounds, 1);
     $db = DB::connection('salerace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     foreach (range(1, $rounds) as $round) {
         $attempts = array_values(array_filter($run['rows'], fn (array $r): bool => $r['round'] === $round));
         $won = array_values(array_filter($attempts, fn (array $r): bool => $r['ok']));
@@ -112,8 +103,7 @@ it('records one sale when the same cart is submitted from four tills at once', f
     $run = saleRaceRun('duplicate', $workers, $rounds, 1, 100);
     $db = DB::connection('salerace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     foreach (range(1, $rounds) as $round) {
         $answers = array_values(array_filter($run['rows'], fn (array $r): bool => $r['round'] === $round));
         $failed = array_filter($answers, fn (array $r): bool => ! $r['ok']);
@@ -148,8 +138,7 @@ it('takes goods back once when four tills return the same sale at the same momen
     $run = saleRaceRun('return', $workers, $rounds, $rounds, 10, 'sales');
     $db = DB::connection('salerace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     foreach (range(1, $rounds) as $round) {
         ['won' => $won, 'lost' => $lost] = saleRaceRound($run['rows'], $round);
         expect($won)->toHaveCount(1, "round {$round}: exactly one till takes the goods back")
@@ -179,8 +168,7 @@ it('makes one sale when four tills convert the same quote at the same moment', f
     $run = saleRaceRun('convert', $workers, $rounds, $rounds, 10, 'quotes');
     $db = DB::connection('salerace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     $quotes = $db->table('quotations')->orderBy('id')->get();
     foreach (range(1, $rounds) as $round) {
         ['won' => $won, 'lost' => $lost] = saleRaceRound($run['rows'], $round);

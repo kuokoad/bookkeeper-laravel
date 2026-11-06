@@ -175,7 +175,7 @@ final class UnitsService
                 ->where(fn ($q) => $q->where('products.unit', $existing->symbol)->orWhere('products.alt_unit', $existing->symbol))
                 ->exists();
             if ($inUse) {
-                throw new ConflictError("\"{$existing->symbol}\" is used by products, so it cannot be deleted.");
+                throw new ConflictError("\"{$existing->symbol}\" is used by stock items, so it cannot be deleted.");
             }
             DB::table('units')->where('symbol', $existing->symbol)->delete();
             AuditService::write(AuditAction::Archive, 'unit', "Deleted unit \"{$existing->symbol}\"", $existing->symbol, $actor, null, Clock::now());

@@ -131,7 +131,7 @@ final class NewAdjustment extends Component
             }
             $productId = Filters::parseId($rawProduct);
             if ($productId === null) {
-                $this->addError('form', "Line {$line}: choose a product.");
+                $this->addError('form', "Line {$line}: choose a stock item.");
 
                 return;
             }
@@ -164,7 +164,7 @@ final class NewAdjustment extends Component
             }
         }
         if ($items === []) {
-            $this->addError('form', 'Add at least one product to the adjustment.');
+            $this->addError('form', 'Add at least one stock item to the adjustment.');
 
             return;
         }

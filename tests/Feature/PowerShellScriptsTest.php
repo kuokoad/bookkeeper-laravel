@@ -54,3 +54,13 @@ it('update.ps1 restores the books, not just the code, on any failure once migrat
         // Apache is stopped before the backup is taken, so no sale lands after it.
         ->and(strpos($script, 'Stop-Service $service'))->toBeLessThan(strpos($script, '"nuna:backup"'));
 });
+
+it('install.ps1 and update.ps1 load the baseline data after migrating', function (string $name) {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/'.$name);
+    $migrate = strpos($script, '"migrate", "--force"');
+    $seed = strpos($script, '"db:seed", "--class=Database\Seeders\CoreSeeder", "--force"');
+
+    expect($migrate)->not->toBeFalse()
+        ->and($seed)->not->toBeFalse()
+        ->and($seed)->toBeGreaterThan($migrate);
+})->with(['install.ps1', 'update.ps1']);

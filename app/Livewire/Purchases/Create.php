@@ -218,7 +218,7 @@ final class Create extends Component
                 $number++;
                 $product = $this->products[$row['productId']] ?? null;
                 if ($product === null) {
-                    $fail('Choose a product.');
+                    $fail('Choose a stock item.');
 
                     return;
                 }
@@ -237,7 +237,7 @@ final class Create extends Component
                 ];
             }
             if ($items === []) {
-                $fail('Add at least one product to the purchase.');
+                $fail('Add at least one stock item to the purchase.');
 
                 return;
             }

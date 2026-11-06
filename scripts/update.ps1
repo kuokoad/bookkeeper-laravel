@@ -10,7 +10,8 @@
        starts Apache again and stops here; nothing has changed.
     3. git pull --ff-only and composer install --no-dev. If either fails:
        puts the code back to the commit it started from and starts that.
-    4. php artisan migrate --force, caches config, routes and views, starts
+    4. php artisan migrate --force, adds any missing baseline rows
+       (CoreSeeder), caches config, routes and views, starts
        Apache and checks the app answers on /up.
     5. If anything from the migration on fails: puts the code back AND
        restores the backup from step 2 (nuna:restore), then starts again.
@@ -166,7 +167,11 @@ try {
     # --- 4. Migrate: from here on a failure restores the books as well -----------------------
 
     $migrateStarted = $true
-    $ok = (Invoke-Native "Migrating the database" $php @("artisan", "migrate", "--force")) -and (Update-Caches)
+    # CoreSeeder only adds missing baseline rows (a new document type, a new system account),
+    # never changes existing ones, and runs where a failure restores the books.
+    $ok = (Invoke-Native "Migrating the database" $php @("artisan", "migrate", "--force")) -and
+          (Invoke-Native "Loading the baseline data" $php @("artisan", "db:seed", "--class=Database\Seeders\CoreSeeder", "--force")) -and
+          (Update-Caches)
     $to = ""
     [void](Invoke-Exe "git" @("rev-parse", "HEAD") ([ref]$to))
 

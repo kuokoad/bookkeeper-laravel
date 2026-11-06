@@ -460,3 +460,49 @@ not 1,500.00; the balance owed (computed separately) stays right. Proposed:
 one SQL sum over all of the customer's posted sales and payments in
 `CustomerService`, keeping the list at 100.
 DONE 2026-11-06, approved by the owner. Now: "Total bought" and "Total paid later" on the customer and supplier pages are sums over all posted documents (`getActivityTotals`); returns subtract on both pages (the owner chose one rule after review) and a voided sale drops out, as the balances have them (the old customer page took each void off twice; the old supplier page left returns out); the lists still show 100 rows (`ClickThroughDecisionsTest`).
+
+**D25. A customer return rounds each piece on its own. DONE (2026-11-06,
+approved by the owner).** Old `returns.service.ts:182-183` (revenue and cost,
+`mulDiv` of the piece) and `:236` (`taxShareOf` of the piece's revenue), new
+`ReturnsService::createCustomerReturn`. Example: 3 x 10.00 less a 1.00
+invoice discount, 29.00 on credit, cost 10.00; returned a unit at a time,
+each piece credits 9.67 and puts back 3.33 of cost: 29.01 credited and 9.99
+of cost back, so the customer ends 0.01 in credit and Inventory 0.01 short
+on a full shelf. Under taxes a piece's split of a rounded total can step a
+component backwards and be refused.
+Proposed: cumulative shares, as the supplier side (D1/D2).
+Now: each piece's revenue, cost and each tax component is the share of
+(returned so far + this piece) less the share of (returned so far), per
+component with `cumulativeShare`; the pieces credit 9.67, 9.66, 9.67 and
+put back 3.33, 3.34, 3.33. Returns already stored (imported ones too) keep
+their figures; a new piece is measured from the quantity already back
+(`CustomerReturnSharesTest`).
+
+**D26. Stock coming back from below zero drops its costing residual. DONE
+(2026-11-06, approved by the owner).** Old `purchase.service.ts:286`,
+`returns.service.ts:327` (customer return), `sale.service.ts:806` (sale
+void) and `stock-adjustment.service.ts:206` (adjustment in) ignore the
+`residual` that `costing.ts` reports when a movement brings the quantity
+back to zero (only the purchase void, `purchase.service.ts:666`, and the
+adjustment void, `stock-adjustment.service.ts:496`, posted it).
+Example, negative stock allowed, card cost 10.00: sell 1 with none on the
+shelf (Inventory -10.00), then buy 1 at 12.00: the shelf is empty and worth
+0.00, but Inventory (1200) holds 2.00, and the inventory report says the
+stock value does not match the accounts.
+Proposed: post the residual as the void does.
+Now: each of the four sums the movements' residuals and posts them with
+`PurchaseService::postCostingResidual` in the same transaction, under the
+document's own number, date and source (Dr 5000 / Cr 1200, or the reverse):
+1200 reads 0.00 and cost of goods sold 12.00 (`CostingResidualTest`,
+`BooksInvariantsTest` with negative stock allowed).
+
+**D27. A customer return whose cost share is zero leaves the goods off the
+shelf. DONE (2026-11-06, approved by the owner).** Old
+`returns.service.ts:319` restocks only when the piece's cost share is not
+zero (new `ReturnsService::createCustomerReturn`). Example: 3 nails costing
+0.02 in all, returned one at a time: the cost shares are 0.01, 0.00, 0.01, so
+the middle nail never goes back on the shelf; a free sample never comes back
+at all. Proposed: always restock a stock-tracked line.
+Now: every returned stock-tracked line goes back on the shelf, at a zero cost
+when its share is zero; all 3 nails are back and stock value (0.02) agrees
+with 1200 (`CustomerReturnSharesTest`).

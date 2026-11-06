@@ -84,7 +84,7 @@ it('records stock in from a unit cost, posting unit times quantity', function ()
 
 it('takes stock out at the weighted average and shows the service messages', function () {
     $page = Livewire::actingAs(User::query()->findOrFail($this->ownerId))->test(NewAdjustment::class);
-    $page->call('save')->assertHasErrors(['form' => 'Add at least one product to the adjustment.']);
+    $page->call('save')->assertHasErrors(['form' => 'Add at least one stock item to the adjustment.']);
     $page->set('reason', 'FOUND')->set('rows.0.productId', (string) $this->rice)->set('rows.0.qty', '1')
         ->call('save')->assertHasErrors('form')->assertSee('Line 1: enter the total value of the stock being added.');
     $page->set('reason', 'DAMAGED')->set('rows.0.qty', '50')->call('save')->assertHasErrors('form');

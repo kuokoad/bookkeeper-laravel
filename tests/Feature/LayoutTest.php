@@ -17,7 +17,7 @@ it('keeps the old menu: same groups, labels and order', function () {
     $menu = array_map(fn (array $s): string => $s['heading'].': '.implode(', ', array_column($s['items'], 'label')), Navigation::SECTIONS);
     expect($menu)->toBe([
         'Daily: Dashboard, Sales, Quotations, Purchases, Expenses',
-        'Stock: Products, Inventory',
+        'Stock: Stock items, Inventory',
         'People: Customers, Suppliers',
         'Money: Accounts, Reconciliation, Accounting, Reports',
         'Admin: Users, Settings',

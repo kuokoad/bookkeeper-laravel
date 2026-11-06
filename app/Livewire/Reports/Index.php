@@ -24,8 +24,8 @@ final class Index extends Component
             ['href' => '/reports/cash-flow', 'title' => 'Cash flow', 'description' => 'Where money came in and where it went out.'],
         ]],
         ['group' => 'Trading', 'items' => [
-            ['href' => '/reports/sales', 'title' => 'Sales report', 'description' => 'By day, product, category, customer and payment method.'],
-            ['href' => '/reports/purchases', 'title' => 'Purchase report', 'description' => 'By day, supplier and product.'],
+            ['href' => '/reports/sales', 'title' => 'Sales report', 'description' => 'By day, stock item, stock group, customer and payment method.'],
+            ['href' => '/reports/purchases', 'title' => 'Purchase report', 'description' => 'By day, supplier and stock item.'],
             ['href' => '/reports/inventory', 'title' => 'Inventory report', 'description' => 'Stock valuation, movement, low stock and out of stock.'],
             ['href' => '/reports/tax', 'title' => 'Tax return', 'description' => 'What you charged, what you can reclaim, and what you owe.'],
         ]],

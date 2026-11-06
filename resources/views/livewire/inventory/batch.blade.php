@@ -5,7 +5,7 @@
 <div class="w-full">
     <x-page-header :title="$batch['batchRef']" :description="$batch['supplierName'] === null ? $batch['productName'] : $batch['productName'].' · from '.$batch['supplierName']">
         <x-slot:actions>
-            <x-button variant="secondary" size="sm" href="/products/{{ $batch['productId'] }}/edit">Open the product</x-button>
+            <x-button variant="secondary" size="sm" href="/products/{{ $batch['productId'] }}/edit">Open the stock item</x-button>
         </x-slot:actions>
     </x-page-header>
 

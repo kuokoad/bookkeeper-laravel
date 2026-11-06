@@ -31,7 +31,7 @@ final class ProductImportService
 {
     /** Field => label, in the order the page shows them. */
     public const IMPORT_FIELDS = [
-        'name' => 'Product name',
+        'name' => 'Stock item name',
         'sku' => 'Code / SKU',
         'barcode' => 'Barcode',
         'unit' => 'Unit',
@@ -41,7 +41,7 @@ final class ProductImportService
         'altCostPrice' => 'Cost per pack',
         'altSellingPrice' => 'Selling price per pack',
         'minStock' => 'Reorder level',
-        'category' => 'Category',
+        'category' => 'Stock group',
         'trackInventory' => 'Track stock (yes / no)',
         'openingQty' => 'Opening quantity',
         'openingValue' => 'Opening stock value',
@@ -49,8 +49,8 @@ final class ProductImportService
 
     /** Headings each field is recognised by, after lower-casing and squeezing spaces. */
     private const HEADINGS = [
-        'name' => ['product', 'product name', 'name', 'item', 'item name', 'description'],
-        'sku' => ['sku', 'code', 'product code', 'item code'],
+        'name' => ['product', 'product name', 'stock item', 'stock item name', 'name', 'item', 'item name', 'description'],
+        'sku' => ['sku', 'code', 'product code', 'stock item code', 'item code'],
         'barcode' => ['barcode', 'bar code'],
         'unit' => ['unit', 'uom'],
         'costPrice' => ['cost price', 'cost', 'unit cost', 'cost per piece', 'cost per unit'],
@@ -59,7 +59,7 @@ final class ProductImportService
         'altCostPrice' => ['cost per pack', 'pack cost', 'cost price per pack'],
         'altSellingPrice' => ['selling price per pack', 'pack price', 'price per pack'],
         'minStock' => ['reorder level', 'min stock', 'minimum stock', 'reorder'],
-        'category' => ['category', 'product category'],
+        'category' => ['category', 'product stock group', 'stock group'],
         'trackInventory' => ['track stock', 'track inventory'],
         'openingQty' => ['opening quantity', 'opening qty', 'opening stock', 'stock', 'in stock', 'qty on hand', 'quantity on hand'],
         'openingValue' => ['opening value', 'opening stock value', 'stock value'],
@@ -67,8 +67,8 @@ final class ProductImportService
 
     /** The template's heading row: one heading per field, each one guessColumns() recognises. */
     public const TEMPLATE_HEADINGS = [
-        'Product name', 'SKU', 'Barcode', 'Unit', 'Cost price', 'Selling price', 'Units per pack', 'Cost per pack',
-        'Selling price per pack', 'Reorder level', 'Category', 'Track stock', 'Opening quantity', 'Opening value',
+        'Stock item name', 'SKU', 'Barcode', 'Unit', 'Cost price', 'Selling price', 'Units per pack', 'Cost per pack',
+        'Selling price per pack', 'Reorder level', 'Stock group', 'Track stock', 'Opening quantity', 'Opening value',
     ];
 
     private const YES = ['yes', 'y', 'true', '1'];
@@ -172,7 +172,7 @@ final class ProductImportService
             throw new ValidationError('That sheet has more than '.self::MAX_IMPORT_ROWS.' rows. Split it into smaller files.');
         }
         if (! isset($map['name'])) {
-            throw new ValidationError('Choose the column that holds the product name.');
+            throw new ValidationError('Choose the column that holds the stock item name.');
         }
 
         $header = array_values($rows[0] ?? []);
@@ -249,13 +249,13 @@ final class ProductImportService
             $sku = $cell('sku');
             $barcode = $cell('barcode');
             if ($name === '') {
-                $problems[] = 'No product name.';
+                $problems[] = 'No stock item name.';
             }
 
             if ($sku !== '') {
                 $key = mb_strtolower($sku);
                 if (isset($takenCodes[$key])) {
-                    $problems[] = "Code {$sku} is already used by a product.";
+                    $problems[] = "Code {$sku} is already used by a stock item.";
                 } elseif (isset($fileCodes[$key])) {
                     $problems[] = "Code {$sku} is also on row {$fileCodes[$key]}.";
                 } else {
@@ -265,7 +265,7 @@ final class ProductImportService
             if ($barcode !== '') {
                 $key = mb_strtolower($barcode);
                 if (isset($takenBarcodes[$key])) {
-                    $problems[] = "Barcode {$barcode} is already used by a product.";
+                    $problems[] = "Barcode {$barcode} is already used by a stock item.";
                 } elseif (isset($fileBarcodes[$key])) {
                     $problems[] = "Barcode {$barcode} is also on row {$fileBarcodes[$key]}.";
                 } else {
@@ -349,7 +349,7 @@ final class ProductImportService
             $categoryText = self::collapse($cell('category'));
             $category = $categoryText !== '' ? ($categoryByName[mb_strtolower($categoryText)] ?? null) : null;
             if ($categoryText !== '' && $category === null) {
-                $problems[] = "Category {$categoryText} is not on your Categories list.";
+                $problems[] = "Stock group {$categoryText} is not on your Stock groups list.";
             }
 
             $trackText = mb_strtolower($cell('trackInventory'));
@@ -365,7 +365,7 @@ final class ProductImportService
                     if ($openingQty < 0) {
                         $problems[] = 'Opening quantity cannot be negative.';
                     } elseif ($openingQty !== 0 && ! $trackInventory) {
-                        $problems[] = 'Only a product whose stock is tracked can have opening stock.';
+                        $problems[] = 'Only a stock item whose stock is tracked can have opening stock.';
                     } else {
                         Quantity::assertUnitDecimals($openingQty, $decimals[mb_strtolower($unit)] ?? Quantity::DECIMALS, $unit);
                     }
@@ -483,7 +483,7 @@ final class ProductImportService
             $adjustmentNo = $opening === [] ? null : StockAdjustmentService::createStockAdjustment([
                 'businessDate' => $businessDate,
                 'reason' => AdjustmentReason::OpeningStock,
-                'note' => 'Imported with products',
+                'note' => 'Imported with stock items',
                 'items' => $opening,
             ], $actor)['adjustmentNo'];
 

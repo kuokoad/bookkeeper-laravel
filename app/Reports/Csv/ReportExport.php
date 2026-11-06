@@ -117,7 +117,7 @@ final class ReportExport
                     ...array_map(fn (array $r): array => ['By day', $r['businessDate'], (string) $r['purchaseCount'], $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesByDay($q)),
                     ...array_map(fn (array $r): array => ['By supplier', $r['supplierName'], (string) $r['purchaseCount'], $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesBySupplier($q)),
                     // One row per product and unit (D7): the unit tells the rows of a product apart.
-                    ...array_map(fn (array $r): array => ['By product', "{$r['productName']} ({$r['unit']})", Csv::qty($r['qtyBought']), $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesByProduct($q)),
+                    ...array_map(fn (array $r): array => ['By stock item', "{$r['productName']} ({$r['unit']})", Csv::qty($r['qtyBought']), $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesByProduct($q)),
                 ]];
 
             case 'inventory':
@@ -125,7 +125,7 @@ final class ReportExport
                 $moved = array_column(OperationsService::getStockMovementSummary($range, $q), null, 'productId');
 
                 return [
-                    'headers' => ['Product', 'SKU', 'Category', 'Unit', 'On hand', 'On hand (alternate unit)', 'Average cost', 'Value at cost', 'Selling price', 'Value at retail', 'Qty in (period)', 'Qty out (period)', 'Status'],
+                    'headers' => ['Stock item', 'SKU', 'Stock group', 'Unit', 'On hand', 'On hand (alternate unit)', 'Average cost', 'Value at cost', 'Selling price', 'Value at retail', 'Qty in (period)', 'Qty out (period)', 'Status'],
                     'rows' => array_map(fn (array $r): array => [
                         $r['productName'], $r['sku'] ?? '', $r['categoryName'] ?? '', $r['unit'], Csv::qty($r['qtyOnHand']),
                         Csv::altQty($r['qtyOnHand'], $r['unit'], $r['altUnit'], $r['altFactorMilli']),
@@ -152,7 +152,7 @@ final class ReportExport
             case 'expiry':
                 // Batches, never money: a batch carries no cost.
                 return [
-                    'headers' => ['Batch', 'Product', 'SKU', 'Unit', 'Expires', 'Days left', 'Remaining', 'Supplier', 'Received', 'Status'],
+                    'headers' => ['Batch', 'Stock item', 'SKU', 'Unit', 'Expires', 'Days left', 'Remaining', 'Supplier', 'Received', 'Status'],
                     'rows' => array_map(fn (array $r): array => [
                         $r['batchRef'], $r['productName'], $r['sku'] ?? '', $r['unit'], $r['expiryDate'] ?? '',
                         $r['daysLeft'] === null ? '' : (string) $r['daysLeft'], Csv::qty($r['qtyMilli']), $r['supplierName'] ?? '', $r['receivedDate'] ?? '',
@@ -187,21 +187,22 @@ final class ReportExport
         $byLine = isset($q['productId']) || isset($q['categoryId']);
         $net = 'Revenue net of tax and discounts';
         $basis = $byLine ? $net : 'Takings with tax';
+        $lines = OperationsService::earnedLines($q);
 
         $byDay = $byLine
-            ? array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'total' => $r['revenue'], 'cogs' => $r['cost'], 'profit' => $r['profit']], OperationsService::getSalesLinesByDay($q))
+            ? array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'total' => $r['revenue'], 'cogs' => $r['cost'], 'profit' => $r['profit']], OperationsService::getSalesLinesByDay($q, $lines))
             : OperationsService::getSalesByDay($q);
         $byCustomer = $byLine
-            ? array_map(fn (array $r): array => ['customerName' => $r['customerName'], 'saleCount' => $r['saleCount'], 'total' => $r['revenue'], 'profit' => $r['profit']], OperationsService::getSalesLinesByCustomer($q))
+            ? array_map(fn (array $r): array => ['customerName' => $r['customerName'], 'saleCount' => $r['saleCount'], 'total' => $r['revenue'], 'profit' => $r['profit']], OperationsService::getSalesLinesByCustomer($q, $lines))
             : OperationsService::getSalesByCustomer($q);
         $byMethod = $byLine ? [] : OperationsService::getSalesByPaymentMethod($q);
 
         return [
-            'headers' => ['Section', 'Name', 'Category', 'Count/Qty', 'Amount', 'Cost', 'Profit', 'Amount is'],
+            'headers' => ['Section', 'Name', 'Stock group', 'Count/Qty', 'Amount', 'Cost', 'Profit', 'Amount is'],
             'rows' => [
                 ...array_map(fn (array $r): array => ['By day', $r['businessDate'], '', (string) $r['saleCount'], $m($r['total']), $m($r['cogs']), $m($r['profit']), $basis], $byDay),
-                ...array_map(fn (array $r): array => ['By product', $r['productName'], $r['categoryName'] ?? '', Csv::qty($r['qtySold']), $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByProduct($q)),
-                ...array_map(fn (array $r): array => ['By category', $r['categoryName'], '', '', $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByCategory($q)),
+                ...array_map(fn (array $r): array => ['By stock item', $r['productName'], $r['categoryName'] ?? '', Csv::qty($r['qtySold']), $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByProduct($q, $lines)),
+                ...array_map(fn (array $r): array => ['By stock group', $r['categoryName'], '', '', $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByCategory($q, $lines)),
                 ...array_map(fn (array $r): array => ['By customer', $r['customerName'], '', (string) $r['saleCount'], $m($r['total']), '', $m($r['profit']), $basis], $byCustomer),
                 ...array_map(fn (array $r): array => ['By payment method', $r['accountName'], '', '', $m($r['received']), '', '', 'Money received'], $byMethod),
             ],

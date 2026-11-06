@@ -13,8 +13,8 @@
         </x-empty-state>
     @elseif ($products === [])
         <x-page-header title="New purchase" />
-        <x-empty-state title="Add a product first" description="You can only record a purchase of something already in your product list.">
-            <x-slot:action><x-button href="/products/new">Add a product</x-button></x-slot:action>
+        <x-empty-state title="Add a stock item first" description="You can only record a purchase of something already in your stock item list.">
+            <x-slot:action><x-button href="/products/new">Add a stock item</x-button></x-slot:action>
         </x-empty-state>
     @else
         <x-page-header title="New purchase" description="Record a delivery. Stock goes up at the price you actually paid.">
@@ -75,7 +75,7 @@
                         @endphp
                         <div wire:key="row-{{ $k }}" class="grid gap-3 rounded-lg border border-line p-3 sm:grid-cols-12">
                             <div class="sm:col-span-4">
-                                <label for="p-{{ $k }}" class="mb-1 block text-xs font-medium text-content-muted">Product</label>
+                                <label for="p-{{ $k }}" class="mb-1 block text-xs font-medium text-content-muted">Stock item</label>
                                 <select id="p-{{ $k }}" wire:model.live="rows.{{ $index }}.productId" @class([$select, 'border-danger' => isset($errors_['product'])]) @if (isset($errors_['product'])) aria-invalid="true" aria-describedby="p-{{ $k }}-error" @endif>
                                     <option value="">Choose…</option>
                                     @foreach ($products as $item)

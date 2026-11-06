@@ -32,10 +32,10 @@
     @endphp
 
     <x-filter-bar :quick="$quick" :list="$list" :dates="true" :fields="[
-        ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Purchase or invoice no, supplier, product', 'wide' => true, 'value' => $f['search'] ?? ''],
+        ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Purchase or invoice no, supplier, stock item', 'wide' => true, 'value' => $f['search'] ?? ''],
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => $options($suppliers), 'value' => $f['supplierId'] ?? null],
-        ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => $options($categories), 'value' => $f['categoryId'] ?? null],
-        ['kind' => 'select', 'key' => 'product', 'label' => 'Product', 'allLabel' => 'All products', 'options' => $options($products), 'value' => $f['productId'] ?? null],
+        ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => $options($categories), 'value' => $f['categoryId'] ?? null],
+        ['kind' => 'select', 'key' => 'product', 'label' => 'Stock item', 'allLabel' => 'All stock items', 'options' => $options($products), 'value' => $f['productId'] ?? null],
         ['kind' => 'select', 'key' => 'account', 'label' => 'Paid from', 'allLabel' => 'Any account', 'options' => $options($accounts), 'value' => $f['paymentAccountId'] ?? null],
         ['kind' => 'select', 'key' => 'status', 'label' => 'Status', 'allLabel' => 'All', 'options' => ['POSTED' => 'Posted', 'VOIDED' => 'Voided'], 'value' => $f['status'] ?? null],
         ['kind' => 'amount-range', 'minKey' => 'min', 'maxKey' => 'max', 'label' => 'Total', 'min' => $minText, 'max' => $maxText],

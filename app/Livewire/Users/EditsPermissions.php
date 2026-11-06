@@ -23,7 +23,7 @@ trait EditsPermissions
     public const MODULE_ROWS = [
         'sales' => ['Sales', 'Use the till and see past sales'],
         'purchases' => ['Purchases', 'Record deliveries from suppliers'],
-        'products' => ['Products', 'The list of what you sell, and prices'],
+        'products' => ['Stock items', 'The list of what you sell, and prices'],
         'inventory' => ['Inventory', 'Stock levels and adjustments'],
         'customers' => ['Customers', 'Customer records and their debts'],
         'suppliers' => ['Suppliers', 'Supplier records and what you owe'],

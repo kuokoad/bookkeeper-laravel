@@ -1,7 +1,7 @@
 <div class="w-full">
-    <x-page-header title="Units" description="What stock is counted in, and how many decimals each allows. Pcs takes 0, Kg takes 3.">
+    <x-page-header title="Units of measure" description="What stock is counted in, and how many decimals each allows. Pcs takes 0, Kg takes 3.">
         <x-slot:actions>
-            <x-button variant="secondary" size="sm" href="/products">Back to products</x-button>
+            <x-button variant="secondary" size="sm" href="/products">Back to stock items</x-button>
         </x-slot:actions>
     </x-page-header>
 
@@ -50,7 +50,7 @@
             @else
                 <div wire:key="unit-{{ $i }}" class="flex items-center justify-between rounded-xl border border-line bg-surface-raised px-4 py-3 text-sm">
                     <span class="font-medium text-content">{{ $form['symbol'] }} <span class="font-normal text-content-subtle">— {{ $form['name'] }}</span></span>
-                    <span class="tabular text-content-subtle">{{ $form['decimalPlaces'] }} dp · {{ $form['productCount'] }} products</span>
+                    <span class="tabular text-content-subtle">{{ $form['decimalPlaces'] }} dp · {{ $form['productCount'] }} stock items</span>
                 </div>
             @endif
             @if ($adding && $i === 0)</div>@endif
@@ -58,6 +58,6 @@
     </div>
 
     <p class="mt-4 text-xs text-content-subtle">
-        Renaming a unit renames it on every product that uses it. Receipts already printed keep the name they were printed with. A unit in use cannot be deleted.
+        Renaming a unit renames it on every stock item that uses it. Receipts already printed keep the name they were printed with. A unit in use cannot be deleted.
     </p>
 </div>

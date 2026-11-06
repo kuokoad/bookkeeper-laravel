@@ -15,7 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /** The old (app)/products/page.tsx: what you sell, its cost and what is on the shelf. Reads only. */
-#[Title('Products')]
+#[Title('Stock items')]
 final class Index extends Component
 {
     public array $params = [];

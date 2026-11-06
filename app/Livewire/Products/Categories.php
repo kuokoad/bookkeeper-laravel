@@ -12,7 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /** The old products/categories page with its new-category-form.tsx. */
-#[Title('Categories')]
+#[Title('Stock groups')]
 final class Categories extends Component
 {
     public string $name = '';
@@ -24,7 +24,7 @@ final class Categories extends Component
         $this->authorize('products.create');
         $this->validate(
             ['name' => 'required|string|max:80', 'description' => 'nullable|string|max:300'],
-            ['name.required' => 'Enter a category name.'],
+            ['name.required' => 'Enter a stock group name.'],
         );
         try {
             CatalogService::createCategory(['name' => $this->name, 'description' => trim($this->description) === '' ? null : trim($this->description)], Principal::load((int) auth()->id())->actor());
@@ -35,7 +35,7 @@ final class Categories extends Component
         }
         // Cleared so the next one can be typed straight away: this list is usually filled in one sitting.
         $this->reset('name', 'description');
-        $this->dispatch('toast', message: 'Category added.');
+        $this->dispatch('toast', message: 'Stock group added.');
     }
 
     public function render(): View

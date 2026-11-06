@@ -35,7 +35,7 @@ it('builds every list with the old headers', function (string $list, string $fir
         ->and($file['body'])->toStartWith("\u{FEFF}".Csv::escapeField($firstHeader))
         ->and($file['filename'])->toBe('bookkeeper_'.$list.'_'.CSVX_TODAY.'.csv');
 })->with([
-    ['sales', 'Receipt'], ['purchases', 'Purchase'], ['expenses', 'Number'], ['income', 'Number'], ['products', 'Product'],
+    ['sales', 'Receipt'], ['purchases', 'Purchase'], ['expenses', 'Number'], ['income', 'Number'], ['products', 'Stock item'],
     ['stock-movements', 'Date'], ['customers', 'Customer'], ['suppliers', 'Supplier'], ['account', 'Date'], ['quotations', 'Quote'],
 ]);
 
@@ -47,7 +47,7 @@ it('builds every report with the old headers', function (string $report, string 
         ->and($file['filename'])->toBe("bookkeeper_{$report}_2026-08-01_".CSVX_TODAY.'.csv');
 })->with([
     ['profit-and-loss', 'Item'], ['balance-sheet', 'Item'], ['cash-flow', 'Item'], ['sales', 'Section'], ['purchases', 'Section'],
-    ['inventory', 'Product'], ['tax', 'Tax'], ['expiry', 'Batch'], ['receivables', 'Customer'], ['payables', 'Supplier'], ['year-end', 'Item'],
+    ['inventory', 'Stock item'], ['tax', 'Tax'], ['expiry', 'Batch'], ['receivables', 'Customer'], ['payables', 'Supplier'], ['year-end', 'Item'],
 ]);
 
 it('puts the same figures in the P&L file as the report', function () {

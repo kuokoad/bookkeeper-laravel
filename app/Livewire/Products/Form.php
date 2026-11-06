@@ -64,8 +64,8 @@ final class Form extends Component
         }
 
         session()->flash('status', $this->productId === null
-            ? 'Product created. It starts with no stock — record a stock adjustment to enter opening stock.'
-            : 'Product updated.');
+            ? 'Stock item created. It starts with no stock — record a stock adjustment to enter opening stock.'
+            : 'Stock item updated.');
         $this->redirect('/products');
     }
 
@@ -79,7 +79,7 @@ final class Form extends Component
 
             return;
         }
-        session()->flash('status', $isActive ? 'Product restored.' : 'Product archived. It is hidden from sales and the product list; its history stays.');
+        session()->flash('status', $isActive ? 'Stock item restored.' : 'Stock item archived. It is hidden from sales and the stock item list; its history stays.');
         $this->redirect('/products');
     }
 
@@ -93,7 +93,7 @@ final class Form extends Component
 
             return;
         }
-        session()->flash('status', 'Product deleted.');
+        session()->flash('status', 'Stock item deleted.');
         $this->redirect('/products');
     }
 
@@ -110,6 +110,6 @@ final class Form extends Component
             'inUse' => $product !== null && CatalogService::isProductInUse($product['id']),
             // The replace page needs these too; do not offer a door that will not open.
             'offerReplace' => $unitsLocked && $product['isActive'] && Gate::allows('products.create') && Gate::allows('inventory.create'),
-        ])->title($product === null ? 'Add product' : 'Edit product');
+        ])->title($product === null ? 'Add stock item' : 'Edit stock item');
     }
 }

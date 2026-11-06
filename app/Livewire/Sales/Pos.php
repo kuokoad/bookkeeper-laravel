@@ -321,7 +321,7 @@ final class Pos extends Component
             ], $principal->actor());
         } catch (ExpiredStockError $e) {
             $this->expired = [
-                'productName' => $e->details['productName'] ?? 'this product',
+                'productName' => $e->details['productName'] ?? 'this stock item',
                 'qtyExpired' => $e->details['qtyExpired'] ?? '',
                 'batchRefs' => $e->details['batchRefs'] ?? [],
                 'mayOverride' => $maySellExpired,

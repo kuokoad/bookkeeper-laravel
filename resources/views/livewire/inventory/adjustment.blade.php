@@ -46,10 +46,10 @@
         </dl>
     </x-card>
 
-    <h2 class="mb-3 text-sm font-semibold text-content">Products</h2>
+    <h2 class="mb-3 text-sm font-semibold text-content">Stock items</h2>
     <x-table class="mb-6">
         <x-slot:head>
-            <x-th>Product</x-th>
+            <x-th>Stock item</x-th>
             <x-th>Direction</x-th>
             <x-th numeric>Quantity</x-th>
             <x-th numeric>Unit cost</x-th>
@@ -103,7 +103,7 @@
                 note="This reverses the stock movement and the accounting entry. Nothing is deleted."
                 confirm="Yes, void this adjustment" wire:submit="void">
                 <x-field label="Reason" for="void-reason" name="reason" required>
-                    <x-input id="void-reason" wire:model="reason" placeholder="e.g. Entered against the wrong product" required :invalid="$errors->has('reason')" />
+                    <x-input id="void-reason" wire:model="reason" placeholder="e.g. Entered against the wrong stock item" required :invalid="$errors->has('reason')" />
                 </x-field>
             </x-confirm-dialog>
         </div>

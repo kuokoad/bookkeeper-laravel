@@ -125,7 +125,7 @@
                       },
                   }"
                   x-on:focusout="if (! $el.contains($event.relatedTarget)) open = false">
-                <label for="top-search" class="sr-only">Search products, customers, suppliers and receipts</label>
+                <label for="top-search" class="sr-only">Search stock items, customers, suppliers and receipts</label>
                 <div class="flex h-10 items-center gap-2 rounded-lg border border-line bg-surface-sunken px-3">
                     <x-icon name="search" class="h-[18px] w-[18px] text-content-subtle" />
                     <input id="top-search" name="q" type="search" value="{{ request()->is('search') ? request()->query('q') : '' }}"
@@ -134,7 +134,7 @@
                            x-on:keydown.enter="enter($event)"
                            role="combobox" aria-controls="top-search-list" x-bind:aria-expanded="showing && hits.length > 0"
                            x-bind:aria-activedescendant="active >= 0 ? 'top-search-' + active : null"
-                           placeholder="Search products, customers, receipts…" autocomplete="off"
+                           placeholder="Search stock items, customers, receipts…" autocomplete="off"
                            class="h-full min-w-0 flex-1 bg-transparent text-sm text-content placeholder:text-content-subtle focus:outline-none">
                 </div>
 

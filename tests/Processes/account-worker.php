@@ -76,18 +76,19 @@ if ($argv[1] === 'sell') {
 
 [$accounts, $categories, $worker] = [(int) $argv[2], (int) $argv[3], (int) $argv[4]];
 
-$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-account-go';
+$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-account-go-'.env('DB_DATABASE');
 while (! file_exists($go)) {
     usleep(5_000);
 }
 
 for ($i = 1; $i <= max($accounts, $categories); $i++) {
+    startRound($go, $i, $worker);
+    $start = microtime(true);
     if ($i <= $accounts) {
-        $id = PaymentAccountService::createPaymentAccount(['name' => "Wallet {$worker}-{$i}", 'kind' => PaymentAccountKind::MobileMoney], $actor);
-        echo 'account ', $id, "\n";
+        PaymentAccountService::createPaymentAccount(['name' => "Wallet {$worker}-{$i}", 'kind' => PaymentAccountKind::MobileMoney], $actor);
     }
     if ($i <= $categories) {
-        $id = PaymentAccountService::createCategory('EXPENSE', "Cost {$worker}-{$i}", $actor);
-        echo 'category ', $id, "\n";
+        PaymentAccountService::createCategory('EXPENSE', "Cost {$worker}-{$i}", $actor);
     }
+    echo json_encode(['round' => $i, 'start' => $start, 'end' => microtime(true)]), "\n";
 }

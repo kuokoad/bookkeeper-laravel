@@ -17,7 +17,8 @@ Planned; none of these exist until Phase 0 is built.
 | Test (all) | `php artisan test` (needs MySQL databases `nunabooks_test`; the Processes suite creates `nunabooks_concurrency` and `nunabooks_import` itself) |
 | Test (single) | `php artisan test --filter=<name>` |
 | Lint / format | `vendor/bin/pint --test` (check) · `vendor/bin/pint` (fix) |
-| Build assets | `npm run build` |
+| Build assets | `npm run build`, before every commit that touches `resources/` or any class name in `app/`. `public/build` is committed: the shop PC has no Node, so the built files ship with the release |
+| Prove the build is current | `npm run build:check` (rebuilds, then fails if `public/build` differs from what git has) |
 | DB migrate | `php artisan migrate` · fresh: `php artisan migrate:fresh --seed` |
 | Import old data | `php artisan nuna:import-sqlite <path to a COPY of bookkeeper.db>` |
 | Prove figures match | `php artisan nuna:reconcile` (pass = zero differences) |
@@ -54,7 +55,7 @@ Dev PC tools: Laragon at `C:\laragon` (PHP 8.4.19 / 8.5.4, MySQL 8.4.0, Composer
 - Never reset or bulk-rewrite password or PIN hashes. Legacy scrypt hashes are rehashed one at a time on successful sign-in.
 - Never delete financial history, audit rows or users.
 - When the old code's intent is unclear, **ask the owner rather than guess, especially about money.**
-- Before saying a task is done: `php artisan test`, `vendor/bin/pint --test`, and for figure-affecting work `php artisan nuna:reconcile`.
+- Before saying a task is done: `php artisan test`, `vendor/bin/pint --test`, `npm run build:check`, and for figure-affecting work `php artisan nuna:reconcile`.
 - Browser checks use the Playwright CLI only; screenshots go to `screenshots/`.
 
 ## Workflow

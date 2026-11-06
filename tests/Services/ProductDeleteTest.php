@@ -41,7 +41,7 @@ describe('deleting a product', function () {
         CatalogService::deleteProduct($duplicate, $this->actor);
 
         expect(DB::table('products')->where('id', $duplicate)->exists())->toBeFalse();
-        $entry = DB::table('audit_logs')->where('entity_type', 'product')->where('summary', 'Deleted product "Milo 400g (copy)"')->first();
+        $entry = DB::table('audit_logs')->where('entity_type', 'product')->where('summary', 'Deleted stock item "Milo 400g (copy)"')->first();
         expect($entry)->not->toBeNull();
         $deleted = json_decode($entry->metadata, true)['deleted'];
         expect($deleted)->toMatchArray(['sku' => 'MILO-2', 'costPriceMinor' => 500, 'sellingPriceMinor' => 800])

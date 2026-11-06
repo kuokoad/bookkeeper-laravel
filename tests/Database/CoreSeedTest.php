@@ -8,6 +8,7 @@ declare(strict_types=1);
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
+use App\Services\TaxService;
 use Database\Seeders\CoreSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +36,25 @@ it('creates every system account exactly once, idempotently', function () {
         ->and(DB::table('payment_accounts')->count())->toBe(3)
         ->and(DB::table('tax_components')->count())->toBe(3)
         ->and(DB::table('sequences')->count())->toBe(15);
+});
+
+it('changes nothing the shop has set when it runs again, as install and update do', function () {
+    DB::table('business_settings')->where('id', 1)->update(['business_name' => 'Adwoa Stores', 'tax_enabled' => true, 'allow_negative_stock' => true]);
+    DB::table('accounts')->where('code', ChartOfAccounts::CASH)->update(['name' => 'Front till']);
+    DB::table('payment_accounts')->where('is_default', true)->update(['name' => 'Front till', 'is_active' => false]);
+    DB::table('tax_components')->where('code', 'NHIL')->update(['is_active' => false]);
+    TaxService::syncDerivedSettings(); // as the tax screen does: the rate on the settings row follows
+    DB::table('sequences')->where('doc_type', 'RECEIPT')->update(['next_number' => 42]);
+    $snapshot = fn (): array => array_map(
+        fn (string $table, string $key): array => DB::table($table)->orderBy($key)->get()->map(fn (object $r): array => array_diff_key((array) $r, ['updated_at' => 0]))->all(),
+        ['business_settings', 'accounts', 'payment_accounts', 'tax_components', 'sequences'],
+        ['id', 'id', 'id', 'id', 'doc_type'],
+    );
+    $before = $snapshot();
+
+    (new CoreSeeder)->run();
+
+    expect($snapshot())->toBe($before);
 });
 
 it('seeds the chart of accounts with the old codes, types and parents', function () {
@@ -134,6 +154,13 @@ it('numbers documents with the old prefixes and padding', function () {
 
 it('records that the baseline was seeded', function () {
     expect(DB::table('audit_logs')->where('entity_id', 'core-seed')->exists())->toBeTrue();
+});
+
+it('writes no audit row when a re-run adds nothing', function () {
+    $before = DB::table('audit_logs')->where('entity_id', 'core-seed')->count();
+    (new CoreSeeder)->run();
+
+    expect(DB::table('audit_logs')->where('entity_id', 'core-seed')->count())->toBe($before);
 });
 
 it('seeds the pieces unit, as the old schema did', function () {

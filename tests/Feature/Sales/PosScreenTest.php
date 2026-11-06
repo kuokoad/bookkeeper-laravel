@@ -31,7 +31,7 @@ function tillAs(int $userId): mixed
 }
 
 it('opens for somebody who may sell and refuses everyone else', function () {
-    signedIn($this->ownerId)->get('/sales/new')->assertOk()->assertSee('Search or scan, take payment, done.')->assertSee('Find a product');
+    signedIn($this->ownerId)->get('/sales/new')->assertOk()->assertSee('Search or scan, take payment, done.')->assertSee('Find a stock item');
     signedIn(staff(['sales' => viewOnly()], 'kofi'))->get('/sales/new')->assertRedirect('/no-access?area=sales');
     $seller = staff(['sales' => ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false]], 'yaw');
     signedIn($seller)->get('/sales/new')->assertOk();

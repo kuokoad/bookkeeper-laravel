@@ -160,7 +160,7 @@ final class ListExport
                 $rows = CatalogService::listProducts([...ListFilters::parseProductFilters($params)['filters'], ...$page]);
 
                 return [
-                    'headers' => ['Product', 'SKU', 'Barcode', 'Category', 'Unit', 'In stock', 'In stock (alternate unit)', 'Average cost', 'Selling price', 'Stock value', 'Stock status', 'Product status'],
+                    'headers' => ['Stock item', 'SKU', 'Barcode', 'Stock group', 'Unit', 'In stock', 'In stock (alternate unit)', 'Average cost', 'Selling price', 'Stock value', 'Stock status', 'Stock item status'],
                     'rows' => array_map(fn (array $r): array => [
                         $r['name'], $r['sku'] ?? '', $r['barcode'] ?? '', $r['categoryName'] ?? '', $r['unit'],
                         $r['trackInventory'] ? Csv::qty($r['qtyOnHand']) : '',
@@ -182,7 +182,7 @@ final class ListExport
                 $rows = InventoryService::getStockLedger([...ListFilters::parseStockMovementFilters($params, $today)['filters'], ...$page]);
 
                 return [
-                    'headers' => ['Date', 'Product', 'Unit', 'Movement', 'Reference', 'In', 'Out', 'Unit cost', 'Total cost', 'Balance qty', 'Balance value', 'Note'],
+                    'headers' => ['Date', 'Stock item', 'Unit', 'Movement', 'Reference', 'In', 'Out', 'Unit cost', 'Total cost', 'Balance qty', 'Balance value', 'Note'],
                     'rows' => array_map(fn (array $r): array => [
                         (string) $r['businessDate'], $r['productName'], $r['productUnit'], self::MOVEMENT_LABELS[$r['movementType']] ?? $r['movementType'],
                         $r['sourceRef'] ?? '', $r['qtyIn'] === 0 ? '' : Csv::qty($r['qtyIn']), $r['qtyOut'] === 0 ? '' : Csv::qty($r['qtyOut']),

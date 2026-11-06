@@ -79,7 +79,7 @@ final class Replace extends Component
             return;
         }
 
-        session()->flash('status', 'Product replaced. Any stock it held moved to the new product at the same value, and the old product is archived with its history.');
+        session()->flash('status', 'Stock item replaced. Any stock it held moved to the new stock item at the same value, and the old stock item is archived with its history.');
         $this->redirect('/products');
     }
 
@@ -93,6 +93,6 @@ final class Replace extends Component
             'unitsLocked' => false,
             'altUnitLocked' => false,
             'moveStock' => ['current' => Quantity::formatWithUnit($this->expectedQty, $product['unit']), 'hasStock' => $this->expectedQty > 0],
-        ])->title('Replace product');
+        ])->title('Replace stock item');
     }
 }

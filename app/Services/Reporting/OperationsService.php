@@ -54,11 +54,13 @@ final class OperationsService
     /**
      * The matching LINES, each with its share of what its receipt earned
      * (SaleCalculator::lineEarnings over every line of the receipt, then the
-     * non-matching lines dropped).
+     * non-matching lines dropped). Read once per page or export and handed to
+     * each line table. Earnings are shared out one receipt at a time in sale
+     * order; PDO still buffers the whole result, so memory grows with the lines.
      *
      * @return list<array{saleId: int, kind: string, standing: bool, businessDate: string, customerId: ?int, customerName: ?string, productId: int, productName: string, unit: string, categoryId: ?int, categoryName: ?string, qty: int, earned: int, cost: int}>
      */
-    private static function earnedLines(array $query): array
+    public static function earnedLines(array $query): array
     {
         $rows = self::salesDatedIn(DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->leftJoin('products', 'products.id', '=', 'sale_items.product_id')
@@ -68,45 +70,54 @@ final class OperationsService
             ->selectRaw(TaxReturnService::standingAtEndSql('sales', 'voids_sale_id').' AS standing', [$query['to']])
             ->addSelect(['sale_items.sale_id', 'sales.kind', 'sales.business_date', 'sales.customer_id', 'customers.name as customer_name', 'sales.total_minor', 'sales.tax_minor',
                 'sale_items.product_id', 'sale_items.product_name', 'sale_items.unit', 'products.category_id', 'categories.name as category_name',
-                'sale_items.qty_milli', 'sale_items.line_total_minor', 'sale_items.total_cost_minor'])->get();
-
-        $bySale = [];
-        foreach ($rows as $row) {
-            $bySale[(int) $row->sale_id][] = $row;
-        }
+                'sale_items.qty_milli', 'sale_items.line_total_minor', 'sale_items.total_cost_minor'])->cursor();
 
         $lines = [];
-        foreach ($bySale as $receipt) {
-            $first = $receipt[0];
-            $earned = SaleCalculator::lineEarnings((int) $first->total_minor, (int) $first->tax_minor, array_map(fn (object $r): int => (int) $r->line_total_minor, $receipt));
-            foreach ($receipt as $index => $row) {
-                $categoryId = $row->category_id === null ? null : (int) $row->category_id;
-                if (isset($query['productId']) && (int) $row->product_id !== $query['productId']) {
-                    continue;
-                }
-                if (isset($query['categoryId']) && $categoryId !== $query['categoryId']) {
-                    continue;
-                }
-                $lines[] = [
-                    'saleId' => (int) $row->sale_id,
-                    'kind' => $row->kind,
-                    'standing' => (bool) $row->standing,
-                    'businessDate' => (string) $row->business_date,
-                    'customerId' => $row->customer_id === null ? null : (int) $row->customer_id,
-                    'customerName' => $row->customer_name,
-                    'productId' => (int) $row->product_id,
-                    'productName' => (string) $row->product_name,
-                    'unit' => (string) $row->unit,
-                    'categoryId' => $categoryId,
-                    'categoryName' => $row->category_name,
-                    'qty' => (int) $row->qty_milli,
-                    'earned' => $earned[$index] ?? 0,
-                    'cost' => (int) $row->total_cost_minor,
-                ];
+        $receipt = [];
+        foreach ($rows as $row) {
+            if ($receipt !== [] && $receipt[0]->sale_id !== $row->sale_id) {
+                self::earnReceipt($receipt, $query, $lines);
+                $receipt = [];
             }
+            $receipt[] = $row;
+        }
+        if ($receipt !== []) {
+            self::earnReceipt($receipt, $query, $lines);
         }
 
         return $lines;
+    }
+
+    /** One receipt's lines, earnings shared over all of them, the matching ones appended to $lines. */
+    private static function earnReceipt(array $receipt, array $query, array &$lines): void
+    {
+        $first = $receipt[0];
+        $earned = SaleCalculator::lineEarnings((int) $first->total_minor, (int) $first->tax_minor, array_map(fn (object $r): int => (int) $r->line_total_minor, $receipt));
+        foreach ($receipt as $index => $row) {
+            $categoryId = $row->category_id === null ? null : (int) $row->category_id;
+            if (isset($query['productId']) && (int) $row->product_id !== $query['productId']) {
+                continue;
+            }
+            if (isset($query['categoryId']) && $categoryId !== $query['categoryId']) {
+                continue;
+            }
+            $lines[] = [
+                'saleId' => (int) $row->sale_id,
+                'kind' => $row->kind,
+                'standing' => (bool) $row->standing,
+                'businessDate' => (string) $row->business_date,
+                'customerId' => $row->customer_id === null ? null : (int) $row->customer_id,
+                'customerName' => $row->customer_name,
+                'productId' => (int) $row->product_id,
+                'productName' => (string) $row->product_name,
+                'unit' => (string) $row->unit,
+                'categoryId' => $categoryId,
+                'categoryName' => $row->category_name,
+                'qty' => (int) $row->qty_milli,
+                'earned' => $earned[$index] ?? 0,
+                'cost' => (int) $row->total_cost_minor,
+            ];
+        }
     }
 
     /**
@@ -165,18 +176,18 @@ final class OperationsService
     }
 
     /** @return list<array{businessDate: string, saleCount: int, revenue: int, cost: int, profit: int}> */
-    public static function getSalesLinesByDay(array $query): array
+    public static function getSalesLinesByDay(array $query, ?array $lines = null): array
     {
-        $tallies = self::tallyLines(self::earnedLines($query), fn (array $l): string => $l['businessDate']);
+        $tallies = self::tallyLines($lines ?? self::earnedLines($query), fn (array $l): string => $l['businessDate']);
         usort($tallies, fn (array $a, array $b): int => strcmp($a['line']['businessDate'], $b['line']['businessDate']));
 
         return array_map(fn (array $t): array => ['businessDate' => $t['line']['businessDate'], 'saleCount' => $t['receipts'], 'revenue' => $t['revenue'], 'cost' => $t['cost'], 'profit' => $t['revenue'] - $t['cost']], $tallies);
     }
 
     /** @return list<array{customerId: ?int, customerName: string, saleCount: int, revenue: int, cost: int, profit: int}> */
-    public static function getSalesLinesByCustomer(array $query): array
+    public static function getSalesLinesByCustomer(array $query, ?array $lines = null): array
     {
-        $tallies = self::tallyLines(self::earnedLines($query), fn (array $l): string => (string) $l['customerId']);
+        $tallies = self::tallyLines($lines ?? self::earnedLines($query), fn (array $l): string => (string) $l['customerId']);
         usort($tallies, self::byRevenue(...));
 
         return array_map(fn (array $t): array => [
@@ -190,9 +201,9 @@ final class OperationsService
     }
 
     /** @return list<array{productId: int, productName: string, unit: string, categoryName: ?string, qtySold: int, revenue: int, cost: int, profit: int, marginBp: ?int}> */
-    public static function getSalesByProduct(array $query): array
+    public static function getSalesByProduct(array $query, ?array $lines = null): array
     {
-        $tallies = self::tallyLines(self::earnedLines($query), fn (array $l): string => (string) $l['productId']);
+        $tallies = self::tallyLines($lines ?? self::earnedLines($query), fn (array $l): string => (string) $l['productId']);
         usort($tallies, fn (array $a, array $b): int => self::byRevenue($a, $b) ?: $a['line']['productId'] <=> $b['line']['productId']);
 
         return array_map(function (array $t): array {
@@ -230,9 +241,9 @@ final class OperationsService
     }
 
     /** @return list<array{categoryId: ?int, categoryName: string, revenue: int, cost: int, profit: int}> */
-    public static function getSalesByCategory(array $query): array
+    public static function getSalesByCategory(array $query, ?array $lines = null): array
     {
-        $tallies = self::tallyLines(self::earnedLines($query), fn (array $l): string => (string) $l['categoryId']);
+        $tallies = self::tallyLines($lines ?? self::earnedLines($query), fn (array $l): string => (string) $l['categoryId']);
         usort($tallies, self::byRevenue(...));
 
         return array_map(fn (array $t): array => [

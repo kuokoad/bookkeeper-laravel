@@ -19,8 +19,10 @@ use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const BACKUP_SOURCE = 'nunabooks_backup_source';
-const BACKUP_TARGET = 'nunabooks_backup_target';
+require_once __DIR__.'/run.php';
+
+define('BACKUP_SOURCE', runDatabase('nunabooks_backup_source'));
+define('BACKUP_TARGET', runDatabase('nunabooks_backup_target'));
 
 function nuna(string $database, string ...$arguments): ProcessResult
 {
@@ -80,12 +82,14 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    // The databases first: a file that will not delete must not leave a whole set of books behind.
+    DB::purge('source');
+    DB::purge('target');
+    dropRunDatabases(BACKUP_SOURCE, BACKUP_TARGET);
     foreach (glob($this->dir.DIRECTORY_SEPARATOR.'*') ?: [] as $file) {
         unlink($file);
     }
     rmdir($this->dir);
-    DB::purge('source');
-    DB::purge('target');
 });
 
 it('backs up, restores into an empty database, and every figure and every table is identical', function () {

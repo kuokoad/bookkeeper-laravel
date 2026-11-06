@@ -102,7 +102,7 @@ describe('D7: purchases by product across a unit change', function () {
         ])->and(array_unique(array_column($rows, 'productName')))->toBe(['Milo 400g']);
 
         $csv = ReportExport::download('purchases', ['from' => '2026-08-01', 'to' => '2026-08-31'], '2026-08-31')['rows'];
-        $byProduct = array_values(array_filter($csv, fn (array $r): bool => $r[0] === 'By product'));
+        $byProduct = array_values(array_filter($csv, fn (array $r): bool => $r[0] === 'By stock item'));
         expect(array_map(fn (array $r): array => [$r[1], $r[2]], $byProduct))->toBe([['Milo 400g (carton)', '5'], ['Milo 400g (pcs)', '10']]);
     });
 });

@@ -4,14 +4,14 @@
     $selectClass = 'h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content';
 @endphp
 <div class="w-full">
-    <x-page-header title="Import products" description="Add many products at once from an Excel (.xlsx) or CSV price list. Nothing is saved until you have checked the preview." />
+    <x-page-header title="Import stock items" description="Add many stock items at once from an Excel (.xlsx) or CSV price list. Nothing is saved until you have checked the preview." />
 
     <div class="space-y-6">
         @error('form')<x-alert tone="danger">{{ $message }}</x-alert>@enderror
 
         <form wire:submit="read" class="rounded-xl border border-line bg-surface-raised p-4">
             <div class="flex flex-wrap items-end gap-3">
-                <x-field label="Price list" for="file" class="min-w-0 flex-1" hint="The first sheet is read. Headings go in row 1, one product per row below. Up to 2 MB.">
+                <x-field label="Price list" for="file" class="min-w-0 flex-1" hint="The first sheet is read. Headings go in row 1, one stock item per row below. Up to 2 MB.">
                     <input id="file" type="file" wire:model="file" accept=".xlsx,.csv" required
                         class="block w-full text-sm text-content file:mr-3 file:rounded-lg file:border file:border-line-strong file:bg-surface-sunken file:px-3 file:py-2 file:text-content">
                 </x-field>
@@ -60,7 +60,7 @@
                         <x-alert tone="warning">{{ $warning }}</x-alert>
                     @endforeach
                     @if ($preview['newUnits'] !== [])
-                        <x-alert tone="info">These units are not on your Units list and will be added: {{ implode(', ', $preview['newUnits']) }}.</x-alert>
+                        <x-alert tone="info">These units are not on your Units of measure list and will be added: {{ implode(', ', $preview['newUnits']) }}.</x-alert>
                     @endif
 
                     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -83,7 +83,7 @@
                         <x-slot:head>
                             <x-th>Row</x-th>
                             <x-th>Status</x-th>
-                            <x-th>Product</x-th>
+                            <x-th>Stock item</x-th>
                             <x-th>Code</x-th>
                             <x-th>Unit</x-th>
                             <x-th numeric>Cost</x-th>
@@ -91,7 +91,7 @@
                             <x-th>Pack</x-th>
                             <x-th numeric>Pack cost</x-th>
                             <x-th numeric>Pack price</x-th>
-                            <x-th>Category</x-th>
+                            <x-th>Stock group</x-th>
                             <x-th numeric>Opening qty</x-th>
                             <x-th numeric>Opening value</x-th>
                             <x-th>Notes</x-th>

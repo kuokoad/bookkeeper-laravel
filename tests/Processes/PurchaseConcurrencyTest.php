@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
 | Purchases written at the same moment, as real PHP processes against one
 | MySQL database (nunabooks_concurrency), released together by a go-file.
-| InnoDB's row-lock waits prove the desks really collided.
+| The outcome is what is checked: stock leaves once, money lands once.
 |
 |   1. Double supplier return: four desks send back 6 of the same 10-unit
 |      delivery at once, five deliveries in a row. One return each; the stock
@@ -23,16 +23,13 @@ use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const PURCHASE_RACE_DB = 'nunabooks_concurrency';
+require_once __DIR__.'/run.php';
+
+define('PURCHASE_RACE_DB', runDatabase('nunabooks_concurrency'));
 
 function purchaseRaceEnv(): array
 {
     return ['DB_DATABASE' => PURCHASE_RACE_DB, 'APP_ENV' => 'testing'];
-}
-
-function purchaseRaceLockWaits(): int
-{
-    return (int) DB::selectOne("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'")->Value;
 }
 
 /** Set up the shop, start the desks, release them together, and collect what each printed. */
@@ -43,31 +40,23 @@ function purchaseRaceRun(string $mode, string $tender, int $workers, int $rounds
         expect($run->successful())->toBeTrue($run->errorOutput().$run->output());
     }
 
-    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-purchase-go';
-    @unlink($go);
+    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-purchase-go-'.PURCHASE_RACE_DB;
+    clearStartLine($go);
     $pool = Process::pool(function ($pool) use ($mode, $workers, $rounds) {
         for ($w = 1; $w <= $workers; $w++) {
-            $pool->as("desk-{$w}")->env(purchaseRaceEnv())->path(base_path())->timeout(300)
+            $pool->as("desk-{$w}")->env([...purchaseRaceEnv(), 'NUNA_WORKERS' => (string) $workers])->path(base_path())->timeout(300)
                 ->command([PHP_BINARY, 'tests/Processes/purchase-worker.php', $mode, (string) $rounds, (string) $w]);
         }
     })->start();
     usleep(1_500_000); // every desk booted and waiting at the line
-    $waitsBefore = purchaseRaceLockWaits();
     touch($go);
     $results = $pool->wait();
-    @unlink($go);
+    clearStartLine($go);
 
-    $rows = [];
-    foreach ($results as $name => $result) {
-        expect($result->successful())->toBeTrue("{$name}: ".$result->errorOutput().$result->output());
-        foreach (array_filter(explode("\n", trim($result->output()))) as $line) {
-            $row = json_decode($line, true);
-            expect($row)->toBeArray("{$name} printed something other than a result: {$line}");
-            $rows[] = $row;
-        }
-    }
+    $rows = workerRows($results);
+    expectOverlapEachRound($rows, $workers);
 
-    return ['rows' => $rows, 'waits' => purchaseRaceLockWaits() - $waitsBefore];
+    return ['rows' => $rows];
 }
 
 /** @return array{won: list<array>, lost: list<array>} */
@@ -103,13 +92,14 @@ beforeEach(function () {
     config(['database.connections.purchaserace' => array_merge(config('database.connections.mysql'), ['database' => PURCHASE_RACE_DB])]);
 });
 
+afterEach(fn () => dropRunDatabases(PURCHASE_RACE_DB));
+
 it('sends goods back once when four desks return the same delivery line at the same moment', function () {
     [$workers, $rounds] = [4, 5];
     $run = purchaseRaceRun('return', 'paid', $workers, $rounds);
     $db = DB::connection('purchaserace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     foreach (range(1, $rounds) as $round) {
         ['won' => $won, 'lost' => $lost] = purchaseRaceRound($run['rows'], $round);
         expect($won)->toHaveCount(1, "round {$round}: exactly one desk sends the goods back")
@@ -137,8 +127,7 @@ it('lets either the void or the payment through, never both, when they race on o
     $run = purchaseRaceRun('void-or-pay', 'credit', $workers, $rounds);
     $db = DB::connection('purchaserace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     $purchases = $db->table('purchases')->where('kind', 'PURCHASE')->orderBy('id')->get();
     foreach (range(1, $rounds) as $round) {
         ['won' => $won, 'lost' => $lost] = purchaseRaceRound($run['rows'], $round);

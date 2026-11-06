@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
+        "build:check": "vite build && node -e \"const s = require('child_process').execSync('git status --porcelain -- public/build').toString(); if (s) { console.error('public/build is out of date; commit the rebuilt files:', s); process.exit(1); }\"",
         "dev": "vite"
     },
     "devDependencies": {

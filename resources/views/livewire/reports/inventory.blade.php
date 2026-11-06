@@ -12,14 +12,14 @@
     </nav>
 
     <x-filter-bar :list="$list" :dates="true" :fields="[
-        ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => $categories, 'value' => $list['filters']['categoryId'] ?? null],
+        ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => $categories, 'value' => $list['filters']['categoryId'] ?? null],
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => $suppliers, 'value' => $list['filters']['supplierId'] ?? null],
         ['kind' => 'select', 'key' => 'stock', 'label' => 'Stock status', 'allLabel' => 'Any stock level', 'options' => $stockOptions, 'value' => $list['filters']['stockStatus'] ?? null],
     ]" />
 
     @if ($isFiltered)
         <p class="no-print mb-4 text-xs text-content-subtle">
-            Both tables below cover only the products matching these filters — the valuation and
+            Both tables below cover only the stock items matching these filters — the valuation and
             the stock movement underneath it.
         </p>
     @endif
@@ -59,7 +59,7 @@
             @endforeach
         </x-table>
         <p class="-mt-6 mb-8 text-xs text-content-muted">
-            Quantities across every product, so units are mixed. Stock with no date recorded is
+            Quantities across every stock item, so units are mixed. Stock with no date recorded is
             listed separately rather than as distant: unknown is not the same as far away.
             <a href="/export/report/expiry?to={{ $today }}" class="font-medium text-accent hover:underline">Download every batch</a>
             to see which ones.
@@ -68,7 +68,7 @@
 
     <h2 class="mb-3 text-sm font-semibold text-content">Stock valuation</h2>
     <x-table class="mb-8">
-        <x-slot:head><x-th>Product</x-th><x-th>Category</x-th><x-th numeric>On hand</x-th><x-th numeric>Avg cost</x-th><x-th numeric>Value at cost</x-th><x-th numeric>Selling price</x-th><x-th numeric>Value at retail</x-th><x-th /></x-slot:head>
+        <x-slot:head><x-th>Stock item</x-th><x-th>Stock group</x-th><x-th numeric>On hand</x-th><x-th numeric>Avg cost</x-th><x-th numeric>Value at cost</x-th><x-th numeric>Selling price</x-th><x-th numeric>Value at retail</x-th><x-th /></x-slot:head>
         @foreach ($valuation['rows'] as $row)
             <tr class="border-b border-line">
                 <x-td>
@@ -100,7 +100,7 @@
         <p class="rounded-xl border border-dashed border-line-strong bg-surface-raised px-6 py-8 text-center text-sm text-content-muted">No stock moved in this period.</p>
     @else
         <x-table>
-            <x-slot:head><x-th>Product</x-th><x-th numeric>In</x-th><x-th numeric>Out</x-th><x-th numeric>Net</x-th><x-th numeric>Value in</x-th><x-th numeric>Value out</x-th><x-th numeric>On hand now</x-th></x-slot:head>
+            <x-slot:head><x-th>Stock item</x-th><x-th numeric>In</x-th><x-th numeric>Out</x-th><x-th numeric>Net</x-th><x-th numeric>Value in</x-th><x-th numeric>Value out</x-th><x-th numeric>On hand now</x-th></x-slot:head>
             @foreach ($movement as $row)
                 <tr class="border-b border-line last:border-0">
                     <x-td><span class="font-medium text-content">{{ $row['productName'] }}</span></x-td>

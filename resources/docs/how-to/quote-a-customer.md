@@ -18,7 +18,7 @@ That is a quotation. It sells nothing.
   number.
 - **Valid until.** Filled in a month ahead. Change it to suit the job. This date
   does real work — see below.
-- **Items.** Choose the product, put in the quantity, and adjust the price.
+- **Items.** Choose the stock item, put in the quantity, and adjust the price.
   Prices start at what is on your shelf and you can go under it, because quoting
   is negotiating and a yard that could only quote list price would win nothing.
 - **Discount on the whole quote.** For when you knock something off the total

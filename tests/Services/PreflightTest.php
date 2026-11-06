@@ -116,3 +116,28 @@ it('reads and never writes', function () {
         expect(strtolower(ltrim($q['query'])))->toMatch('/^(select|show)/');
     }
 });
+
+it('passes when the built screen assets are there, and BLOCKS when they are missing or incomplete', function () {
+    expect(preflightCheck('Screen styles and scripts are built')['status'])->toBe('pass');
+
+    $public = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nuna-public-'.bin2hex(random_bytes(4));
+    mkdir($public.'/build/assets', recursive: true);
+    $real = public_path();
+    app()->usePublicPath($public);
+    try {
+        expect(preflightCheck('Screen styles and scripts are built'))->toMatchArray(['status' => 'fail', 'detail' => 'Missing from public/build: manifest.json. Every screen would load unstyled. Run `npm run build` on the dev PC; the built files ship with each release.']);
+
+        // Only the CSS entry was built, and its file was never copied across.
+        file_put_contents($public.'/build/manifest.json', json_encode(['resources/css/app.css' => ['file' => 'assets/app-x.css', 'isEntry' => true]]));
+        $check = preflightCheck('Screen styles and scripts are built');
+        expect($check['status'])->toBe('fail')
+            ->and($check['detail'])->toContain('resources/js/app.js')
+            ->and($check['detail'])->toContain('assets/app-x.css');
+    } finally {
+        app()->usePublicPath($real);
+        array_map('unlink', glob($public.'/build/*.json') ?: []);
+        rmdir($public.'/build/assets');
+        rmdir($public.'/build');
+        rmdir($public);
+    }
+});

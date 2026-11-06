@@ -51,7 +51,7 @@ describe('finding things', function () {
     });
 
     it('groups results by what they are', function () {
-        expect(labels(SearchService::search('milo', $this->owner)))->toBe(['Products'])
+        expect(labels(SearchService::search('milo', $this->owner)))->toBe(['Stock items'])
             // "ma" is in the customer and the supplier, in neither product.
             ->and(labels(SearchService::search('ma', $this->owner)))->toBe(['Customers', 'Suppliers']);
     });
@@ -119,7 +119,7 @@ describe('permission', function () {
 
     it('still finds what that person IS allowed to see, and nothing for nobody', function () {
         $nobody = new Principal(3, 'new', 'New Person', UserRole::Staff);
-        expect(labels(SearchService::search('milo', $this->productsOnly)))->toBe(['Products'])
+        expect(labels(SearchService::search('milo', $this->productsOnly)))->toBe(['Stock items'])
             ->and(SearchService::search('ma', $nobody)['total'])->toBe(0);
     });
 

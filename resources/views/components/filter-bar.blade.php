@@ -100,7 +100,7 @@
     @endif
 
     @if ($hasControls)
-    <form method="GET" class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface-raised p-3" x-data>
+    <form method="GET" class="flex flex-wrap items-end gap-3 rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised p-3" x-data>
         @foreach ($hidden as $key => $value)
             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
         @endforeach

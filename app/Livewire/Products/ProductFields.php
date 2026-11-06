@@ -84,7 +84,7 @@ trait ProductFields
             'costPrice' => 'required|string',
             'sellingPrice' => 'required|string',
         ], [
-            'name.required' => 'Enter a product name.',
+            'name.required' => 'Enter a stock item name.',
             'unit.required' => 'Choose a unit.',
             'costPrice.required' => 'Enter a cost price.',
             'sellingPrice.required' => 'Enter a selling price.',

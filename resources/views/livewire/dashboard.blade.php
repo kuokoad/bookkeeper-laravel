@@ -17,7 +17,7 @@
         }
     }
     if ($stock !== null && ($stock['lowStockCount'] > 0 || $stock['outOfStockCount'] > 0)) {
-        $attention[] = ['title' => "{$stock['lowStockCount']} low-stock and {$stock['outOfStockCount']} out-of-stock products", 'note' => 'Review stock levels before recording the next sale.', 'href' => '/inventory'];
+        $attention[] = ['title' => "{$stock['lowStockCount']} low-stock and {$stock['outOfStockCount']} out-of-stock stock items", 'note' => 'Review stock levels before recording the next sale.', 'href' => '/inventory'];
     }
     foreach ($differences as $account) {
         $attention[] = ['title' => $account['accountName'].': '.Format::money($account['unresolvedDifference']).' unresolved count difference', 'note' => 'Recorded counts differ from the books and have not been adjusted.', 'href' => '/reconciliation'];
@@ -46,6 +46,22 @@
                     </a>
                 @endforeach
             </div>
+            {{-- Jinu's Create Transaction menu (shown by that look only; the quick actions above serve the others).
+                 A native <details>: opens with Enter or Space, no JavaScript needed; Alpine only closes it on Escape or a click elsewhere. --}}
+            @if ($createMenu !== [])
+                <details class="create-menu relative" x-data x-on:click.outside="$el.open = false" x-on:keydown.escape="$el.open = false; $refs.summary.focus()">
+                    <summary x-ref="summary" class="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-accent bg-accent px-4 py-2 text-sm font-semibold text-accent-text hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+                        <x-icon name="add" class="h-4 w-4" />
+                        Create Transaction
+                        <svg aria-hidden="true" viewBox="0 0 16 16" class="create-menu-chevron h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6 4 4 4-4"/></svg>
+                    </summary>
+                    <ul class="absolute z-30 mt-2 w-[17.5rem] max-w-[calc(100vw-2rem)] max-sm:left-0 sm:right-0 rounded-lg border border-line bg-surface-raised p-1.5 shadow-lg" aria-label="Create transaction">
+                        @foreach ($createMenu as $item)
+                            <li><a href="{{ $item['href'] }}" class="block rounded px-3 py-2 text-sm text-content hover:bg-accent-soft hover:text-accent focus-visible:bg-accent-soft focus-visible:text-accent focus-visible:outline-none">{{ $item['label'] }}</a></li>
+                        @endforeach
+                    </ul>
+                </details>
+            @endif
         </div>
     </header>
 
@@ -80,7 +96,7 @@
     </section>
 
     @unless ($nothingToShow)
-        <section aria-labelledby="attention-heading" class="needs-attention rounded-xl border border-line bg-surface-raised p-5">
+        <section aria-labelledby="attention-heading" class="needs-attention rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised p-5">
             <h2 id="attention-heading" class="mb-3 flex items-center gap-2 text-xl font-semibold leading-7 text-content">
                 <x-icon name="warning" class="attention-heading-icon h-[18px] w-[18px]" />
                 Needs Attention
@@ -91,7 +107,7 @@
                 @else
                     <ul class="grid gap-2.5 md:grid-cols-2">
                         @foreach ($attention as $item)
-                            <li @class(['min-w-0 rounded-lg border border-line bg-surface-sunken p-4', 'negative-account-alert' => $item['negativeBalance'] ?? false])>
+                            <li @class(['min-w-0 rounded-[var(--panel-radius,var(--radius-lg))] border border-line bg-surface-sunken p-4', 'negative-account-alert' => $item['negativeBalance'] ?? false])>
                                 <a href="{{ $item['href'] }}" class="inline-block rounded text-sm font-medium text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">{{ $item['title'] }}</a>
                                 <p class="attention-note mt-1 text-content-muted">{{ $item['note'] }}</p>
                             </li>
@@ -171,22 +187,22 @@
                     <x-dashboard.card title="Inventory valuation" icon="stock" href="/inventory" period="Current stock · all recorded dates">
                         <x-dashboard.figure :value="$stock['totalStockValue']" hint="At weighted average cost" />
                         <dl class="mt-3 grid grid-cols-3 gap-2 text-sm">
-                            <div><dt class="text-content-muted">Products</dt><dd class="tabular">{{ $stock['trackedCount'] }}</dd></div>
+                            <div><dt class="text-content-muted">Stock items</dt><dd class="tabular">{{ $stock['trackedCount'] }}</dd></div>
                             <div><dt class="text-content-muted">Low stock</dt><dd class="tabular">{{ $stock['lowStockCount'] }}</dd></div>
                             <div><dt class="text-content-muted">Out of stock</dt><dd class="tabular">{{ $stock['outOfStockCount'] }}</dd></div>
                         </dl>
                         @if ($stock['trackedCount'] === 0)
-                            <p class="mt-2 text-sm text-content-muted">No stock-tracked products yet.</p>
+                            <p class="mt-2 text-sm text-content-muted">No stock-tracked stock items yet.</p>
                         @endif
                         @if ($shows['sales'])
                             <div class="mt-3 rounded-lg border border-line bg-surface-sunken p-3">
-                                <h4 class="text-sm font-semibold">Top selling product</h4>
+                                <h4 class="text-sm font-semibold">Top selling stock item</h4>
                                 <p class="mb-2 mt-1 text-xs text-content-muted">{{ $dates($salesPeriod) }}</p>
                                 @include('livewire.dashboard-top-product')
                             </div>
                         @endif
                         @if ($expiry !== null && ($expiry['expiredCount'] > 0 || $expiry['expiringSoonCount'] > 0))
-                            <p class="mt-3 border-t border-line pt-2 text-sm text-warning">{{ $expiry['expiredCount'] }} products with expired stock; {{ $expiry['expiringSoonCount'] }} expiring soon. Review batch dates in Inventory.</p>
+                            <p class="mt-3 border-t border-line pt-2 text-sm text-warning">{{ $expiry['expiredCount'] }} stock items with expired stock; {{ $expiry['expiringSoonCount'] }} expiring soon. Review batch dates in Inventory.</p>
                         @endif
                     </x-dashboard.card>
                 @endif
@@ -238,7 +254,7 @@
                     </x-dashboard.card>
                 @endif
                 @if ($shows['sales'] && ! $shows['stock'])
-                    <x-dashboard.card title="Top selling product" icon="products" :period="$dates($salesPeriod)">
+                    <x-dashboard.card title="Top selling stock item" icon="products" :period="$dates($salesPeriod)">
                         @include('livewire.dashboard-top-product')
                     </x-dashboard.card>
                 @endif

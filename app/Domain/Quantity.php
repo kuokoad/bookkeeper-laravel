@@ -109,7 +109,7 @@ final class Quantity
             return [];
         }
         if ($altFactor === null) {
-            throw new ValidationError("{$label} is in the product's second unit but does not say its size. Reload the page and try again.");
+            throw new ValidationError("{$label} is in the stock item's second unit but does not say its size. Reload the page and try again.");
         }
 
         return ['alt' => true, 'altFactor' => self::of($altFactor)];

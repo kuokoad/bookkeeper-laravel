@@ -19,7 +19,7 @@ beforeEach(function () {
 
 it('opens for anyone signed in', function () {
     $this->get('/search')->assertRedirect('/login');
-    signedIn(staff())->get('/search')->assertOk()->assertSee('Products, customers, suppliers, receipts, purchases and journal entries.');
+    signedIn(staff())->get('/search')->assertOk()->assertSee('Stock items, customers, suppliers, receipts, purchases and journal entries.');
 });
 
 it('only shows the record types the person may view', function () {
@@ -44,6 +44,6 @@ it('answers the suggest route with the same results, for the same rights', funct
     signedIn(staff(['products' => viewOnly()]))->getJson('/search/suggest?q=milo')->assertOk()
         ->assertHeader('Cache-Control', 'no-store, private')
         ->assertJsonPath('total', 1)
-        ->assertJsonPath('groups.0.label', 'Products')
+        ->assertJsonPath('groups.0.label', 'Stock items')
         ->assertJsonPath('groups.0.hits.0.title', 'Milo tin 400g');
 });

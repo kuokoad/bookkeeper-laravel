@@ -98,7 +98,7 @@ until it is resolved.
 
 **Stock value does not match the Inventory account.** Run `php artisan nuna:preflight`
 (the same checks are on **Settings → Health & backup**). It
-replays the whole stock ledger and names the product where the cache and the ledger
+replays the whole stock ledger and names the stock item where the cache and the ledger
 parted company.
 
 **"The books are locked" when recording today's sale.** The lock date is in the

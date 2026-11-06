@@ -98,7 +98,7 @@ final class PurchaseService
     public static function createPurchase(array $input, Actor $actor): array
     {
         if (($input['items'] ?? []) === []) {
-            throw new ValidationError('Add at least one product to the purchase.');
+            throw new ValidationError('Add at least one stock item to the purchase.');
         }
         // D8: when the supplier wants paying, held to a sale's terms: the purchase date plus 0 to 365 days.
         $dueDate = $input['dueDate'] ?? null;
@@ -126,10 +126,10 @@ final class PurchaseService
             // --- line arithmetic ---------------------------------------------
             $lines = [];
             foreach ($input['items'] as $item) {
-                $product = DB::table('products')->where('id', $item['productId'])->first() ?? throw new NotFoundError('Product', $item['productId']);
+                $product = DB::table('products')->where('id', $item['productId'])->first() ?? throw new NotFoundError('Stock item', $item['productId']);
                 // A form opened before the product was archived, or replaced, must not put a delivery there.
                 if (! $product->is_active) {
-                    throw new ValidationError("\"{$product->name}\" is archived and cannot be bought. Reload the form and pick the product again.");
+                    throw new ValidationError("\"{$product->name}\" is archived and cannot be bought. Reload the form and pick the stock item again.");
                 }
                 $discount = $item['discount'] ?? 0;
                 $lineTotal = PurchaseCalculator::lineTotal($item['unitCost'], $item['qty'], $discount);
@@ -180,11 +180,12 @@ final class PurchaseService
             // --- stock in: the goods value, discount spread and levies added ---
             $lineCosts = PurchaseCalculator::lineCosts($lineTotals, $invoiceDiscount, $nonRecoverableTax);
             $inventoryParts = [];
+            $residual = 0;
             foreach ($lines as $index => $line) {
                 if ($line['product']->track_inventory) {
                     // A dated line opens its own batch; an undated one pools where undated stock always went.
                     $expiryDate = $line['item']['expiryDate'] ?? null;
-                    InventoryService::recordStockMovement([
+                    $movement = InventoryService::recordStockMovement([
                         'productId' => (int) $line['product']->id,
                         'direction' => 'IN',
                         'qty' => $line['lineUnit']['baseQty'],
@@ -199,6 +200,8 @@ final class PurchaseService
                         'isDemo' => $isDemo,
                         ...($expiryDate === null ? [] : ['batch' => ['kind' => 'NEW', 'expiryDate' => $expiryDate, 'supplierId' => $input['supplierId']]]),
                     ]);
+                    // D26: stock bought back up from below zero at another price.
+                    $residual = Money::add($residual, $movement['residual']);
                     $inventoryParts[] = $lineCosts[$index];
                 }
 
@@ -285,6 +288,7 @@ final class PurchaseService
                 );
                 DB::table('purchases')->where('id', $purchaseId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
             }
+            self::postCostingResidual($residual, $input['businessDate'], $purchaseNo, $purchaseId, "Stock costing difference on {$purchaseNo}", $occurredAt, $actor, JournalSourceType::Purchase, $isDemo);
 
             AuditService::write(
                 AuditAction::Create,
@@ -470,7 +474,7 @@ final class PurchaseService
                 DB::table('purchases')->where('id', $reversalId)->update(['journal_entry_id' => $reversed['entryId'], 'updated_at' => $at]);
             }
 
-            self::postCostingResidual($residual, $businessDate, $purchaseNo, $reversalId, "Stock costing difference on voiding {$original->purchase_no}", $now, $actor);
+            self::postCostingResidual($residual, $businessDate, $purchaseNo, $reversalId, "Stock costing difference on voiding {$original->purchase_no}", $now, $actor, JournalSourceType::PurchaseReturn, (bool) $original->is_demo);
 
             DB::table('purchases')->where('id', $purchaseId)->update([
                 'status' => 'VOIDED',
@@ -490,7 +494,7 @@ final class PurchaseService
      * return) says what the original said, backwards; this says what
      * averaging cost. A void and a supplier return both post it.
      */
-    public static function postCostingResidual(int $residual, string $businessDate, string $docNo, int $sourceId, string $memo, Carbon $occurredAt, Actor $actor): void
+    public static function postCostingResidual(int $residual, string $businessDate, string $docNo, int $sourceId, string $memo, Carbon $occurredAt, Actor $actor, JournalSourceType $sourceType, bool $isDemo): void
     {
         if ($residual === 0) {
             return;
@@ -499,7 +503,7 @@ final class PurchaseService
         $inventory = JournalService::accountIdByCode(ChartOfAccounts::INVENTORY);
         JournalService::post(
             $businessDate,
-            JournalSourceType::PurchaseReturn,
+            $sourceType,
             $residual > 0
                 ? [
                     Journal::debit($cogs, $residual, ['description' => "{$docNo} costing difference"]),
@@ -511,6 +515,7 @@ final class PurchaseService
                 ],
             sourceId: $sourceId,
             memo: $memo,
+            isDemo: $isDemo,
             occurredAt: $occurredAt,
             actor: $actor,
         );

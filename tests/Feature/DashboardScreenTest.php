@@ -44,7 +44,7 @@ it('groups the approved layout without losing independently dated charts', funct
         ->and($xpath->query('//section[@aria-labelledby="trends-heading"]/div/section')->length)->toBe(2)
         ->and($xpath->query('//section[@aria-labelledby="summaries-heading"]/div/section')->length)->toBe(3)
         ->and($xpath->query('//*[@aria-label="Quick actions"]/a')->item(0)->getAttribute('href'))->toBe('/sales/new');
-    expect($html)->toContain('Daily sales')->toContain('Daily expenses')->toContain('Top selling product')
+    expect($html)->toContain('Daily sales')->toContain('Daily expenses')->toContain('Top selling stock item')
         ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
         ->toContain('Account reconciliation')->toContain('reconciliation not verified')
         // Each card keeps its own window.
@@ -57,7 +57,7 @@ it('shows the sales figure the services hold, formatted by the domain', function
 
 it('keeps product sales summaries when inventory access is denied', function () {
     dashboardAs(staff(['sales' => viewOnly()]))
-        ->assertSee('Top selling product')->assertSee('Dashboard rice')
+        ->assertSee('Top selling stock item')->assertSee('Dashboard rice')
         ->assertDontSee('Inventory valuation')->assertDontSee('Supplier payables')->assertDontSee('New Sale');
 });
 
@@ -102,4 +102,18 @@ it('gives customer-view access receivables but not supplier balances or create a
 it('opens for any signed-in person inside the shell, and not for anyone else', function () {
     $this->get('/dashboard')->assertRedirect('/login');
     signedIn(staff([]))->get('/dashboard')->assertOk()->assertSee('Dashboard')->assertSee('Sign out');
+});
+
+it('offers in Create Transaction only the entries a person may start', function () {
+    $menu = fn (int $id): array => array_map(fn (array $item): string => $item['label'], dashboardAs($id)->viewData('createMenu'));
+    $create = ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false];
+
+    expect($menu($this->ownerId))->toContain('Sale', 'Purchase', 'Expense', 'Other income', 'Customer payment received', 'Supplier payment', 'Transfer between accounts', 'Stock adjustment')
+        // Quotations stay off the menu until the shop turns them on.
+        ->not->toContain('Quotation')
+        ->and($menu(staff(['sales' => $create, 'expenses' => viewOnly()])))->toBe(['Sale'])
+        ->and(dashboardAs(staff([], 'kofi'))->html())->not->toContain('Create Transaction');
+
+    DB::table('business_settings')->update(['feature_quotations' => true]);
+    expect($menu($this->ownerId))->toContain('Quotation');
 });

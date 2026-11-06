@@ -11,8 +11,8 @@
     </x-page-header>
 
     @if (! $hasProducts)
-        <x-empty-state title="No products to sell yet" description="Add what you sell first, then record its opening stock. After that this screen is ready.">
-            <x-slot:action><x-button href="/products/new">Add a product</x-button></x-slot:action>
+        <x-empty-state title="No stock items to sell yet" description="Add what you sell first, then record its opening stock. After that this screen is ready.">
+            <x-slot:action><x-button href="/products/new">Add a stock item</x-button></x-slot:action>
         </x-empty-state>
     @else
         <div class="grid gap-4 lg:grid-cols-5">
@@ -48,7 +48,7 @@
                 @endif
 
                 <div class="rounded-xl border border-line bg-surface-raised p-4">
-                    <label for="pos-search" class="mb-1.5 block text-sm font-medium text-content">Find a product</label>
+                    <label for="pos-search" class="mb-1.5 block text-sm font-medium text-content">Find a stock item</label>
                     <x-input id="pos-search" wire:model.live.debounce.150ms="search" wire:keydown.enter.prevent="scan($event.target.value)"
                         placeholder="Type a name, or scan a barcode" autocomplete="off" autofocus class="h-12 text-base" />
 

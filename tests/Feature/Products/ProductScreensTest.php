@@ -52,7 +52,7 @@ it('adds a product through the service and shows its validation messages', funct
     signedIn($this->ownerId)->get('/products/new')->assertOk()->assertSee('Something new to sell.');
 
     Livewire::actingAs($this->owner)->test(Form::class)->assertSet('unit', 'pcs')
-        ->set('name', '')->call('save')->assertHasErrors(['name' => 'Enter a product name.']);
+        ->set('name', '')->call('save')->assertHasErrors(['name' => 'Enter a stock item name.']);
     Livewire::actingAs($this->owner)->test(Form::class)
         ->set('name', 'Sugar')->set('costPrice', 'abc')->set('warnDays', '2.5')->call('save')
         ->assertHasErrors(['costPrice', 'warnDays' => 'Enter a whole number of days, or leave it blank.']);
@@ -77,7 +77,7 @@ it('refuses the product writes without the right', function () {
 });
 
 it('edits a product and keeps a locked unit', function () {
-    signedIn($this->ownerId)->get("/products/{$this->rice}/edit")->assertOk()->assertSee('Fixed — this product already has stock movements.')
+    signedIn($this->ownerId)->get("/products/{$this->rice}/edit")->assertOk()->assertSee('Fixed — this stock item already has stock movements.')
         ->assertSee('Replace with new units…');
     $this->get('/products/99999/edit')->assertNotFound();
     Livewire::actingAs($this->owner)->test(Form::class, ['id' => (string) $this->rice])
@@ -99,7 +99,7 @@ it('replaces a product in new units at the same stock value', function () {
     signedIn($this->ownerId)->get("/products/{$this->malt}/replace")->assertRedirect("/products/{$this->malt}/edit");
     UnitsService::createUnit(['symbol' => 'kg', 'name' => 'Kilograms', 'decimalPlaces' => 3], $this->actor);
 
-    $page = Livewire::actingAs($this->owner)->test(Replace::class, ['id' => (string) $this->rice])->assertSee('The old product holds 10 pcs');
+    $page = Livewire::actingAs($this->owner)->test(Replace::class, ['id' => (string) $this->rice])->assertSee('The old stock item holds 10 pcs');
     $page->set('unit', 'kg')->set('newQty', 'lots')->call('save')->assertHasErrors('newQty');
     $page->set('newQty', '50')->call('save')->assertHasNoErrors()->assertRedirect('/products');
 
@@ -111,7 +111,7 @@ it('replaces a product in new units at the same stock value', function () {
 it('adds a category and shows the list', function () {
     signedIn(staff(['products' => viewOnly()]))->get('/products/categories')->assertOk()->assertSee('Drinks')->assertDontSee('Add category');
     Livewire::actingAs($this->owner)->test(Categories::class)
-        ->call('add')->assertHasErrors(['name' => 'Enter a category name.'])
+        ->call('add')->assertHasErrors(['name' => 'Enter a stock group name.'])
         ->set('name', 'Food')->call('add')->assertHasNoErrors()->assertSet('name', '')->assertSee('Food');
 });
 
@@ -154,7 +154,7 @@ it('refuses a bad upload and opening stock without the stock right', function ()
     $clerk = User::query()->findOrFail(staff(['products' => ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false]]));
     Livewire::actingAs($clerk)->test(Import::class)
         ->set('file', UploadedFile::fake()->createWithContent('list.csv', "Name,Stock\nBeans,4\n"))->call('read')->call('import')
-        ->assertHasErrors(['form' => 'You can add products but not record stock. Set Opening quantity to "Not imported" to import the products alone.']);
+        ->assertHasErrors(['form' => 'You can add stock items but not record stock. Set Opening quantity to "Not imported" to import the stock items alone.']);
     expect(CatalogService::countProducts(['search' => 'Beans']))->toBe(0);
 });
 
@@ -162,6 +162,6 @@ it('downloads the import template for somebody who may import', function () {
     signedIn(staff(['products' => viewOnly()]))->get('/products/import/template')->assertRedirect('/no-access?area=products');
     $response = signedIn($this->ownerId)->get('/products/import/template')->assertOk()
         ->assertHeader('Content-Disposition', 'attachment; filename="bookkeeper_product-import-template.csv"');
-    expect($response->getContent())->toBe("\u{FEFF}Product name,SKU,Barcode,Unit,Cost price,Selling price,Units per pack,Cost per pack,Selling price per pack,Reorder level,Category,Track stock,Opening quantity,Opening value\r\n");
+    expect($response->getContent())->toBe("\u{FEFF}Stock item name,SKU,Barcode,Unit,Cost price,Selling price,Units per pack,Cost per pack,Selling price per pack,Reorder level,Stock group,Track stock,Opening quantity,Opening value\r\n");
     signedIn($this->ownerId)->get('/products/import')->assertOk()->assertSee('Download the template');
 });

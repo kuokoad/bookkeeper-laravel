@@ -20,6 +20,9 @@ use Throwable;
  */
 final class PreflightService
 {
+    /** The inputs in vite.config.js: what @vite() asks the manifest for. */
+    public const ENTRY_POINTS = ['resources/css/app.css', 'resources/js/app.js'];
+
     /** @return list<array{name: string, status: 'pass'|'warn'|'fail', detail: string}> */
     public static function run(): array
     {
@@ -57,6 +60,11 @@ final class PreflightService
         $add('Forwarded headers are not blindly trusted', $trust ? 'warn' : 'pass', $trust
             ? 'NUNA_TRUST_PROXY_HEADERS=true. Only correct if a reverse proxy in front of this app OVERWRITES X-Forwarded-For. If callers can set it themselves, the sign-in rate limit can be sidestepped.'
             : 'NUNA_TRUST_PROXY_HEADERS=false: sign-in attempts are counted against one shared bucket rather than a header the caller controls.');
+
+        $missing = self::missingAssets();
+        $add('Screen styles and scripts are built', $missing === [] ? 'pass' : 'fail', $missing === []
+            ? 'public/build/manifest.json lists '.implode(' and ', self::ENTRY_POINTS).', and every file it names is there'
+            : 'Missing from public/build: '.implode(', ', $missing).'. Every screen would load unstyled. Run `npm run build` on the dev PC; the built files ship with each release.');
 
         $dump = BackupService::binary('mysqldump');
         $found = is_file($dump) || (str_ends_with($dump, 'mysqldump') && self::onPath('mysqldump'));
@@ -151,6 +159,31 @@ final class PreflightService
         $add('A backup has been taken', $backup['state'] === 'never' ? 'warn' : 'pass', BackupStatusService::describe($backup));
 
         return $checks;
+    }
+
+    /**
+     * Each entry point the manifest lacks, then each file it names that is not on disk.
+     *
+     * @return list<string>
+     */
+    public static function missingAssets(): array
+    {
+        $build = public_path('build');
+        $manifest = is_file($build.'/manifest.json') ? json_decode((string) file_get_contents($build.'/manifest.json'), true) : null;
+        if (! is_array($manifest)) {
+            return ['manifest.json'];
+        }
+
+        $missing = array_values(array_diff(self::ENTRY_POINTS, array_keys($manifest)));
+        foreach ($manifest as $chunk) {
+            foreach ([$chunk['file'] ?? null, ...($chunk['css'] ?? [])] as $file) {
+                if (! is_string($file) || ! is_file($build.'/'.$file)) {
+                    $missing[] = (string) $file;
+                }
+            }
+        }
+
+        return $missing;
     }
 
     /** @return list<string> */

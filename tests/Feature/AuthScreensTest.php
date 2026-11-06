@@ -282,3 +282,8 @@ it('accepts the Jinu look in the database and wears it', function () {
     DB::table('business_settings')->update(['look' => 'jinu']);
     $this->get('/setup')->assertSee('data-look="jinu"', false);
 });
+
+it('accepts the Quikbooks look in the database and wears it', function () {
+    DB::table('business_settings')->update(['look' => 'quikbooks']);
+    $this->get('/setup')->assertSee('data-look="quikbooks"', false);
+});

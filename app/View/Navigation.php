@@ -30,7 +30,7 @@ final class Navigation
             ['href' => '/expenses', 'label' => 'Expenses', 'icon' => 'expenses', 'module' => 'expenses', 'primary' => true],
         ]],
         ['heading' => 'Stock', 'items' => [
-            ['href' => '/products', 'label' => 'Products', 'icon' => 'products', 'module' => 'products', 'primary' => true],
+            ['href' => '/products', 'label' => 'Stock items', 'icon' => 'products', 'module' => 'products', 'primary' => true],
             ['href' => '/inventory', 'label' => 'Inventory', 'icon' => 'inventory', 'module' => 'inventory'],
         ]],
         ['heading' => 'People', 'items' => [

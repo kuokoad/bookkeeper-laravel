@@ -66,12 +66,14 @@ $cash = (int) DB::table('payment_accounts')->where('kind', 'CASH')->orderBy('id'
 $saleLines = DB::table('sale_items')->orderBy('id')->get(['id', 'sale_id', 'qty_milli'])->all();
 $quotes = DB::table('quotations')->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
-$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-sale-go';
+$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-sale-go-'.env('DB_DATABASE');
 while (! file_exists($go)) {
     usleep(2_000);
 }
 
 for ($round = 1; $round <= $rounds; $round++) {
+    startRound($go, $round, $worker);
+    $start = microtime(true);
     // Every till rings up the same thing at once: round N's product, or round N's cart.
     $product = $mode === 'last-unit' ? $products[$round - 1] : $products[0];
     try {
@@ -83,7 +85,7 @@ for ($round = 1; $round <= $rounds; $round++) {
                 'items' => [['itemId' => (int) $line->id, 'qty' => (int) $line->qty_milli]],
                 'refunds' => [['paymentAccountId' => $cash, 'amount' => 3_000]],
             ], $actor);
-            echo json_encode(['round' => $round, 'ok' => true, 'receipt' => $back['receiptNo']]), "\n";
+            echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => true, 'receipt' => $back['receiptNo']]), "\n";
 
             continue;
         }
@@ -92,7 +94,7 @@ for ($round = 1; $round <= $rounds; $round++) {
                 'businessDate' => SALE_WORKER_DATE,
                 'tenders' => [['paymentAccountId' => $cash, 'amount' => 500]],
             ], $actor);
-            echo json_encode(['round' => $round, 'ok' => true, 'receipt' => $sale['receiptNo'], 'saleId' => $sale['saleId']]), "\n";
+            echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => true, 'receipt' => $sale['receiptNo'], 'saleId' => $sale['saleId']]), "\n";
 
             continue;
         }
@@ -102,8 +104,8 @@ for ($round = 1; $round <= $rounds; $round++) {
             'tenders' => [['paymentAccountId' => $cash, 'amount' => 500]],
             ...($mode === 'duplicate' ? ['clientRef' => "cart-{$round}"] : []),
         ], $actor);
-        echo json_encode(['round' => $round, 'ok' => true, 'receipt' => $sale['receiptNo'], 'saleId' => $sale['saleId']]), "\n";
+        echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => true, 'receipt' => $sale['receiptNo'], 'saleId' => $sale['saleId']]), "\n";
     } catch (DomainError $e) {
-        echo json_encode(['round' => $round, 'ok' => false, 'code' => $e->errorCode, 'error' => $e->getMessage()]), "\n";
+        echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => false, 'code' => $e->errorCode, 'error' => $e->getMessage()]), "\n";
     }
 }

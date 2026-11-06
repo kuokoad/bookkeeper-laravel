@@ -27,12 +27,14 @@ $cash = (int) DB::table('accounts')->where('code', '1001')->value('id');
 $sales = (int) DB::table('accounts')->where('code', ChartOfAccounts::SALES_REVENUE)->value('id');
 
 // Start together: wait for the go file the test writes once every worker is up.
-$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-concurrency-go';
+$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-concurrency-go-'.env('DB_DATABASE');
 while (! file_exists($go)) {
     usleep(5_000);
 }
 
 for ($i = 1; $i <= $iterations; $i++) {
+    startRound($go, $i, $worker);
+    $start = microtime(true);
     try {
         $result = Tx::run(function () use ($i, $worker, $cash, $sales): array {
             // The lock order every service follows: the books lock, then numbers, then the journal.
@@ -54,10 +56,12 @@ for ($i = 1; $i <= $iterations; $i++) {
 
             return ['receipt' => $receipt, 'entry' => $entry['entryNo']];
         });
-        echo json_encode($result), "\n";
     } catch (RuntimeException $e) {
         if ($e->getMessage() !== 'till lost power') {
             throw $e;
         }
+        $result = [];
     }
+    // When this till's write began and ended, rolled back or not: the test checks the tills overlapped.
+    echo json_encode(['round' => $i, 'start' => $start, 'end' => microtime(true), ...$result]), "\n";
 }

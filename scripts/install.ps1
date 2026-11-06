@@ -2,8 +2,8 @@
 .SYNOPSIS
     Install NunaBooks on the shop PC: MySQL and Apache (mod_fcgid, PHP NTS)
     as Windows services that start at boot, the database and its users,
-    .env, Composer packages, migrations, the firewall rule, the hosts entry
-    and a desktop shortcut. PLAN.md Q1 and 6.1.
+    .env, Composer packages, migrations, the baseline data, the firewall
+    rule, the hosts entry and a desktop shortcut. PLAN.md Q1 and 6.1.
 
 .DESCRIPTION
     Run from the cloned app folder in PowerShell opened with "Run as
@@ -239,6 +239,9 @@ if ($LASTEXITCODE -eq 0) {
     Invoke-Checked "Backing up the existing books before migrating" $php @("artisan", "nuna:backup")
 }
 Invoke-Checked "Migrating the database" $php @("artisan", "migrate", "--force")
+# The baseline every shop needs (settings row, numbering, chart of accounts, taxes).
+# CoreSeeder only adds what is missing, so a re-run never touches the shop's own settings.
+Invoke-Checked "Loading the baseline data" $php @("artisan", "db:seed", "--class=Database\Seeders\CoreSeeder", "--force")
 foreach ($cache in @("config:cache", "route:cache", "view:cache")) {
     Invoke-Checked "php artisan $cache" $php @("artisan", $cache)
 }

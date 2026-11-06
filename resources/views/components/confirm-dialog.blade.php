@@ -16,12 +16,12 @@
 --}}
 @props(['title', 'description', 'trigger', 'heading' => null, 'note' => 'Nothing is deleted.', 'confirm' => 'Yes, void it', 'tone' => 'danger', 'keys' => ['reason', 'form']])
 <div x-data="{ confirming: {{ $errors->hasAny($keys) ? 'true' : 'false' }} }" class="no-print">
-    <div x-show="! confirming" class="rounded-xl border border-line bg-surface-raised p-4">
+    <div x-show="! confirming" class="rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised p-4">
         <h2 class="text-sm font-semibold text-content">{{ $title }}</h2>
         <p class="mt-1 mb-3 text-sm text-content-muted">{{ $description }}</p>
         <x-button variant="secondary" x-on:click="confirming = true">{{ $trigger }}</x-button>
     </div>
-    <form x-show="confirming" x-cloak novalidate {{ $attributes->class(['rounded-xl border p-4', 'border-danger/40 bg-danger-soft' => $tone === 'danger', 'border-line bg-surface-raised' => $tone !== 'danger']) }}>
+    <form x-show="confirming" x-cloak novalidate {{ $attributes->class(['rounded-[var(--panel-radius,var(--radius-xl))] border p-4', 'border-danger/40 bg-danger-soft' => $tone === 'danger', 'border-line bg-surface-raised' => $tone !== 'danger']) }}>
         <h2 class="text-sm font-semibold text-content">{{ $heading ?? $title }}</h2>
         @if ($note)<p class="mt-1 mb-3 text-sm text-content-muted">{{ $note }}</p>@endif
         @error('form')<x-alert tone="danger" class="mb-3">{{ $message }}</x-alert>@enderror

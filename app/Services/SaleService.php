@@ -144,7 +144,7 @@ final class SaleService
         // --- resolve products and prices ---------------------------------
         $resolved = [];
         foreach ($input['items'] as $item) {
-            $product = DB::table('products')->where('id', $item['productId'])->first() ?? throw new NotFoundError('Product', $item['productId']);
+            $product = DB::table('products')->where('id', $item['productId'])->first() ?? throw new NotFoundError('Stock item', $item['productId']);
             if (! $product->is_active) {
                 throw new ValidationError("\"{$product->name}\" is archived and cannot be sold.");
             }
@@ -536,11 +536,12 @@ final class SaleService
                 $soldFrom[(int) $item->product_id] ??= InventoryService::readBatchSplits('SALE', $saleId, (int) $item->product_id);
             }
 
+            $residual = 0;
             foreach ($items->values() as $index => $item) {
                 $productId = (int) $item->product_id;
                 if (DB::table('products')->where('id', $productId)->value('track_inventory')) {
                     $cameFrom = array_shift($soldFrom[$productId]);
-                    InventoryService::recordStockMovement([
+                    $movement = InventoryService::recordStockMovement([
                         'productId' => $productId,
                         'direction' => 'IN',
                         'qty' => (int) $item->qty_milli,
@@ -557,6 +558,8 @@ final class SaleService
                         'isDemo' => (bool) $original->is_demo,
                         ...($cameFrom === null || $cameFrom === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $cameFrom]]),
                     ]);
+                    // D26: the goods back onto a shelf that went below zero since.
+                    $residual = Money::add($residual, $movement['residual']);
                 }
 
                 DB::table('sale_items')->insert([
@@ -601,6 +604,7 @@ final class SaleService
                 );
                 DB::table('sales')->where('id', $reversalId)->update(['journal_entry_id' => $reversed['entryId'], 'updated_at' => $at]);
             }
+            PurchaseService::postCostingResidual($residual, $businessDate, $receiptNo, $reversalId, "Stock costing difference on voiding {$original->receipt_no}", $now, $actor, JournalSourceType::SaleReturn, (bool) $original->is_demo);
 
             DB::table('sales')->where('id', $saleId)->update([
                 'status' => 'VOIDED',

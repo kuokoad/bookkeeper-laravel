@@ -88,7 +88,7 @@ describe('D22: supplier returns on the purchase report', function () {
                 ['By day', '2026-08-17', '1', '4500.00', '0.00', '4500.00'],
                 ['By day', '2026-08-20', '0', '0.00', '450.00', '-450.00'],
                 ['By supplier', 'Depot', '1', '4500.00', '450.00', '4050.00'],
-                ['By product', 'Rice 5kg (pcs)', '10', '4500.00', '450.00', '4050.00'],
+                ['By stock item', 'Rice 5kg (pcs)', '10', '4500.00', '450.00', '4050.00'],
             ]);
     });
 

@@ -23,7 +23,7 @@ use Livewire\WithFileUploads;
  * import writes, and ProductImportService re-runs the preview from the same
  * cells first.
  */
-#[Title('Import products')]
+#[Title('Import stock items')]
 final class Import extends Component
 {
     use WithFileUploads;
@@ -99,7 +99,7 @@ final class Import extends Component
         $this->map = array_map(fn (string $key): string => isset($guess[$key]) ? (string) $guess[$key] : '', array_combine(array_keys(ProductImportService::IMPORT_FIELDS), array_keys(ProductImportService::IMPORT_FIELDS)));
         $this->file = null;
         if (! isset($guess['name'])) {
-            $this->addError('form', 'Choose the column that holds the product name.');
+            $this->addError('form', 'Choose the column that holds the stock item name.');
 
             return;
         }
@@ -135,7 +135,7 @@ final class Import extends Component
         // Opening stock is a stock adjustment, so it needs the right to record one.
         if (isset($map['openingQty']) && Gate::denies('inventory.create')) {
             $this->previewedMap = null;
-            $this->addError('form', 'You can add products but not record stock. Set Opening quantity to "Not imported" to import the products alone.');
+            $this->addError('form', 'You can add stock items but not record stock. Set Opening quantity to "Not imported" to import the stock items alone.');
 
             return;
         }
@@ -149,7 +149,7 @@ final class Import extends Component
         }
 
         $count = $result['created'];
-        session()->flash('status', "Imported {$count} product".($count === 1 ? '' : 's').'. '.($result['adjustmentNo'] !== null
+        session()->flash('status', "Imported {$count} stock item".($count === 1 ? '' : 's').'. '.($result['adjustmentNo'] !== null
             ? 'Their opening stock is recorded as one stock adjustment, under Inventory.'
             : 'They start with no stock — record a stock adjustment to enter opening stock.'));
         $this->redirect('/products');

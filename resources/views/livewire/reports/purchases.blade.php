@@ -6,8 +6,8 @@
 
     <x-filter-bar :list="$list" :dates="true" :fields="[
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => $suppliers, 'value' => $list['filters']['supplierId'] ?? null],
-        ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => $categories, 'value' => $list['filters']['categoryId'] ?? null],
-        ['kind' => 'select', 'key' => 'product', 'label' => 'Product', 'allLabel' => 'All products', 'options' => $products, 'value' => $list['filters']['productId'] ?? null],
+        ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => $categories, 'value' => $list['filters']['categoryId'] ?? null],
+        ['kind' => 'select', 'key' => 'product', 'label' => 'Stock item', 'allLabel' => 'All stock items', 'options' => $products, 'value' => $list['filters']['productId'] ?? null],
         ['kind' => 'select', 'key' => 'account', 'label' => 'Payment method', 'allLabel' => 'All methods', 'options' => $accounts, 'value' => $list['filters']['paymentAccountId'] ?? null],
     ]" />
 
@@ -31,9 +31,9 @@
             <tr class="bg-surface-sunken font-semibold"><x-td>Total</x-td><x-td numeric>{{ $count }}</x-td><x-td numeric>{{ $m($total) }}</x-td><x-td numeric>{{ $m($returned) }}</x-td><x-td numeric>{{ $m($net) }}</x-td></tr>
         </x-table>
 
-        <h2 class="mb-3 text-sm font-semibold text-content">By product</h2>
+        <h2 class="mb-3 text-sm font-semibold text-content">By stock item</h2>
         <x-table class="mb-8">
-            <x-slot:head><x-th>Product</x-th><x-th numeric>Quantity</x-th><x-th numeric>Total cost</x-th><x-th numeric>Returned</x-th><x-th numeric>Net</x-th></x-slot:head>
+            <x-slot:head><x-th>Stock item</x-th><x-th numeric>Quantity</x-th><x-th numeric>Total cost</x-th><x-th numeric>Returned</x-th><x-th numeric>Net</x-th></x-slot:head>
             @foreach ($byProduct as $row)
                 <tr class="border-b border-line last:border-0"><x-td><span class="font-medium text-content">{{ $row['productName'] }}</span></x-td><x-td numeric>@qty($row['qtyBought'], $row['unit'])</x-td><x-td numeric>{{ $m($row['total']) }}</x-td><x-td numeric>{{ $m($row['returned']) }}</x-td><x-td numeric>{{ $m($row['net']) }}</x-td></tr>
             @endforeach

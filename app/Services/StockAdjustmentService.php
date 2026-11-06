@@ -85,7 +85,7 @@ final class StockAdjustmentService
     public static function createStockAdjustment(array $input, Actor $actor): array
     {
         if (($input['items'] ?? []) === []) {
-            throw new ValidationError('Add at least one product to the adjustment.');
+            throw new ValidationError('Add at least one stock item to the adjustment.');
         }
         $reason = $input['reason'] instanceof AdjustmentReason ? $input['reason'] : (AdjustmentReason::tryFrom((string) $input['reason']) ?? throw new ValidationError('Choose a reason for the adjustment.'));
 
@@ -115,12 +115,13 @@ final class StockAdjustmentService
 
             $inValues = [];
             $outValues = [];
+            $residual = 0;
             foreach ($input['items'] as $entered) {
                 $product = DB::table('products')->where('id', $entered['productId'])->first()
-                    ?? throw new NotFoundError('Product', $entered['productId']);
+                    ?? throw new NotFoundError('Stock item', $entered['productId']);
                 // Only a stale form names an archived product.
                 if (! $product->is_active) {
-                    throw new ValidationError("\"{$product->name}\" is archived, so its stock cannot be adjusted. Reload the form; if it was replaced, adjust the product that replaced it.");
+                    throw new ValidationError("\"{$product->name}\" is archived, so its stock cannot be adjusted. Reload the form; if it was replaced, adjust the stock item that replaced it.");
                 }
                 $lineUnit = UnitsService::resolveLineUnit($product, $entered['qty'], $entered['alt'] ?? null, $entered['altFactor'] ?? null);
                 // From here on the line is in the base unit, like every stock movement.
@@ -165,6 +166,8 @@ final class StockAdjustmentService
                     $movement['batch'] = ['kind' => 'PICK', 'expiredFirst' => true];
                 }
                 $moved = InventoryService::recordStockMovement($movement);
+                // D26: stock counted in onto a shelf that was below zero.
+                $residual = Money::add($residual, $moved['residual']);
 
                 DB::table('stock_adjustment_items')->insert([
                     'adjustment_id' => $adjustmentId,
@@ -187,6 +190,8 @@ final class StockAdjustmentService
                     $outValues[] = $moved['totalCost'];
                 }
             }
+
+            PurchaseService::postCostingResidual($residual, $input['businessDate'], $adjustmentNo, $adjustmentId, "Stock costing difference on {$adjustmentNo}", $occurredAt, $actor, JournalSourceType::StockAdjustment, $isDemo);
 
             $totalIn = Money::sum($inValues);
             $totalOut = Money::sum($outValues);
@@ -268,7 +273,7 @@ final class StockAdjustmentService
                 ->whereRaw('JSON_EXTRACT(`audit_logs`.`metadata`, ?) IS NOT NULL', ['$.'.self::UNIT_CHANGE_MARKER])
                 ->exists();
             if ($unitChange) {
-                throw new ConflictError("{$original->adjustment_no} moved stock to a new product for a unit change, so it cannot be voided on its own. Correct the new product with a stock adjustment instead.");
+                throw new ConflictError("{$original->adjustment_no} moved stock to a new stock item for a unit change, so it cannot be voided on its own. Correct the new stock item with a stock adjustment instead.");
             }
 
             $items = DB::table('stock_adjustment_items')->where('adjustment_id', $adjustmentId)->orderBy('id')->get();
@@ -461,7 +466,7 @@ final class StockAdjustmentService
         $batch = DB::table('product_batches')->where('id', $item['batchId'])->first(['id', 'batch_ref', 'product_id', 'qty_milli'])
             ?? throw new NotFoundError('Batch', $item['batchId']);
         if ((int) $batch->product_id !== $item['productId']) {
-            throw new ValidationError('That batch belongs to a different product.', ['batchId' => $item['batchId']]);
+            throw new ValidationError('That batch belongs to a different stock item.', ['batchId' => $item['batchId']]);
         }
         if ($item['qty'] > (int) $batch->qty_milli) {
             throw new ValidationError(

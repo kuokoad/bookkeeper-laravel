@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Enums\AccountType;
 use App\Enums\AuditAction;
@@ -18,20 +19,24 @@ use RuntimeException;
  * of accounts, the default payment accounts and the Ghana tax components.
  *
  * A port of the old src/db/seed/core.ts `seedCore`. Idempotent: existing rows
- * are never touched, so re-running it on a live shop changes nothing but the
- * audit entry that says it ran.
+ * are never touched, so re-running it on a live shop changes nothing; the
+ * audit entry is written only when a run added something.
  */
 class CoreSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::transaction(function (): void {
+        Tx::run(function (): void {
+            $before = $this->seededRows();
             $this->seedBusinessSettings();
             $this->seedSequences();
             $this->seedChartOfAccounts();
             $this->seedPaymentAccounts();
             $this->seedTaxComponents();
             TaxService::syncDerivedSettings();
+            if ($this->seededRows() === $before) {
+                return;
+            }
 
             DB::table('audit_logs')->insert([
                 'action' => AuditAction::Create->value,
@@ -40,6 +45,12 @@ class CoreSeeder extends Seeder
                 'summary' => 'Baseline chart of accounts, sequences and payment accounts verified',
             ]);
         });
+    }
+
+    /** Row counts of what this seeder adds: unchanged means the run added nothing. */
+    private function seededRows(): array
+    {
+        return array_map(fn (string $t): int => DB::table($t)->count(), ['business_settings', 'sequences', 'accounts', 'payment_accounts', 'tax_components']);
     }
 
     private function seedBusinessSettings(): void

@@ -1,12 +1,12 @@
 {{-- The old (app)/search page. The form still works as a plain GET without JavaScript; with it, results follow the box. --}}
 @use('App\View\Format')
 <div class="w-full">
-    <x-page-header title="Search" description="Products, customers, suppliers, receipts, purchases and journal entries." />
+    <x-page-header title="Search" description="Stock items, customers, suppliers, receipts, purchases and journal entries." />
 
     <form method="GET" action="/search" role="search" class="mb-6 flex gap-2" wire:submit.prevent>
         <label for="q" class="sr-only">What are you looking for?</label>
         <input id="q" name="q" type="search" autofocus autocomplete="off" wire:model.live.debounce.180ms="q"
-               placeholder="A product name, a customer, a receipt number…"
+               placeholder="A stock item name, a customer, a receipt number…"
                class="h-11 flex-1 rounded-lg border border-line-strong bg-surface-raised px-3 text-content placeholder:text-content-subtle">
         <x-button type="submit">Search</x-button>
     </form>

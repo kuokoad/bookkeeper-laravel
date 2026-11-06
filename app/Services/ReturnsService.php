@@ -14,7 +14,6 @@ use App\Domain\Money;
 use App\Domain\Quantity;
 use App\Domain\Sales\SaleCalculator;
 use App\Domain\Tax\TaxComponent;
-use App\Domain\Tax\TaxComponents;
 use App\Domain\Tax\TaxLine;
 use App\Enums\AuditAction;
 use App\Enums\DocType;
@@ -90,7 +89,11 @@ final class ReturnsService
             }
 
             // --- each line against what is still returnable, as locked ------
+            // Shares are cumulative (D25, as the supplier side): what has come back
+            // so far, after less before, so partial returns add up to a full one.
             $lockedById = $originalLines->keyBy(fn (object $l): int => (int) $l->id);
+            $returnedBefore = $lockedById->map(fn (object $l): int => (int) $l->returned_qty_milli)->all();
+            $returnedAfter = $returnedBefore;
             $resolved = [];
             foreach ($input['items'] as $request) {
                 $item = $lockedById->get((int) $request['itemId']);
@@ -110,11 +113,14 @@ final class ReturnsService
                 }
                 // Revenue from the line's NET value, cost from its snapshot.
                 $net = $netByItemId[(int) $item->id] ?? (int) $item->line_total_minor;
+                $before = (int) $item->returned_qty_milli;
+                $after = $before + $request['qty'];
+                $returnedAfter[(int) $item->id] = $after;
                 $resolved[] = [
                     'request' => $request,
                     'item' => $item,
-                    'revenueShare' => Money::mulDiv($net, $request['qty'], (int) $item->qty_milli),
-                    'costShare' => Money::mulDiv((int) $item->total_cost_minor, $request['qty'], (int) $item->qty_milli),
+                    'revenueShare' => self::cumulativeShare($net, $before, $after, (int) $item->qty_milli),
+                    'costShare' => self::cumulativeShare((int) $item->total_cost_minor, $before, $after, (int) $item->qty_milli),
                 ];
             }
 
@@ -126,9 +132,17 @@ final class ReturnsService
 
             // The tax goes back with the goods, component by component, from what
             // the ORIGINAL sale charged, apportioned by how much comes back.
+            // Each component on its own running share of the net returned, never a
+            // split of a rounded total, so no piece can step a component backwards.
             $saleNetRevenue = Money::sum($netByItemId);
+            $measure = fn (array $returned): int => Money::sum($lockedById->map(fn (object $l): int => Money::mulDiv($netByItemId[(int) $l->id], $returned[(int) $l->id], (int) $l->qty_milli))->all());
+            $basisBefore = $measure($returnedBefore);
+            $basisAfter = $measure($returnedAfter);
             [$charged, $componentIds] = self::chargedTaxLines(TaxService::readSaleTaxes($originalSaleId));
-            $returnedLines = $charged === [] || $saleNetRevenue === 0 ? [] : TaxComponents::shareOf($charged, $totalRevenue, $saleNetRevenue);
+            $returnedLines = $charged === [] || $saleNetRevenue === 0 ? [] : array_map(
+                fn (TaxLine $l): TaxLine => $l->withAmount(self::cumulativeShare($l->amount, $basisBefore, $basisAfter, $saleNetRevenue)),
+                $charged,
+            );
             $taxShare = (int) $original->tax_minor === 0 ? 0 : Money::sum(array_map(fn (TaxLine $l): int => $l->amount, $returnedLines));
 
             // Inclusive prices already hold the tax; exclusive ones carry it on top.
@@ -175,12 +189,14 @@ final class ReturnsService
 
             // --- stock back in, at the original cost, into the crates it came from
             $soldFrom = SaleService::batchSplitBySaleItem($originalSaleId);
+            $residual = 0;
             foreach ($resolved as $index => $line) {
                 $item = $line['item'];
                 $tracked = (bool) DB::table('products')->where('id', $item->product_id)->value('track_inventory');
-                if ($tracked && $line['costShare'] !== 0) {
+                // D27: always back on the shelf, even at no cost (stockIn takes a zero).
+                if ($tracked) {
                     $cameFrom = $soldFrom[(int) $item->id] ?? null;
-                    InventoryService::recordStockMovement([
+                    $movement = InventoryService::recordStockMovement([
                         'productId' => (int) $item->product_id,
                         'direction' => 'IN',
                         'qty' => $line['request']['qty'],
@@ -196,6 +212,8 @@ final class ReturnsService
                         'note' => "Return against {$original->receipt_no}",
                         'isDemo' => $isDemo,
                     ]);
+                    // D26: goods back onto a shelf that was below zero.
+                    $residual = Money::add($residual, $movement['residual']);
                 }
 
                 DB::table('sale_items')->insert([
@@ -287,6 +305,7 @@ final class ReturnsService
                 actor: $actor,
             );
             DB::table('sales')->where('id', $returnId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
+            PurchaseService::postCostingResidual($residual, $input['businessDate'], $receiptNo, $returnId, "Stock costing difference on {$receiptNo}", $occurredAt, $actor, JournalSourceType::SaleReturn, $isDemo);
 
             AuditService::write(AuditAction::Create, 'sale_return', "{$receiptNo}: return against {$original->receipt_no}", $returnId, $actor, [
                 'revenueMinor' => $totalRevenue,
@@ -560,7 +579,7 @@ final class ReturnsService
                 actor: $actor,
             );
             DB::table('purchases')->where('id', $returnId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
-            PurchaseService::postCostingResidual($residual, $input['businessDate'], $purchaseNo, $returnId, "Stock costing difference on returning {$original->purchase_no}", $occurredAt, $actor);
+            PurchaseService::postCostingResidual($residual, $input['businessDate'], $purchaseNo, $returnId, "Stock costing difference on returning {$original->purchase_no}", $occurredAt, $actor, JournalSourceType::PurchaseReturn, $isDemo);
 
             AuditService::write(AuditAction::Create, 'purchase_return', "{$purchaseNo}: return to supplier against {$original->purchase_no}", $returnId, $actor, [
                 'valueMinor' => $totalCost,

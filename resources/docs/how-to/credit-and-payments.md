@@ -19,7 +19,7 @@ goes against. The screens do not let you pick which invoice a payment settles.
 3. Set the **Delivery date** and, if you have it, the supplier's invoice number.
    If the supplier gave you time to pay, set the **Due date** (up to a year after
    the delivery). Leave it empty if not.
-4. Add each product with its quantity and cost. Add an expiry date for goods that
+4. Add each stock item with its quantity and cost. Add an expiry date for goods that
    expire.
 5. Under payment:
    - **Nothing paid yet:** leave **Amount paid now** at `0.00`.

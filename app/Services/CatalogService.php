@@ -69,12 +69,12 @@ final class CatalogService
     {
         $name = JsCompat::trim($input['name']);
         if ($name === '') {
-            throw new ValidationError('Enter a category name.');
+            throw new ValidationError('Enter a stock group name.');
         }
 
         return Tx::run(function () use ($input, $name, $actor): int {
             if (DB::table('categories')->whereRaw('LOWER(`categories`.`name`) = LOWER(?)', [$name])->exists()) {
-                throw new ConflictError("A category called \"{$name}\" already exists.");
+                throw new ConflictError("A stock group called \"{$name}\" already exists.");
             }
             $now = Clock::now();
             $id = (int) DB::table('categories')->insertGetId([
@@ -84,7 +84,7 @@ final class CatalogService
                 'created_at' => Clock::stamp($now),
                 'updated_at' => Clock::stamp($now),
             ]);
-            AuditService::write(AuditAction::Create, 'category', "Created category \"{$name}\"", $id, $actor, null, $now);
+            AuditService::write(AuditAction::Create, 'category', "Created stock group \"{$name}\"", $id, $actor, null, $now);
 
             return $id;
         });
@@ -94,16 +94,16 @@ final class CatalogService
     {
         $name = JsCompat::trim($input['name']);
         if ($name === '') {
-            throw new ValidationError('Enter a category name.');
+            throw new ValidationError('Enter a stock group name.');
         }
 
         Tx::run(function () use ($id, $input, $name, $actor): void {
-            $existing = DB::table('categories')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Category', $id);
+            $existing = DB::table('categories')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock group', $id);
             $clash = DB::table('categories')
                 ->whereRaw('LOWER(`categories`.`name`) = LOWER(?) AND `categories`.`id` <> ?', [$name, $id])
                 ->exists();
             if ($clash) {
-                throw new ConflictError("A category called \"{$name}\" already exists.");
+                throw new ConflictError("A stock group called \"{$name}\" already exists.");
             }
             $now = Clock::now();
             DB::table('categories')->where('id', $id)->update([
@@ -112,7 +112,7 @@ final class CatalogService
                 'sort_order' => $input['sortOrder'] ?? (int) $existing->sort_order,
                 'updated_at' => Clock::stamp($now),
             ]);
-            AuditService::write(AuditAction::Update, 'category', "Updated category \"{$name}\"", $id, $actor, [
+            AuditService::write(AuditAction::Update, 'category', "Updated stock group \"{$name}\"", $id, $actor, [
                 'before' => ['name' => $existing->name],
                 'after' => ['name' => $name],
             ], $now);
@@ -123,13 +123,13 @@ final class CatalogService
     public static function setCategoryActive(int $id, bool $isActive, Actor $actor): void
     {
         Tx::run(function () use ($id, $isActive, $actor): void {
-            $existing = DB::table('categories')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Category', $id);
+            $existing = DB::table('categories')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock group', $id);
             $now = Clock::now();
             DB::table('categories')->where('id', $id)->update(['is_active' => $isActive, 'updated_at' => Clock::stamp($now)]);
             AuditService::write(
                 $isActive ? AuditAction::Restore : AuditAction::Archive,
                 'category',
-                ($isActive ? 'Restored' : 'Archived')." category \"{$existing->name}\"",
+                ($isActive ? 'Restored' : 'Archived')." stock group \"{$existing->name}\"",
                 $id,
                 $actor,
                 null,
@@ -195,7 +195,7 @@ final class CatalogService
     private static function assertProductInput(array $input): void
     {
         if (JsCompat::trim($input['name']) === '') {
-            throw new ValidationError('Enter a product name.');
+            throw new ValidationError('Enter a stock item name.');
         }
         if ($input['costPrice'] < 0) {
             throw new ValidationError('Cost price cannot be negative.');
@@ -251,7 +251,7 @@ final class CatalogService
                 'created_at' => Clock::stamp($now),
                 'updated_at' => Clock::stamp($now),
             ]);
-            AuditService::write(AuditAction::Create, 'product', "Created product \"{$name}\"", $id, $actor, [
+            AuditService::write(AuditAction::Create, 'product', "Created stock item \"{$name}\"", $id, $actor, [
                 'sku' => $sku,
                 'barcode' => $barcode,
                 'sellingPriceMinor' => $input['sellingPrice'],
@@ -268,25 +268,25 @@ final class CatalogService
         $barcode = self::normaliseCode($input['barcode'] ?? null);
 
         Tx::run(function () use ($id, $input, $sku, $barcode, $actor): void {
-            $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Product', $id);
+            $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock item', $id);
             self::assertCodesAvailable($sku, $barcode, $id);
 
             // Turning off tracking for a product that holds stock would orphan
             // that value in the ledger.
             if (($input['trackInventory'] ?? null) === false && (int) $existing->qty_on_hand_milli !== 0) {
-                throw new ValidationError('Clear this product’s stock before turning off inventory tracking.', ['qtyOnHandMilli' => (int) $existing->qty_on_hand_milli]);
+                throw new ValidationError('Clear this stock item’s stock before turning off inventory tracking.', ['qtyOnHandMilli' => (int) $existing->qty_on_hand_milli]);
             }
 
             // The base unit is fixed once any stock has moved; the carton once
             // the product has been bought, sold or adjusted.
             $unitCols = self::unitColumns($input, $existing->unit);
             if ($unitCols['unit'] !== $existing->unit && self::productUnitsLocked($id)) {
-                throw new ValidationError("\"{$existing->name}\" already has stock movements, so its unit cannot change. Create a new product for the new unit.");
+                throw new ValidationError("\"{$existing->name}\" already has stock movements, so its unit cannot change. Create a new stock item for the new unit.");
             }
             $existingFactor = $existing->alt_factor_milli === null ? null : (int) $existing->alt_factor_milli;
             $altChanged = $unitCols['alt_unit'] !== $existing->alt_unit || $unitCols['alt_factor_milli'] !== $existingFactor;
             if ($altChanged && self::productAltUnitLocked($id)) {
-                throw new ValidationError("\"{$existing->name}\" has been bought, sold or adjusted, so its alternate unit and conversion cannot change. Create a new product for the new unit.");
+                throw new ValidationError("\"{$existing->name}\" has been bought, sold or adjusted, so its alternate unit and conversion cannot change. Create a new stock item for the new unit.");
             }
 
             $now = Clock::now();
@@ -305,7 +305,7 @@ final class CatalogService
                 'track_inventory' => $input['trackInventory'] ?? (bool) $existing->track_inventory,
                 'updated_at' => Clock::stamp($now),
             ]);
-            AuditService::write(AuditAction::Update, 'product', "Updated product \"{$name}\"", $id, $actor, [
+            AuditService::write(AuditAction::Update, 'product', "Updated stock item \"{$name}\"", $id, $actor, [
                 // Units are recorded too: a corrected carton size changes what
                 // every on-hand carton figure means.
                 'before' => [
@@ -358,7 +358,7 @@ final class CatalogService
     public static function setProductActive(int $id, bool $isActive, Actor $actor): void
     {
         Tx::run(function () use ($id, $isActive, $actor): void {
-            $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Product', $id);
+            $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock item', $id);
             if (! $isActive && ((int) $existing->qty_on_hand_milli !== 0 || (int) $existing->stock_value_minor !== 0)) {
                 throw new ConflictError("\"{$existing->name}\" is not at zero stock. Bring its stock to zero with a stock adjustment before archiving it.");
             }
@@ -374,8 +374,8 @@ final class CatalogService
                 if ($replacedBy !== null && $replacedBy !== 'null') {
                     $newId = (int) $replacedBy;
                     $successor = DB::table('products')->where('id', $newId)->value('name');
-                    $named = $successor !== null ? "\"{$successor}\" (product #{$newId})" : "product #{$newId}";
-                    throw new ConflictError("\"{$existing->name}\" was replaced by {$named} to change its units, so it cannot be restored. Use the product that replaced it.");
+                    $named = $successor !== null ? "\"{$successor}\" (stock item #{$newId})" : "stock item #{$newId}";
+                    throw new ConflictError("\"{$existing->name}\" was replaced by {$named} to change its units, so it cannot be restored. Use the stock item that replaced it.");
                 }
             }
 
@@ -384,7 +384,7 @@ final class CatalogService
             AuditService::write(
                 $isActive ? AuditAction::Restore : AuditAction::Archive,
                 'product',
-                ($isActive ? 'Restored' : 'Archived')." product \"{$existing->name}\"",
+                ($isActive ? 'Restored' : 'Archived')." stock item \"{$existing->name}\"",
                 $id,
                 $actor,
                 null,
@@ -409,7 +409,7 @@ final class CatalogService
     public static function deleteProduct(int $id, Actor $actor): void
     {
         Tx::run(function () use ($id, $actor): void {
-            $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Product', $id);
+            $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock item', $id);
             if (self::isProductInUse($id)) {
                 throw new ConflictError("\"{$existing->name}\" has sales, purchases, quotations or stock history, so it cannot be deleted. Archive it instead.");
             }
@@ -417,7 +417,7 @@ final class CatalogService
 
             // No DELETE audit action exists; units log their deletes as ARCHIVE the same way.
             // The row is gone, so the trail keeps what it was, in the old app's field names.
-            AuditService::write(AuditAction::Archive, 'product', "Deleted product \"{$existing->name}\"", $id, $actor, [
+            AuditService::write(AuditAction::Archive, 'product', "Deleted stock item \"{$existing->name}\"", $id, $actor, [
                 'deleted' => self::snapshot($existing),
             ], Clock::now());
         });
@@ -634,7 +634,7 @@ final class CatalogService
     public static function getProduct(int $id): array
     {
         return self::listProducts(['includeInactive' => true, 'id' => $id, 'limit' => 1])[0]
-            ?? throw new NotFoundError('Product', $id);
+            ?? throw new NotFoundError('Stock item', $id);
     }
 
     /** The till's lookup: an active product by exact barcode, or SKU ignoring case. */

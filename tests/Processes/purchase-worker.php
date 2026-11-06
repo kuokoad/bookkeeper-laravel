@@ -51,12 +51,14 @@ $actor = new Actor((int) DB::table('users')->where('username', 'desk')->value('i
 $purchases = DB::table('purchases')->where('kind', 'PURCHASE')->orderBy('id')->get(['id', 'supplier_id'])->all();
 $lines = DB::table('purchase_items')->orderBy('id')->get(['id', 'purchase_id'])->all();
 
-$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-purchase-go';
+$go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-purchase-go-'.env('DB_DATABASE');
 while (! file_exists($go)) {
     usleep(2_000);
 }
 
 for ($round = 1; $round <= $rounds; $round++) {
+    startRound($go, $round, $worker);
+    $start = microtime(true);
     $purchase = $purchases[$round - 1];
     try {
         if ($mode === 'return') {
@@ -66,14 +68,14 @@ for ($round = 1; $round <= $rounds; $round++) {
                 'items' => [['itemId' => (int) $lines[$round - 1]->id, 'qty' => 6_000]],
                 'refunds' => [['paymentAccountId' => $cash, 'amount' => 3_000]],
             ], $actor);
-            echo json_encode(['round' => $round, 'ok' => true, 'doc' => $back['purchaseNo']]), "\n";
+            echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => true, 'doc' => $back['purchaseNo']]), "\n";
 
             continue;
         }
         // Odd desks void round N's delivery; even desks pay what is owed on it.
         if ($worker % 2 === 1) {
             $void = PurchaseService::voidPurchase((int) $purchase->id, 'Delivered to the wrong shop', $actor);
-            echo json_encode(['round' => $round, 'ok' => true, 'did' => 'void', 'doc' => $void['purchaseNo']]), "\n";
+            echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => true, 'did' => 'void', 'doc' => $void['purchaseNo']]), "\n";
         } else {
             $paid = SupplierPaymentService::recordSupplierPayment([
                 'supplierId' => (int) $purchase->supplier_id,
@@ -81,9 +83,9 @@ for ($round = 1; $round <= $rounds; $round++) {
                 'paymentAccountId' => $cash,
                 'amount' => 5_000,
             ], $actor);
-            echo json_encode(['round' => $round, 'ok' => true, 'did' => 'pay', 'doc' => $paid['paymentNo']]), "\n";
+            echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => true, 'did' => 'pay', 'doc' => $paid['paymentNo']]), "\n";
         }
     } catch (DomainError $e) {
-        echo json_encode(['round' => $round, 'ok' => false, 'code' => $e->errorCode, 'error' => $e->getMessage()]), "\n";
+        echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'ok' => false, 'code' => $e->errorCode, 'error' => $e->getMessage()]), "\n";
     }
 }

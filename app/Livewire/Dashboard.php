@@ -19,6 +19,7 @@ use App\Services\Reporting\LedgerService;
 use App\Services\Reporting\MoneyTrend;
 use App\Services\Reporting\OperationsService;
 use App\Services\SaleService;
+use App\Services\SettingsService;
 use App\Services\SupplierService;
 use App\Support\Clock;
 use Illuminate\Http\Request;
@@ -110,6 +111,18 @@ final class Dashboard extends Component
                 ['label' => 'Record Expense', 'icon' => 'receipt', 'href' => '/expenses#record-expense', 'allowed' => $can(M::Expenses, 'create')],
                 ['label' => 'New Purchase', 'icon' => 'shoppingBag', 'href' => '/purchases/new', 'allowed' => $can(M::Purchases, 'create')],
                 ['label' => 'Receive Payment', 'icon' => 'payment', 'href' => '/customers?owing=1', 'allowed' => $can(M::Customers, 'create')],
+            ], fn (array $a): bool => $a['allowed'])),
+            // The Jinu look's Create Transaction menu: every kind of entry this person may start.
+            'createMenu' => array_values(array_filter([
+                ['label' => 'Sale', 'href' => '/sales/new', 'allowed' => $can(M::Sales, 'create')],
+                ['label' => 'Quotation', 'href' => '/quotations/new', 'allowed' => $can(M::Quotations, 'create') && (SettingsService::features(SettingsService::get())['quotations'] ?? false)],
+                ['label' => 'Purchase', 'href' => '/purchases/new', 'allowed' => $can(M::Purchases, 'create')],
+                ['label' => 'Expense', 'href' => '/expenses#record-expense', 'allowed' => $can(M::Expenses, 'create')],
+                ['label' => 'Other income', 'href' => '/income#record-income', 'allowed' => $can(M::Income, 'create')],
+                ['label' => 'Customer payment received', 'href' => '/customers?balance=owing', 'allowed' => $can(M::Customers, 'create')],
+                ['label' => 'Supplier payment', 'href' => '/suppliers?balance=owing', 'allowed' => $can(M::Suppliers, 'create')],
+                ['label' => 'Transfer between accounts', 'href' => '/accounts', 'allowed' => $can(M::Accounts, 'create')],
+                ['label' => 'Stock adjustment', 'href' => '/inventory/adjustments/new', 'allowed' => $can(M::Inventory, 'create')],
             ], fn (array $a): bool => $a['allowed'])),
         ]);
     }

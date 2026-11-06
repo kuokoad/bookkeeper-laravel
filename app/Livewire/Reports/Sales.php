@@ -26,12 +26,14 @@ final class Sales extends ReportPage
          * swapped for line-level ones.
          */
         $byLine = isset($filters['productId']) || isset($filters['categoryId']);
+        // The lines are read once and shared by every line table on the page.
+        $lines = OperationsService::earnedLines($filters);
 
         $days = $byLine
-            ? array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'revenue' => $r['revenue'], 'cost' => $r['cost'], 'profit' => $r['profit']], OperationsService::getSalesLinesByDay($filters))
+            ? array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'revenue' => $r['revenue'], 'cost' => $r['cost'], 'profit' => $r['profit']], OperationsService::getSalesLinesByDay($filters, $lines))
             : array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'revenue' => $r['total'], 'cost' => $r['cogs'], 'profit' => $r['profit']], OperationsService::getSalesByDay($filters));
         $customerRows = $byLine
-            ? array_map(fn (array $r): array => ['key' => $r['customerId'], 'name' => $r['customerName'], 'saleCount' => $r['saleCount'], 'revenue' => $r['revenue'], 'profit' => $r['profit']], OperationsService::getSalesLinesByCustomer($filters))
+            ? array_map(fn (array $r): array => ['key' => $r['customerId'], 'name' => $r['customerName'], 'saleCount' => $r['saleCount'], 'revenue' => $r['revenue'], 'profit' => $r['profit']], OperationsService::getSalesLinesByCustomer($filters, $lines))
             : array_map(fn (array $r): array => ['key' => $r['customerId'], 'name' => $r['customerName'], 'saleCount' => $r['saleCount'], 'revenue' => $r['total'], 'profit' => $r['profit']], OperationsService::getSalesByCustomer($filters));
         $byMethod = $byLine ? [] : OperationsService::getSalesByPaymentMethod($filters);
 
@@ -40,8 +42,8 @@ final class Sales extends ReportPage
             'byLine' => $byLine,
             'days' => $days,
             'customerRows' => $customerRows,
-            'byProduct' => OperationsService::getSalesByProduct($filters),
-            'byCategory' => OperationsService::getSalesByCategory($filters),
+            'byProduct' => OperationsService::getSalesByProduct($filters, $lines),
+            'byCategory' => OperationsService::getSalesByCategory($filters, $lines),
             'byMethod' => $byMethod,
             ...OperationsService::getSalesReportTotals($days, $byMethod),
             'customers' => Report::options(CustomerService::listCustomerOptions(true)),

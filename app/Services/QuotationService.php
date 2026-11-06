@@ -50,7 +50,7 @@ final class QuotationService
 
         $resolved = [];
         foreach ($input['lines'] as $line) {
-            $product = DB::table('products')->where('id', $line['productId'])->first() ?? throw new NotFoundError('Product', $line['productId']);
+            $product = DB::table('products')->where('id', $line['productId'])->first() ?? throw new NotFoundError('Stock item', $line['productId']);
             if (! $product->is_active) {
                 throw new ValidationError("\"{$product->name}\" is archived and cannot be quoted.");
             }

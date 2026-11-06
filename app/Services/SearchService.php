@@ -53,7 +53,7 @@ final class SearchService
         $join = fn (array $parts): string => implode(' · ', array_filter($parts, fn ($p) => $p !== null && $p !== ''));
 
         if ($user->can(PermissionModule::Products, 'view')) {
-            $add('Products', array_map(fn (object $r): array => [
+            $add('Stock items', array_map(fn (object $r): array => [
                 'kind' => 'product', 'id' => (int) $r->id, 'title' => $r->name,
                 'detail' => $join([$r->sku, $r->unit]),
                 'href' => "/products/{$r->id}/edit",

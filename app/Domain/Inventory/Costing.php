@@ -62,7 +62,7 @@ final class Costing
             throw new ValidationError('Stock out requires a quantity greater than zero.', ['qty' => $qty]);
         }
         if (! $allowNegative && $qty > $current->qty) {
-            throw new InsufficientStockError($productName ?? 'this product', self::formatMilli($current->qty), self::formatMilli($qty));
+            throw new InsufficientStockError($productName ?? 'this stock item', self::formatMilli($current->qty), self::formatMilli($qty));
         }
 
         if ($current->qty > 0 && $qty <= $current->qty) {
@@ -111,7 +111,7 @@ final class Costing
             throw new ValidationError('Stock cannot be returned at a negative cost.', ['totalCost' => $totalCost]);
         }
         if (! $allowNegative && $qty > $current->qty) {
-            throw new InsufficientStockError($productName ?? 'this product', self::formatMilli($current->qty), self::formatMilli($qty));
+            throw new InsufficientStockError($productName ?? 'this stock item', self::formatMilli($current->qty), self::formatMilli($qty));
         }
 
         $nextQty = Quantity::subtract($current->qty, $qty);

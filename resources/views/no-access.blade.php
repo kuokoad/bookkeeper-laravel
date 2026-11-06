@@ -1,6 +1,6 @@
 {{-- Where a refused page sends a person (RequirePermission): the old (app)/no-access page. --}}
 @php
-    $labels = ['sales' => 'Sales', 'purchases' => 'Purchases', 'products' => 'Products', 'inventory' => 'Inventory', 'customers' => 'Customers', 'suppliers' => 'Suppliers', 'expenses' => 'Expenses', 'income' => 'Other income', 'accounts' => 'Accounts', 'reconciliation' => 'Reconciliation', 'quotations' => 'Quotations', 'reports' => 'Reports', 'users' => 'Users', 'settings' => 'Settings'];
+    $labels = ['sales' => 'Sales', 'purchases' => 'Purchases', 'products' => 'Stock items', 'inventory' => 'Inventory', 'customers' => 'Customers', 'suppliers' => 'Suppliers', 'expenses' => 'Expenses', 'income' => 'Other income', 'accounts' => 'Accounts', 'reconciliation' => 'Reconciliation', 'quotations' => 'Quotations', 'reports' => 'Reports', 'users' => 'Users', 'settings' => 'Settings'];
     $label = $labels[(string) request()->query('area')] ?? null;
 @endphp
 <x-layouts::app title="No access">

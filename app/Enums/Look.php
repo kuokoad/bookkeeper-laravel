@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Enums;
 
 /**
- * The shop-wide look. Labels are the old lib/look.ts LOOK_LABELS; Jinu is new
- * here (DESIGN-jinu.md), so imported shops never carry it.
+ * The shop-wide look. Labels are the old lib/look.ts LOOK_LABELS; Jinu
+ * (DESIGN-jinu.md) and Quikbooks are new here, so imported shops never carry them.
  *
  * The database enforces these values with a CHECK built from this enum.
  */
@@ -18,6 +18,7 @@ enum Look: string
     case Ledger = 'ledger';
     case Classic = 'classic';
     case Jinu = 'jinu';
+    case Quikbooks = 'quikbooks';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum Look: string
             self::Ledger => 'Ledger',
             self::Classic => 'Classic',
             self::Jinu => 'Jinu',
+            self::Quikbooks => 'Quikbooks',
         };
     }
 
@@ -36,6 +38,7 @@ enum Look: string
             self::Ledger => 'Warm and paper-like, the feel of the book this replaced.',
             self::Classic => 'Calm green on cool grey, as NunaBooks looked before the redesign.',
             self::Jinu => 'Pale green surroundings, white pages and a light menu: calm and precise.',
+            self::Quikbooks => 'Grey and green, a light menu with a green marker: familiar accounting-software feel.',
         };
     }
 }

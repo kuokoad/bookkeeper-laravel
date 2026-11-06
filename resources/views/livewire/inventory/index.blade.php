@@ -30,7 +30,7 @@
 
     <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <x-stat label="Stock value" icon="inventory" :value="Format::money($summary['totalStockValue'])" hint="Weighted average cost" />
-        <x-stat label="Tracked products" icon="products" :value="(string) $summary['trackedCount']" />
+        <x-stat label="Tracked stock items" icon="products" :value="(string) $summary['trackedCount']" />
         <x-stat label="Low stock" icon="warning" :value="(string) $summary['lowStockCount']" :tone="$summary['lowStockCount'] > 0 ? 'warning' : 'default'" />
         <x-stat label="Out of stock" icon="warning" :value="(string) $summary['outOfStockCount']" :tone="$summary['outOfStockCount'] > 0 ? 'danger' : 'default'" />
     </div>
@@ -80,7 +80,7 @@
             <h2 id="low-stock-heading" class="mb-3 text-sm font-semibold text-content">Running low</h2>
             <x-table>
                 <x-slot:head>
-                    <x-th>Product</x-th>
+                    <x-th>Stock item</x-th>
                     <x-th numeric>In stock</x-th>
                     <x-th numeric>Reorder at</x-th>
                     <x-th />
@@ -124,9 +124,9 @@
         @endphp
 
         <x-filter-bar :quick="$quick" :list="$list" :dates="true" :fields="[
-            ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Product, SKU, reference or note', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
-            ['kind' => 'select', 'key' => 'product', 'label' => 'Product', 'allLabel' => 'All products', 'options' => collect($products)->pluck('name', 'id')->all(), 'value' => $list['filters']['productId'] ?? null],
-            ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => collect($categories)->pluck('name', 'id')->all(), 'value' => $list['filters']['categoryId'] ?? null],
+            ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Stock item, SKU, reference or note', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
+            ['kind' => 'select', 'key' => 'product', 'label' => 'Stock item', 'allLabel' => 'All stock items', 'options' => collect($products)->pluck('name', 'id')->all(), 'value' => $list['filters']['productId'] ?? null],
+            ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => collect($categories)->pluck('name', 'id')->all(), 'value' => $list['filters']['categoryId'] ?? null],
             ['kind' => 'select', 'key' => 'movement', 'label' => 'Movement type', 'allLabel' => 'All movements', 'options' => ListExport::MOVEMENT_LABELS, 'value' => $list['filters']['movementType'] ?? null],
             ['kind' => 'select', 'key' => 'user', 'label' => 'Recorded by', 'allLabel' => 'Anyone', 'options' => collect($staff)->pluck('displayName', 'id')->all(), 'value' => $list['filters']['userId'] ?? null],
         ]" />
@@ -142,7 +142,7 @@
             <x-table>
                 <x-slot:head>
                     <x-th>When</x-th>
-                    <x-th>Product</x-th>
+                    <x-th>Stock item</x-th>
                     <x-th>Movement</x-th>
                     <x-th>Reference</x-th>
                     <x-th numeric>In</x-th>
@@ -171,6 +171,6 @@
     </section>
 
     <p class="mt-4 text-xs text-content-subtle">
-        This ledger is the source of truth for stock. Movements are listed in the order they were entered, newest first, so a backdated entry appears where it was recorded, under the date the stock moved. The balance shown on each row is the position immediately after that movement, so any figure on the Products page can be traced back to the exact line that produced it. Filtering changes what you see, never what the shop holds.
+        This ledger is the source of truth for stock. Movements are listed in the order they were entered, newest first, so a backdated entry appears where it was recorded, under the date the stock moved. The balance shown on each row is the position immediately after that movement, so any figure on the Stock items page can be traced back to the exact line that produced it. Filtering changes what you see, never what the shop holds.
     </p>
 </div>

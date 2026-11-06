@@ -16,7 +16,7 @@ use Livewire\Component;
  * each unit edited in place. Forms are a list (index 0 adds), each holding
  * the symbol it was read with, since a symbol may hold dots or spaces.
  */
-#[Title('Units')]
+#[Title('Units of measure')]
 final class Units extends Component
 {
     /** @var list<array{original: ?string, symbol: string, name: string, decimalPlaces: string}> */

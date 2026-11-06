@@ -3,21 +3,21 @@
     $f = $list['filters'];
 @endphp
 <div class="w-full">
-    <x-page-header title="Products" description="What you sell, what it costs you, and how much is on the shelf.">
+    <x-page-header title="Stock items" description="What you sell, what it costs you, and how much is on the shelf.">
         <x-slot:actions>
             <x-csv-button list="products" :query="$list['carried']" />
             @can('products.create')
-                <x-button variant="secondary" size="sm" href="/products/categories">Categories</x-button>
-                <x-button variant="secondary" size="sm" href="/products/units">Units</x-button>
+                <x-button variant="secondary" size="sm" href="/products/categories">Stock groups</x-button>
+                <x-button variant="secondary" size="sm" href="/products/units">Units of measure</x-button>
                 <x-button variant="secondary" size="sm" href="/products/import">Import</x-button>
-                <x-button size="sm" href="/products/new">Add product</x-button>
+                <x-button size="sm" href="/products/new">Add stock item</x-button>
             @endcan
         </x-slot:actions>
     </x-page-header>
 
     {{-- The shop as a whole. These do not move with the filter, on purpose. --}}
     <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <x-stat label="Products" icon="products" :value="(string) $shop['productCount']" />
+        <x-stat label="Stock items" icon="products" :value="(string) $shop['productCount']" />
         <x-stat label="Stock value" icon="inventory" :value="\App\View\Format::money($shop['totalStockValue'])" hint="At weighted average cost" />
         <x-stat label="Low stock" icon="warning" :value="(string) $shop['lowStockCount']" :tone="$shop['lowStockCount'] > 0 ? 'warning' : 'default'" />
         <x-stat label="Out of stock" icon="warning" :value="(string) $shop['outOfStockCount']" :tone="$shop['outOfStockCount'] > 0 ? 'danger' : 'default'" />
@@ -25,7 +25,7 @@
 
     @if (isset($f['expiring']))
         <x-alert :tone="$f['expiring'] === 'expired' ? 'danger' : 'warning'" class="mb-4"
-            :title="$f['expiring'] === 'expired' ? 'Showing products with stock that has expired' : 'Showing products with stock expiring soon'">
+            :title="$f['expiring'] === 'expired' ? 'Showing stock items with stock that has expired' : 'Showing stock items with stock expiring soon'">
             <p>
                 {{ $f['expiring'] === 'expired'
                     ? 'It cannot be sold. Record a stock adjustment with the reason "Expired" to take it off the shelf and out of the accounts.'
@@ -46,17 +46,17 @@
 
     <x-filter-bar :quick="$quick" :list="$list" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Name, SKU or barcode', 'wide' => true, 'value' => $f['search'] ?? ''],
-        ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => collect($categories)->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(), 'value' => $f['categoryId'] ?? null],
+        ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => collect($categories)->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(), 'value' => $f['categoryId'] ?? null],
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => collect($suppliers)->mapWithKeys(fn ($s) => [$s['id'] => $s['name']])->all(), 'value' => $f['supplierId'] ?? null],
         ['kind' => 'select', 'key' => 'stock', 'label' => 'Stock status', 'allLabel' => 'Any stock level', 'options' => $stockOptions, 'value' => $f['stockStatus'] ?? null],
-        ['kind' => 'select', 'key' => 'archived', 'label' => 'Product status', 'allLabel' => 'Active only', 'options' => ['active' => 'Active', 'archived' => 'Archived'], 'value' => $f['productStatus'] ?? null],
+        ['kind' => 'select', 'key' => 'archived', 'label' => 'Stock item status', 'allLabel' => 'Active only', 'options' => ['active' => 'Active', 'archived' => 'Archived'], 'value' => $f['productStatus'] ?? null],
     ]" />
 
     @if ($items === [])
-        <x-empty-state :title="$isFiltered ? 'No products match' : 'No products yet'"
+        <x-empty-state :title="$isFiltered ? 'No stock items match' : 'No stock items yet'"
             :description="$isFiltered ? 'Try a different search, or clear the filters to see everything.' : 'Add the things you sell. You can enter opening stock afterwards with a stock adjustment, so every figure traces back to a record.'">
             @if (! $isFiltered && Gate::allows('products.create'))
-                <x-slot:action><x-button href="/products/new">Add your first product</x-button></x-slot:action>
+                <x-slot:action><x-button href="/products/new">Add your first stock item</x-button></x-slot:action>
             @endif
         </x-empty-state>
     @else
@@ -68,8 +68,8 @@
 
         <x-table>
             <x-slot:head>
-                <x-th sort="name" :sorts="$sorts" :list="$list" default-direction="asc">Product</x-th>
-                <x-th sort="category" :sorts="$sorts" :list="$list" default-direction="asc">Category</x-th>
+                <x-th sort="name" :sorts="$sorts" :list="$list" default-direction="asc">Stock item</x-th>
+                <x-th sort="category" :sorts="$sorts" :list="$list" default-direction="asc">Stock group</x-th>
                 <x-th sort="quantity" :sorts="$sorts" :list="$list" default-direction="asc" numeric>In stock</x-th>
                 <x-th sort="cost" :sorts="$sorts" :list="$list" numeric>Avg cost</x-th>
                 <x-th sort="price" :sorts="$sorts" :list="$list" numeric>Selling price</x-th>

@@ -9,7 +9,7 @@ download at `/settings/health`.
 
 ## What a backup is
 
-The whole business is one MySQL database. Every sale, every payment, every product,
+The whole business is one MySQL database. Every sale, every payment, every stock item,
 the ledger underneath them, the users, the settings and the logo. A copy of that
 database kept somewhere safe is the shop. Lose it with no copy and there is nothing to
 go back to.
@@ -36,7 +36,7 @@ scratch database, checks it there, and drops the scratch copy afterwards. It pro
 - The file loads end to end, with the triggers that guard the books.
 - **The books inside the copy still balance** — every entry, and the trial balance.
 - What customers owe and what you owe suppliers equal their control accounts.
-- Every product's stock replays to the figure on screen, and the stock ledger equals
+- Every stock item's stock replays to the figure on screen, and the stock ledger equals
   the Inventory account.
 - An owner can still sign in.
 - The audit log, the journal and every account's totals match the live books it was

@@ -8,23 +8,20 @@ declare(strict_types=1);
 | checks what the shop owner would: no two documents share a number, and the
 | numbers run with no gaps, even though some transactions roll back.
 |
-| It uses its own database (nunabooks_concurrency), because the workers
+| It uses its own database (nunabooks_concurrency_<run id>), because the workers
 | commit, and committed rows would leak into the other tests.
 */
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const CONCURRENCY_DB = 'nunabooks_concurrency';
+require_once __DIR__.'/run.php';
+
+define('CONCURRENCY_DB', runDatabase('nunabooks_concurrency'));
 
 function concurrencyEnv(): array
 {
     return ['DB_DATABASE' => CONCURRENCY_DB, 'APP_ENV' => 'testing'];
-}
-
-function rowLockWaits(): int
-{
-    return (int) DB::selectOne("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'")->Value;
 }
 
 beforeEach(function () {
@@ -36,39 +33,32 @@ beforeEach(function () {
     config(['database.connections.concurrency' => array_merge(config('database.connections.mysql'), ['database' => CONCURRENCY_DB])]);
 });
 
+afterEach(fn () => dropRunDatabases(CONCURRENCY_DB));
+
 it('gives every till a different number, with no gaps, when four tills write at once', function () {
-    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-concurrency-go';
-    @unlink($go);
+    $go = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-concurrency-go-'.CONCURRENCY_DB;
+    clearStartLine($go);
 
     $workers = 4;
     $iterations = 25;
     $pool = Process::pool(function ($pool) use ($workers, $iterations) {
         for ($w = 1; $w <= $workers; $w++) {
-            $pool->as("till-{$w}")->env(concurrencyEnv())->path(base_path())->timeout(300)
+            $pool->as("till-{$w}")->env([...concurrencyEnv(), 'NUNA_WORKERS' => (string) $workers])->path(base_path())->timeout(300)
                 ->command([PHP_BINARY, 'tests/Processes/worker.php', (string) $iterations, (string) $w]);
         }
     })->start();
 
     usleep(1_500_000); // let every worker boot and reach the starting line
-    $waitsBefore = rowLockWaits();
     touch($go);
     $results = $pool->wait();
-    @unlink($go);
+    clearStartLine($go);
 
-    $receipts = [];
-    $entries = [];
-    foreach ($results as $name => $result) {
-        expect($result->successful())->toBeTrue("{$name}: ".$result->errorOutput());
-        foreach (array_filter(explode("\n", trim($result->output()))) as $line) {
-            $row = json_decode($line, true);
-            expect($row)->toBeArray("{$name} printed something other than a result: {$line}");
-            $receipts[] = $row['receipt'];
-            $entries[] = $row['entry'];
-        }
-    }
-
-    // The tills really did collide: InnoDB counted transactions waiting on a row lock.
-    expect(rowLockWaits() - $waitsBefore)->toBeGreaterThan(10);
+    $rows = workerRows($results);
+    // The tills really did collide: every write, kept or rolled back, overlapped the others in its round.
+    expectOverlapEachRound($rows, $workers);
+    $kept = array_filter($rows, fn (array $row): bool => isset($row['receipt']));
+    $receipts = array_column($kept, 'receipt');
+    $entries = array_column($kept, 'entry');
 
     // Writes 5, 10, 15... rolled back after the receipt number; 7, 14, 21 after the journal number too.
     $failed = count(array_filter(range(1, $iterations), fn (int $i): bool => $i % 5 === 0 || $i % 7 === 0));

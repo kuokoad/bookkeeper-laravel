@@ -20,16 +20,13 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const YEAR_END_RACE_DB = 'nunabooks_concurrency';
+require_once __DIR__.'/run.php';
+
+define('YEAR_END_RACE_DB', runDatabase('nunabooks_concurrency'));
 
 function yearEndRaceEnv(): array
 {
     return ['DB_DATABASE' => YEAR_END_RACE_DB, 'APP_ENV' => 'testing'];
-}
-
-function yearEndRaceLockWaits(): int
-{
-    return (int) DB::selectOne("SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'")->Value;
 }
 
 function yearEndRaceClearBarrier(string $dir): void
@@ -47,7 +44,7 @@ function yearEndRaceRun(array $modes, int $rounds): array
         expect($run->successful())->toBeTrue($run->errorOutput().$run->output());
     }
 
-    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-year-end';
+    $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-year-end-'.YEAR_END_RACE_DB;
     @mkdir($dir);
     yearEndRaceClearBarrier($dir);
     $pool = Process::pool(function ($pool) use ($modes, $rounds) {
@@ -58,22 +55,14 @@ function yearEndRaceRun(array $modes, int $rounds): array
         }
     })->start();
     usleep(1_500_000); // every desk booted and waiting at the line
-    $waitsBefore = yearEndRaceLockWaits();
     touch($dir.DIRECTORY_SEPARATOR.'go');
     $results = $pool->wait();
     yearEndRaceClearBarrier($dir);
 
-    $rows = [];
-    foreach ($results as $name => $result) {
-        expect($result->successful())->toBeTrue("{$name}: ".$result->errorOutput().$result->output());
-        foreach (array_filter(explode("\n", trim($result->output()))) as $line) {
-            $row = json_decode($line, true);
-            expect($row)->toBeArray("{$name} printed something other than a result: {$line}");
-            $rows[] = $row;
-        }
-    }
+    $rows = workerRows($results);
+    expectOverlapEachRound($rows, count($modes));
 
-    return ['rows' => $rows, 'waits' => yearEndRaceLockWaits() - $waitsBefore];
+    return ['rows' => $rows];
 }
 
 /** The year's revenue, contra-revenue, expense and COGS lines, closing entries in or out, credit minus debit. */
@@ -116,13 +105,14 @@ beforeEach(function () {
     config(['database.connections.yearendrace' => array_merge(config('database.connections.mysql'), ['database' => YEAR_END_RACE_DB])]);
 });
 
+afterEach(fn () => dropRunDatabases(YEAR_END_RACE_DB));
+
 it('closes a year once when four desks close it at the same moment', function () {
     [$workers, $rounds] = [4, 5];
     $run = yearEndRaceRun(array_fill(0, $workers, 'close'), $rounds);
     $db = DB::connection('yearendrace');
 
-    expect($run['rows'])->toHaveCount($workers * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount($workers * $rounds);
     foreach (range(1, $rounds) as $round) {
         $attempts = array_values(array_filter($run['rows'], fn (array $r): bool => $r['round'] === $round));
         $won = array_values(array_filter($attempts, fn (array $r): bool => $r['ok']));
@@ -143,8 +133,7 @@ it('sweeps a sale dated on the year end or refuses it, when it races the close',
     $run = yearEndRaceRun(['close', ...array_fill(0, $sellers, 'sell')], $rounds);
     $db = DB::connection('yearendrace');
 
-    expect($run['rows'])->toHaveCount((1 + $sellers) * $rounds)
-        ->and($run['waits'])->toBeGreaterThanOrEqual($rounds);
+    expect($run['rows'])->toHaveCount((1 + $sellers) * $rounds);
     $closes = array_values(array_filter($run['rows'], fn (array $r): bool => $r['mode'] === 'close'));
     expect(array_column($closes, 'ok'))->toBe(array_fill(0, $rounds, true), 'every close goes through');
 

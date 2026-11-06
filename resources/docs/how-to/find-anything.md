@@ -12,7 +12,7 @@ Signed in, with view permission on whatever you are looking at.
 
 Most pages carry a row of buttons above the table for the questions people ask most.
 On Sales: **Today's sales**, **Credit sales**, **Cash sales**, **MoMo sales**,
-**Voided**. On Products: **Low stock**, **Out of stock**. On Customers: **Customers
+**Voided**. On Stock items: **Low stock**, **Out of stock**. On Customers: **Customers
 who owe**.
 
 One click. Press it again to turn it off.
@@ -93,7 +93,7 @@ keeps everything.
 you meant is probably on. Press **Clear all** and add filters back one at a time.
 
 **A name is missing from a dropdown.** Dropdowns list what the shop actually has.
-Archived customers and products are included on the filter dropdowns; if something is
+Archived customers and stock items are included on the filter dropdowns; if something is
 genuinely absent, it has never been used in that context.
 
 **"Negative stock" is not in the stock dropdown.** It only appears when the shop

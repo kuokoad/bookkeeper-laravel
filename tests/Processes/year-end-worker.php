@@ -51,7 +51,7 @@ $actor = new Actor((int) DB::table('users')->where('username', 'desk')->value('i
 $product = (int) DB::table('products')->orderBy('id')->value('id');
 $cash = (int) DB::table('payment_accounts')->where('kind', 'CASH')->orderBy('id')->value('id');
 
-$dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-year-end';
+$dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nunabooks-year-end-'.env('DB_DATABASE');
 $go = $dir.DIRECTORY_SEPARATOR.'go';
 while (! file_exists($go)) {
     usleep(2_000);
@@ -66,10 +66,11 @@ for ($round = 1; $round <= $rounds; $round++) {
         usleep(500);
     }
     $year = YEAR_END_FIRST + $round - 1;
+    $start = microtime(true);
     try {
         if ($mode === 'close') {
             $closed = YearEndCloseService::closeFinancialYear($year, $actor);
-            echo json_encode(['round' => $round, 'mode' => $mode, 'ok' => true, 'entryId' => $closed['entryId'], 'profit' => $closed['profit']]), "\n";
+            echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'mode' => $mode, 'ok' => true, 'entryId' => $closed['entryId'], 'profit' => $closed['profit']]), "\n";
 
             continue;
         }
@@ -78,8 +79,8 @@ for ($round = 1; $round <= $rounds; $round++) {
             'items' => [['productId' => $product, 'qty' => 1_000]],
             'tenders' => [['paymentAccountId' => $cash, 'amount' => 500]],
         ], $actor);
-        echo json_encode(['round' => $round, 'mode' => $mode, 'ok' => true, 'saleId' => $sale['saleId']]), "\n";
+        echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'mode' => $mode, 'ok' => true, 'saleId' => $sale['saleId']]), "\n";
     } catch (DomainError $e) {
-        echo json_encode(['round' => $round, 'mode' => $mode, 'ok' => false, 'code' => $e->errorCode, 'error' => $e->getMessage()]), "\n";
+        echo json_encode(['round' => $round, 'start' => $start, 'end' => microtime(true), 'mode' => $mode, 'ok' => false, 'code' => $e->errorCode, 'error' => $e->getMessage()]), "\n";
     }
 }

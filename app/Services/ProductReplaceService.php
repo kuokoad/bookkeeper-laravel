@@ -35,7 +35,7 @@ final class ProductReplaceService
     public static function replaceProductUnit(int $oldId, array $input, array $move, string $businessDate, Actor $actor): array
     {
         return Tx::run(function () use ($oldId, $input, $move, $businessDate, $actor): array {
-            $old = DB::table('products')->where('id', $oldId)->lockForUpdate()->first() ?? throw new NotFoundError('Product', $oldId);
+            $old = DB::table('products')->where('id', $oldId)->lockForUpdate()->first() ?? throw new NotFoundError('Stock item', $oldId);
             $oldQty = (int) $old->qty_on_hand_milli;
             $oldValue = (int) $old->stock_value_minor;
             $oldFactor = $old->alt_factor_milli === null ? null : (int) $old->alt_factor_milli;
@@ -43,7 +43,7 @@ final class ProductReplaceService
                 throw new ValidationError("\"{$old->name}\" is archived. Restore it first.");
             }
             if (! CatalogService::productUnitsLocked($oldId)) {
-                throw new ValidationError("\"{$old->name}\" has no stock movements, so its units can be changed directly. Edit the product instead.");
+                throw new ValidationError("\"{$old->name}\" has no stock movements, so its units can be changed directly. Edit the stock item instead.");
             }
             if ($oldQty !== $move['expectedOldQty']) {
                 throw new ConflictError("\"{$old->name}\" now holds ".Quantity::formatWithUnit($oldQty, $old->unit).': stock moved while this form was open. Reload the page, count it again and re-enter the quantity.');
@@ -67,14 +67,14 @@ final class ProductReplaceService
             // Same base unit: a different figure is a recount, which belongs in a stock count.
             if ($moving && $unit === $old->unit && $move['newQty'] !== $oldQty) {
                 $held = Quantity::formatWithUnit($oldQty, $old->unit);
-                throw new ValidationError("The base unit stays {$old->unit}, so the new product takes the same {$held}. If the shelf holds a different amount, correct it with a stock count first.");
+                throw new ValidationError("The base unit stays {$old->unit}, so the new stock item takes the same {$held}. If the shelf holds a different amount, correct it with a stock count first.");
             }
             if ($moving && ($input['trackInventory'] ?? null) === false) {
-                throw new ValidationError("The new product must track stock, because \"{$old->name}\" holds stock that moves across to it.");
+                throw new ValidationError("The new stock item must track stock, because \"{$old->name}\" holds stock that moves across to it.");
             }
             // A pooled average can leave stock carried below zero; a stock-in cannot carry that.
             if ($moving && $oldValue < 0) {
-                throw new ValidationError("\"{$old->name}\" has stock valued below zero, which cannot be moved to a new product. Correct its value with a stock count first.");
+                throw new ValidationError("\"{$old->name}\" has stock valued below zero, which cannot be moved to a new stock item. Correct its value with a stock count first.");
             }
 
             // shortcut: dated batches are refused rather than carried across, because a
@@ -116,7 +116,7 @@ final class ProductReplaceService
                 ? StockAdjustmentService::createStockAdjustment([
                     'businessDate' => $businessDate,
                     'reason' => AdjustmentReason::Other,
-                    'note' => "Unit change: \"{$old->name}\" replaced by product #{$productId}",
+                    'note' => "Unit change: \"{$old->name}\" replaced by stock item #{$productId}",
                     'items' => [
                         ['productId' => $oldId, 'direction' => 'OUT', 'qty' => $oldQty, 'totalCost' => $oldValue],
                         ['productId' => $productId, 'direction' => 'IN', 'qty' => $move['newQty'], 'totalCost' => $oldValue],
@@ -144,7 +144,7 @@ final class ProductReplaceService
                 AuditService::write(
                     AuditAction::Update,
                     'stock_adjustment',
-                    "{$adjustment['adjustmentNo']} moved \"{$old->name}\" to product #{$productId} for a unit change",
+                    "{$adjustment['adjustmentNo']} moved \"{$old->name}\" to stock item #{$productId} for a unit change",
                     $adjustment['adjustmentId'],
                     $actor,
                     [StockAdjustmentService::UNIT_CHANGE_MARKER => ['fromProductId' => $oldId, 'toProductId' => $productId]],
@@ -154,7 +154,7 @@ final class ProductReplaceService
 
             CatalogService::setProductActive($oldId, false, $actor);
 
-            AuditService::write(AuditAction::Update, 'product', "Replaced \"{$old->name}\" with product #{$productId} to change its units", $oldId, $actor, [
+            AuditService::write(AuditAction::Update, 'product', "Replaced \"{$old->name}\" with stock item #{$productId} to change its units", $oldId, $actor, [
                 'newProductId' => $productId,
                 'adjustmentNo' => $adjustmentNo,
                 'before' => ['unit' => $old->unit, 'altUnit' => $old->alt_unit, 'altFactorMilli' => $oldFactor, 'qtyMilli' => $oldQty],

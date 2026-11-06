@@ -74,7 +74,7 @@ final class InventoryService
     public static function getStockState(int $productId): StockState
     {
         $product = DB::table('products')->where('id', $productId)->first(['qty_on_hand_milli', 'stock_value_minor'])
-            ?? throw new NotFoundError('Product', $productId);
+            ?? throw new NotFoundError('Stock item', $productId);
 
         return new StockState((int) $product->qty_on_hand_milli, (int) $product->stock_value_minor);
     }
@@ -95,7 +95,7 @@ final class InventoryService
         PeriodLock::assertOpen($input['businessDate'], JournalService::readLockDate(), ($input['overridePeriodLock'] ?? false) === true);
 
         if ($product === null) {
-            throw new NotFoundError('Product', $input['productId']);
+            throw new NotFoundError('Stock item', $input['productId']);
         }
         if (! $product->track_inventory) {
             throw new ValidationError("\"{$product->name}\" is not stock-tracked, so its stock cannot be moved.", ['productId' => $input['productId']]);
@@ -264,7 +264,7 @@ final class InventoryService
         if ($plan['expiredNeeded'] > 0) {
             if (! $approved && self::expiryBlocksSales()) {
                 $name = DB::table('products')->where('id', $input['productId'])->value('name');
-                throw new ExpiredStockError($name ?? 'this product', Batches::formatQty($plan['expiredNeeded']), $plan['expiredRefs']);
+                throw new ExpiredStockError($name ?? 'this stock item', Batches::formatQty($plan['expiredNeeded']), $plan['expiredRefs']);
             }
             // Approved, or the shop does not block on dates: plan again with the
             // expired batches, or the stock would leave with no batch giving it up.
@@ -298,7 +298,7 @@ final class InventoryService
 
         throw new ValidationError(
             'On '.self::formatDate($input['businessDate']).' there was only '.Batches::formatQty($onShelf).' '
-                .($product->unit ?? '').' of '.($product->name ?? 'this product').' in stock; the rest arrived later. Check the date.',
+                .($product->unit ?? '').' of '.($product->name ?? 'this stock item').' in stock; the rest arrived later. Check the date.',
             ['productId' => $input['productId'], 'businessDate' => $input['businessDate'], 'shortfall' => $plan['shortfall']],
         );
     }
@@ -318,7 +318,7 @@ final class InventoryService
         }
 
         throw new InvariantViolatedError(
-            'Stock exists that no batch owns: '.Batches::formatQty($plan['shortfall'])." of product {$input['productId']}.",
+            'Stock exists that no batch owns: '.Batches::formatQty($plan['shortfall'])." of stock item {$input['productId']}.",
             ['productId' => $input['productId'], 'shortfall' => $plan['shortfall']],
         );
     }
@@ -395,7 +395,7 @@ final class InventoryService
         }
 
         throw new InvariantViolatedError(
-            'Stock exists that no batch owns: '.Batches::formatQty($plan['shortfall'])." of product {$input['productId']}.",
+            'Stock exists that no batch owns: '.Batches::formatQty($plan['shortfall'])." of stock item {$input['productId']}.",
             ['productId' => $input['productId'], 'shortfall' => $plan['shortfall']],
         );
     }
@@ -872,7 +872,7 @@ final class InventoryService
      */
     public static function verifyProductStock(int $productId): array
     {
-        $product = DB::table('products')->where('id', $productId)->first() ?? throw new NotFoundError('Product', $productId);
+        $product = DB::table('products')->where('id', $productId)->first() ?? throw new NotFoundError('Stock item', $productId);
         $movements = DB::table('stock_ledger')->where('stock_ledger.product_id', $productId)->orderBy('stock_ledger.id')
             ->get(['qty_in_milli', 'qty_out_milli', 'total_cost_minor'])
             ->map(fn (object $row): array => ['qtyIn' => (int) $row->qty_in_milli, 'qtyOut' => (int) $row->qty_out_milli, 'totalCost' => (int) $row->total_cost_minor])

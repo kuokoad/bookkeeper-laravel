@@ -4,7 +4,7 @@
     (<x-th>), rows in the default slot (<tr class="border-b border-line last:border-0">
     with <x-td> / <x-money-cell>), and an optional `foot` slot for totals.
 --}}
-<div {{ $attributes->class('overflow-x-auto rounded-xl border border-line bg-surface-raised') }}>
+<div {{ $attributes->class('overflow-x-auto rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised') }}>
     <table class="w-full min-w-max border-collapse text-sm">
         <thead class="border-b border-line bg-surface-sunken text-left">
             <tr>{{ $head }}</tr>

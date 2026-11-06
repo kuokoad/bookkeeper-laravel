@@ -14,7 +14,9 @@ use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
-const ARCHIVE_RACE_DB = 'nunabooks_concurrency';
+require_once __DIR__.'/run.php';
+
+define('ARCHIVE_RACE_DB', runDatabase('nunabooks_concurrency'));
 
 function archiveRaceRun(array $args): ProcessResult
 {
@@ -24,6 +26,8 @@ function archiveRaceRun(array $args): ProcessResult
 beforeEach(function () {
     config(['database.connections.archiverace' => array_merge(config('database.connections.mysql'), ['database' => ARCHIVE_RACE_DB])]);
 });
+
+afterEach(fn () => dropRunDatabases(ARCHIVE_RACE_DB));
 
 it('refuses a sale tendered into an account while it is being archived', function () {
     DB::statement('CREATE DATABASE IF NOT EXISTS `'.ARCHIVE_RACE_DB.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin');

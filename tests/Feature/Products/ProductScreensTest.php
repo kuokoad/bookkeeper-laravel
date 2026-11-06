@@ -165,3 +165,10 @@ it('downloads the import template for somebody who may import', function () {
     expect($response->getContent())->toBe("\u{FEFF}Stock item name,SKU,Barcode,Unit,Cost price,Selling price,Units per pack,Cost per pack,Selling price per pack,Reorder level,Stock group,Track stock,Opening quantity,Opening value\r\n");
     signedIn($this->ownerId)->get('/products/import')->assertOk()->assertSee('Download the template');
 });
+
+it('refuses to switch stock tracking on a product with history, and says why on the edit screen', function () {
+    Livewire::actingAs($this->owner)->test(Form::class, ['id' => (string) $this->rice])
+        ->set('trackInventory', false)->call('save')
+        ->assertHasErrors('form')->assertSee('whether it tracks stock cannot change');
+    expect(Shop::productRow($this->rice)->track_inventory)->toBeTruthy();
+});

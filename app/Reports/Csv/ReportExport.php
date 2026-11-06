@@ -79,10 +79,12 @@ final class ReportExport
                 return ['headers' => ['Item', 'Amount'], 'rows' => [
                     ...array_map(fn (array $l): array => ["Asset: {$l['name']}", $m($l['amount'])], $bs['cashAccounts']),
                     ['Asset: Money customers owe you', $m($bs['receivables'])],
+                    ['Asset: Paid to suppliers in advance', $m($bs['supplierAdvances'])],
                     ['Asset: Stock on the shelf', $m($bs['inventory'])],
                     ...array_map(fn (array $l): array => ["Asset: {$l['name']}", $m($l['amount'])], $bs['otherAssets']),
                     ['Total assets', $m($bs['totalAssets'])],
                     ['Liability: Money you owe suppliers', $m($bs['payables'])],
+                    ['Liability: Customer credit balances', $m($bs['customerCredits'])],
                     ['Liability: Tax not yet paid', $m($bs['taxPayable'])],
                     ...array_map(fn (array $l): array => ["Liability: {$l['name']}", $m($l['amount'])], $bs['otherLiabilities']),
                     ['Total liabilities', $m($bs['totalLiabilities'])],
@@ -237,6 +239,13 @@ final class ReportExport
         $heading = fn (string $title): array => [$title, $pack['year']->label, $pack['previous']->label];
         $line = fn (string $label, int $now, ?int $before = null): array => [$label, $m($now), $before === null ? '' : $m($before)];
         $yesNo = fn (bool $ok): string => $ok ? 'yes' : 'NO';
+        // Other asset or liability accounts held in either year, so both columns add up to their totals.
+        $others = function (string $key) use ($bs, $pbs, $line): array {
+            $now = array_column($bs[$key], null, 'accountId');
+            $before = array_column($pbs[$key], null, 'accountId');
+
+            return array_map(fn (array $a): array => $line($a['name'], $now[$a['accountId']]['amount'] ?? 0, $before[$a['accountId']]['amount'] ?? 0), array_values($now + $before));
+        };
         $previousExpense = fn (int $accountId): int => array_column($ppl['expenses'], 'amount', 'accountId')[$accountId] ?? 0;
 
         $rows = [
@@ -262,10 +271,14 @@ final class ReportExport
             $heading('BALANCE SHEET'),
             $line('Cash, mobile money and bank', $bs['totalCash'], $pbs['totalCash']),
             $line('Owed by customers', $bs['receivables'], $pbs['receivables']),
+            $line('Paid to suppliers in advance', $bs['supplierAdvances'], $pbs['supplierAdvances']),
             $line('Stock on hand', $bs['inventory'], $pbs['inventory']),
+            ...$others('otherAssets'),
             $line('TOTAL ASSETS', $bs['totalAssets'], $pbs['totalAssets']),
             $line('Owed to suppliers', $bs['payables'], $pbs['payables']),
+            $line('Customer credit balances', $bs['customerCredits'], $pbs['customerCredits']),
             $line('Tax payable', $bs['taxPayable'], $pbs['taxPayable']),
+            ...$others('otherLiabilities'),
             $line('TOTAL LIABILITIES', $bs['totalLiabilities'], $pbs['totalLiabilities']),
             $line("OWNER'S STAKE", $bs['totalEquity'], $pbs['totalEquity']),
             $gap,

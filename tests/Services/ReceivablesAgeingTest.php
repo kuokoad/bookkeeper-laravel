@@ -76,3 +76,18 @@ describe('a credit note', function () {
         expect($row['current'] + $row['days1to30'] + $row['days31to60'] + $row['days61to90'] + $row['over90'])->toBe($row['total']);
     });
 });
+
+describe('walk-in sales', function () {
+    it('are not loaded into the ageing, since a sale with no customer can never owe', function () {
+        Shop::setNoTax();
+        $credit = ($this->creditSale)('2026-03-01', 2);
+        $rice = (int) DB::table('sale_items')->where('sale_id', $credit)->value('product_id');
+        $walkIn = Shop::sell($this->actor, [[$rice, 1_000]], [['paymentAccountId' => $this->cash, 'amount' => 10_000]], ['businessDate' => '2026-03-02'])['saleId'];
+
+        $outstanding = SaleService::getOutstandingBySale(['asAt' => '2026-03-31']);
+
+        expect($outstanding)->toBe([$credit => 20_000])
+            ->and(array_key_exists($walkIn, $outstanding))->toBeFalse()
+            ->and(($this->owedAt)('2026-03-31'))->toBe(20_000);
+    });
+});

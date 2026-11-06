@@ -75,15 +75,6 @@ describe('kept in the database', function () {
             ->and((int) $row->attempts)->toBe(20)
             ->and($row->reset_at)->toBe('2026-02-02 02:55:00.000');
     });
-
-    it('drops buckets whose window has closed, and leaves a live one alone', function () {
-        RateLimit::hit('login:a', RL_LIMIT, RL_WINDOW, T0);
-        RateLimit::hit('login:b', RL_LIMIT, RL_WINDOW, T0);
-        expect(RateLimit::purgeExpired(T0 + 1_000))->toBe(0)
-            ->and(RateLimit::hit('login:a', RL_LIMIT, RL_WINDOW, T0 + 1_000)['remaining'])->toBe(RL_LIMIT - 2)
-            ->and(RateLimit::purgeExpired(T0 + RL_WINDOW + 1))->toBe(2)
-            ->and(DB::table('rate_limits')->count())->toBe(0);
-    });
 });
 
 describe('throttling an expensive request', function () {

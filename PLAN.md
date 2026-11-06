@@ -506,3 +506,16 @@ at all. Proposed: always restock a stock-tracked line.
 Now: every returned stock-tracked line goes back on the shelf, at a zero cost
 when its share is zero; all 3 nails are back and stock value (0.02) agrees
 with 1200 (`CustomerReturnSharesTest`).
+
+**D28. A product's stock tracking could change after it had history. DONE (2026-11-06, approved by the owner).** Old `products.service.ts` let the flag change at any time, and returns and voids read it when they run, so a product sold untracked and then switched on put stock back with no cost. Now: the change is refused once the product has stock movements or sale or purchase lines ("…has already been bought, sold or stocked, so whether it tracks stock cannot change. Create a new stock item instead."). A new product can still change (`ProductDeleteTest`).
+
+**D29. Refunds could be paid from an archived payment account. DONE (2026-11-06, approved by the owner).** Old `returns.service.ts` refund loops did not check `is_active`, though a till tender did. Now customer and supplier refunds from an archived account are refused with "Payment account "X" is not active." (`RefundCapTest`).
+
+**D30. An account ledger with no from date shows every line ever posted. DONE
+(2026-11-06, approved by the owner).** Old `ledger/[id]/page.tsx` read all time
+when no `from` was given, so a busy account rendered years of lines.
+Now: the ledger starts on the 1st of this month, as the journal does, and the
+earlier lines are carried in the opening balance; the closing figure is
+unchanged. A `to` alone before the 1st starts at the 1st of its own month
+(`AccountingFiltersTest`, `AccountingScreensTest`). README differences row
+"Journal, ledger, trial balance and audit dates".

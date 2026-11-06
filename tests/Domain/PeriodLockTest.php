@@ -25,12 +25,11 @@ it('tells the shop owner what to do, in their own date format', function () {
 })->throws(PeriodLockedError::class);
 
 it('words the refusal for a person', function () {
-    try {
-        PeriodLock::assertOpen('2026-07-15', '2026-07-31');
-    } catch (PeriodLockedError $e) {
-        expect($e->userMessage)->toBe('The books are closed up to 31 Jul 2026. You cannot record anything dated 15 Jul 2026. Use a later date, or ask the owner to move the lock.')
-            ->and($e->errorCode)->toBe('CONFLICT');
-    }
+    $refuse = fn () => PeriodLock::assertOpen('2026-07-15', '2026-07-31');
+
+    expect($refuse)->toThrow(PeriodLockedError::class, 'Period locked: 2026-07-15 is on or before the lock date 2026-07-31')
+        ->and($refuse)->toThrow(fn (PeriodLockedError $e) => expect($e->userMessage)->toBe('The books are closed up to 31 Jul 2026. You cannot record anything dated 15 Jul 2026. Use a later date, or ask the owner to move the lock.')
+        ->and($e->errorCode)->toBe('CONFLICT'));
 });
 
 it('lets year-end close and reopen through with an override', function () {

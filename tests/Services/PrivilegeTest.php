@@ -136,6 +136,30 @@ describe('taking over another account (D14)', function () {
         UserService::setUserPin($id, '8351', $this->manager);
         expect(AuthService::login('ama', 'temporary-password-1')['ok'])->toBeTrue();
     });
+
+    it('REFUSES a staff member with users:edit switching off an owner', function () {
+        AuthService::createUser(['username' => 'abena', 'displayName' => 'Abena', 'password' => 'owner-password-2026', 'role' => UserRole::Owner]);
+        expect(fn () => UserService::setUserActive($this->ownerId, false, $this->manager))->toThrow(ForbiddenError::class)
+            ->and(UserService::getUser($this->ownerId)['isActive'])->toBeTrue();
+    });
+
+    it('REFUSES switching off a colleague holding rights the actor lacks', function () {
+        $id = AuthService::createUser([
+            'username' => 'cashier', 'displayName' => 'Cashier', 'password' => 'staff-password-2026', 'role' => UserRole::Staff,
+            'permissions' => ['accounts' => ['canView' => true, 'canCreate' => true, 'canEdit' => true, 'canVoid' => true]],
+        ], $this->owner);
+        expect(fn () => UserService::setUserActive($id, false, $this->manager))->toThrow(ForbiddenError::class)
+            ->and(UserService::getUser($id)['isActive'])->toBeTrue();
+    });
+
+    it('still lets an owner switch off another owner, and a manager a colleague holding no more', function () {
+        $second = AuthService::createUser(['username' => 'abena', 'displayName' => 'Abena', 'password' => 'owner-password-2026', 'role' => UserRole::Owner]);
+        $id = colleague($this->owner);
+        UserService::setUserActive($second, false, $this->owner);
+        UserService::setUserActive($id, false, $this->manager);
+        expect(UserService::getUser($second)['isActive'])->toBeFalse()
+            ->and(UserService::getUser($id)['isActive'])->toBeFalse();
+    });
 });
 
 it('refuses a switched-off account at the gate, even without the middleware', function () {

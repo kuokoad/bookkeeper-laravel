@@ -674,10 +674,10 @@ final class SaleService
         $customerId = $options['customerId'] ?? null;
         $asAt = $options['asAt'] ?? null;
 
-        $documents = DB::table('sales')->whereNull('sales.voids_sale_id');
-        if ($customerId !== null) {
-            $documents->where('sales.customer_id', $customerId);
-        }
+        // A walk-in sale can never owe (createSale and the return both refuse
+        // credit without a customer), so the whole shop means customer sales only.
+        $ofScope = fn (Builder $q): Builder => $customerId !== null ? $q->where('sales.customer_id', $customerId) : $q->whereNotNull('sales.customer_id');
+        $documents = $ofScope(DB::table('sales')->whereNull('sales.voids_sale_id'));
         if ($asAt === null) {
             $documents->where('sales.status', 'POSTED');
         } else {
@@ -689,16 +689,16 @@ final class SaleService
         }
         $rows = $documents->orderBy('sales.id')->get(['sales.id', 'sales.total_minor', 'sales.returns_sale_id']);
 
-        // One customer's sales (and their returns, which carry the same customer), not the whole shop.
-        $ofCustomer = fn (string $column): \Closure => fn (Builder $q) => $q->whereIn($column, DB::table('sales')->select('sales.id')->where('sales.customer_id', $customerId));
+        // The same sales (a return carries its sale's customer), not every sale ever.
+        $ofCustomer = fn (string $column): \Closure => fn (Builder $q) => $q->whereIn($column, $ofScope(DB::table('sales')->select('sales.id')));
 
         // Tender comes with the sale itself, so it needs no cut-off of its own.
-        $tendered = DB::table('sale_payments')->when($customerId !== null, $ofCustomer('sale_payments.sale_id'))->groupBy('sale_payments.sale_id')
+        $tendered = DB::table('sale_payments')->where($ofCustomer('sale_payments.sale_id'))->groupBy('sale_payments.sale_id')
             ->selectRaw('`sale_payments`.`sale_id` AS id, COALESCE(SUM(`sale_payments`.`amount_minor`), 0) AS t')->pluck('t', 'id')->all();
         $settledQuery = DB::table('customer_payment_allocations')
             ->join('customer_payments', 'customer_payments.id', '=', 'customer_payment_allocations.payment_id')
             ->where('customer_payments.status', 'POSTED')
-            ->when($customerId !== null, $ofCustomer('customer_payment_allocations.sale_id'));
+            ->where($ofCustomer('customer_payment_allocations.sale_id'));
         if ($asAt !== null) {
             $settledQuery->where('customer_payments.business_date', '<=', $asAt);
         }

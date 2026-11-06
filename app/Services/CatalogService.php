@@ -90,54 +90,6 @@ final class CatalogService
         });
     }
 
-    public static function updateCategory(int $id, array $input, Actor $actor): void
-    {
-        $name = JsCompat::trim($input['name']);
-        if ($name === '') {
-            throw new ValidationError('Enter a stock group name.');
-        }
-
-        Tx::run(function () use ($id, $input, $name, $actor): void {
-            $existing = DB::table('categories')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock group', $id);
-            $clash = DB::table('categories')
-                ->whereRaw('LOWER(`categories`.`name`) = LOWER(?) AND `categories`.`id` <> ?', [$name, $id])
-                ->exists();
-            if ($clash) {
-                throw new ConflictError("A stock group called \"{$name}\" already exists.");
-            }
-            $now = Clock::now();
-            DB::table('categories')->where('id', $id)->update([
-                'name' => $name,
-                'description' => self::normaliseCode($input['description'] ?? null),
-                'sort_order' => $input['sortOrder'] ?? (int) $existing->sort_order,
-                'updated_at' => Clock::stamp($now),
-            ]);
-            AuditService::write(AuditAction::Update, 'category', "Updated stock group \"{$name}\"", $id, $actor, [
-                'before' => ['name' => $existing->name],
-                'after' => ['name' => $name],
-            ], $now);
-        });
-    }
-
-    /** Categories are archived, never deleted, so old products keep their classification. */
-    public static function setCategoryActive(int $id, bool $isActive, Actor $actor): void
-    {
-        Tx::run(function () use ($id, $isActive, $actor): void {
-            $existing = DB::table('categories')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock group', $id);
-            $now = Clock::now();
-            DB::table('categories')->where('id', $id)->update(['is_active' => $isActive, 'updated_at' => Clock::stamp($now)]);
-            AuditService::write(
-                $isActive ? AuditAction::Restore : AuditAction::Archive,
-                'category',
-                ($isActive ? 'Restored' : 'Archived')." stock group \"{$existing->name}\"",
-                $id,
-                $actor,
-                null,
-                $now,
-            );
-        });
-    }
-
     // --- products -----------------------------------------------------------
 
     /**
@@ -271,10 +223,13 @@ final class CatalogService
             $existing = DB::table('products')->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('Stock item', $id);
             self::assertCodesAvailable($sku, $barcode, $id);
 
-            // Turning off tracking for a product that holds stock would orphan
-            // that value in the ledger.
-            if (($input['trackInventory'] ?? null) === false && (int) $existing->qty_on_hand_milli !== 0) {
-                throw new ValidationError('Clear this stock item’s stock before turning off inventory tracking.', ['qtyOnHandMilli' => (int) $existing->qty_on_hand_milli]);
+            // Returns and voids read the flag when they run, so it is fixed once
+            // the product has any history (D28). Stock held implies history.
+            $tracking = $input['trackInventory'] ?? null;
+            if ($tracking !== null && $tracking !== (bool) $existing->track_inventory && (self::productUnitsLocked($id)
+                || DB::table('sale_items')->where('sale_items.product_id', $id)->exists()
+                || DB::table('purchase_items')->where('purchase_items.product_id', $id)->exists())) {
+                throw new ValidationError("\"{$existing->name}\" has already been bought, sold or stocked, so whether it tracks stock cannot change. Create a new stock item instead.");
             }
 
             // The base unit is fixed once any stock has moved; the carton once
@@ -743,11 +698,5 @@ final class CatalogService
             'warningDays' => $warningDays,
             'uniformWindow' => (int) ($soon->overrides ?? 0) === 0,
         ];
-    }
-
-    /** Active products with no category, used to prompt the owner to tidy up. */
-    public static function countUncategorised(): int
-    {
-        return DB::table('products')->where('products.is_active', true)->whereNull('products.category_id')->count();
     }
 }

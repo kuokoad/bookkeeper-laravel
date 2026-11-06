@@ -56,13 +56,6 @@ final class RateLimit
         Tx::run(fn () => DB::table('rate_limits')->where('rate_limits.key', $key)->delete());
     }
 
-    public static function purgeExpired(?int $nowMs = null): int
-    {
-        $now = self::stamp($nowMs ?? Clock::now()->getTimestampMs());
-
-        return Tx::run(fn (): int => DB::table('rate_limits')->where('rate_limits.reset_at', '<=', $now)->delete());
-    }
-
     private static function stamp(int $ms): string
     {
         return gmdate('Y-m-d H:i:s', intdiv($ms, 1000)).'.'.str_pad((string) ($ms % 1000), 3, '0', STR_PAD_LEFT);

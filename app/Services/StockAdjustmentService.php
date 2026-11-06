@@ -427,22 +427,6 @@ final class StockAdjustmentService
         return ['adjustment' => $adjustment, 'items' => $items];
     }
 
-    /** "2 in, 1 out": a list row's summary. */
-    public static function describeAdjustment(array $items): string
-    {
-        $inCount = count(array_filter($items, fn ($item): bool => ((array) $item)['direction'] === 'IN'));
-        $outCount = count($items) - $inCount;
-        $parts = [];
-        if ($inCount > 0) {
-            $parts[] = "{$inCount} in";
-        }
-        if ($outCount > 0) {
-            $parts[] = "{$outCount} out";
-        }
-
-        return $parts === [] ? 'no items' : implode(', ', $parts);
-    }
-
     /**
      * The crate an item names, checked against the reason that named it. Only
      * a write-off of expired goods may name one: a recount says the shelf is

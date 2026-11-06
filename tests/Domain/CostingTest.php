@@ -139,7 +139,7 @@ describe('returns', function () {
     it('restores exactly the value the sale removed', function () {
         $s = Costing::stockIn(StockState::empty(), units(3), 1_000)->state;
         $sale = Costing::stockOut($s, units(1));
-        expect(Costing::returnIn($sale->state, units(1), $sale->totalCost)->state)->toEqual($s);
+        expect(Costing::stockIn($sale->state, units(1), $sale->totalCost)->state)->toEqual($s);
     });
 
     it('restores the original cost even after the average has moved', function () {
@@ -147,7 +147,7 @@ describe('returns', function () {
         $sale = Costing::stockOut($s, units(2));
         $s = Costing::stockIn($sale->state, units(10), 15_000)->state;
 
-        expect(Costing::returnIn($s, units(2), $sale->totalCost)->state->value - $s->value)->toBe($sale->totalCost);
+        expect(Costing::stockIn($s, units(2), $sale->totalCost)->state->value - $s->value)->toBe($sale->totalCost);
     });
 });
 

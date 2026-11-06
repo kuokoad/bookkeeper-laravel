@@ -9,7 +9,7 @@
     ]" />
 
     @unless ($flow['reconciles'])
-        <x-alert tone="danger" title="Cash flow does not reconcile" class="mb-4">Opening plus movement does not equal closing. Please report this.</x-alert>
+        <x-alert tone="danger" title="Cash flow does not reconcile" class="mb-4">The closing balance does not equal the sum of the per-account closing balances. Please report this.</x-alert>
     @endunless
 
     <div class="mb-6 grid gap-3 sm:grid-cols-4">

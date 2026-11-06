@@ -287,7 +287,9 @@ final class FinancialService
             'totalOut' => $totalOut,
             'netMovement' => $netMovement,
             'closingBalance' => $closingBalance,
-            'reconciles' => Money::add($openingBalance, $netMovement) === $closingBalance,
+            // Shop-wide totals leave transfers out and the per-account balances include them, so this
+            // proves transfers net to zero and the two queries agree. It does not prove the opening balance.
+            'reconciles' => Money::sum(array_column($byAccount, 'closing')) === $closingBalance,
             'byAccount' => $byAccount,
         ];
     }

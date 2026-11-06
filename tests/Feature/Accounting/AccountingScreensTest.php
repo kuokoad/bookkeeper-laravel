@@ -7,6 +7,7 @@ declare(strict_types=1);
 | (accounting.actions) and year-end close/reopen (year-end-close.actions).
 */
 
+use App\Domain\BusinessDate;
 use App\Livewire\Accounting\Index;
 use App\Livewire\Accounting\Journal;
 use App\Livewire\Accounting\Ledger;
@@ -132,6 +133,22 @@ it('shows the journal and ledger filters resolved', function () {
     $cash = (int) DB::table('payment_accounts')->where('id', Shop::paymentAccount('CASH'))->value('gl_account_id');
     accountingAs($this->ownerId, Ledger::class, ['to' => 'junk'], ['id' => (string) $cash])
         ->assertSeeHtml('value="'.$this->today.'"')->assertSee('-25.00');
+});
+
+it('shows a trial balance asked for backwards with its dates swapped in the controls', function () {
+    $html = accountingAs($this->ownerId, TrialBalance::class, ['from' => '2026-08-10', 'to' => '2026-08-01'])->html();
+    expect($html)->toMatch('/<input[^>]*value="2026-08-01"[^>]*name="from"/')->toMatch('/<input[^>]*value="2026-08-10"[^>]*name="to"/');
+});
+
+it('starts the ledger at the 1st of the month and carries earlier lines in the opening balance', function () {
+    $monthStart = substr($this->today, 0, 7).'-01';
+    Shop::expense($this->actor, BusinessDate::addDays($monthStart, -1), Shop::expenseCategory('Transport'), 1_500, 'Old taxi');
+    Shop::expense($this->actor, $this->today, Shop::expenseCategory('Transport'), 2_500, 'New taxi');
+
+    $cash = (int) DB::table('payment_accounts')->where('id', Shop::paymentAccount('CASH'))->value('gl_account_id');
+    $page = accountingAs($this->ownerId, Ledger::class, [], ['id' => (string) $cash]);
+    $page->assertViewHas('lines', fn (array $lines): bool => array_column($lines, 'entryDate') === [$this->today])->assertSeeHtml('value="'.$monthStart.'"')
+        ->assertViewHas('openingBalance', -1_500)->assertViewHas('closingBalance', -4_000);
 });
 
 it('narrows who owes you without breaking the ledger check', function () {

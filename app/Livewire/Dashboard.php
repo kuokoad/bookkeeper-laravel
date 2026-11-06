@@ -110,7 +110,7 @@ final class Dashboard extends Component
                 ['label' => 'New Sale', 'icon' => 'add', 'href' => '/sales/new', 'allowed' => $can(M::Sales, 'create')],
                 ['label' => 'Record Expense', 'icon' => 'receipt', 'href' => '/expenses#record-expense', 'allowed' => $can(M::Expenses, 'create')],
                 ['label' => 'New Purchase', 'icon' => 'shoppingBag', 'href' => '/purchases/new', 'allowed' => $can(M::Purchases, 'create')],
-                ['label' => 'Receive Payment', 'icon' => 'payment', 'href' => '/customers?owing=1', 'allowed' => $can(M::Customers, 'create')],
+                ['label' => 'Receive Payment', 'icon' => 'payment', 'href' => '/customers?balance=owing', 'allowed' => $can(M::Customers, 'create')],
             ], fn (array $a): bool => $a['allowed'])),
             // The Jinu look's Create Transaction menu: every kind of entry this person may start.
             'createMenu' => array_values(array_filter([

@@ -305,6 +305,13 @@ $update = Join-Path $AppDir "scripts\update.ps1"
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$update`"" -WorkingDirectory $AppDir
 Register-ScheduledTask -TaskName "NunaBooksUpdate" -Action $action -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 
+# A backup every evening, without anyone remembering to take one. -Force replaces the task on a re-run;
+# StartWhenAvailable runs a missed one once the PC is back on.
+$backup = New-ScheduledTaskAction -Execute $php -Argument "artisan nuna:backup" -WorkingDirectory $AppDir
+$daily = New-ScheduledTaskTrigger -Daily -At "21:00"
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName "NunaBooksBackup" -Action $backup -Trigger $daily -Settings $settings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+
 [IO.File]::WriteAllText((Join-Path $AppDir "storage\app\install.json"), (@{
     php = $php; composer = $composer; mysqlBin = (Join-Path $MysqlDir "bin"); apacheService = $ApacheService; port = $Port
 } | ConvertTo-Json))
@@ -315,3 +322,4 @@ Register-ScheduledTask -TaskName "NunaBooksUpdate" -Action $action -User "SYSTEM
 Write-Host ""
 Write-Host "NunaBooks is installed: $url"
 Write-Host "Open it and create the owner account. Then take the first backup: php artisan nuna:backup"
+Write-Host "After that a backup is taken every day at 21:00 (scheduled task NunaBooksBackup)."

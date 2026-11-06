@@ -390,31 +390,37 @@ final class ListFilters
     public static function parseJournalFilters(array $params, ?string $today = null): array
     {
         $today ??= Clock::today();
-        $from = Filters::parseDate(self::one($params, 'from')) ?? substr($today, 0, 7).'-01';
-        $to = Filters::parseDate(self::one($params, 'to')) ?? $today;
+        ['from' => $from, 'to' => $to] = self::monthByDefault(Filters::parseDate(self::one($params, 'from')), Filters::parseDate(self::one($params, 'to')), $today);
         $source = Filters::parseEnum(self::one($params, 'source'), self::JOURNAL_SOURCES);
 
         return [
             'filters' => ['from' => $from, 'to' => $to, ...($source === null ? [] : ['sourceType' => $source])],
             'from' => $from, 'to' => $to, 'source' => $source,
-            // Only what the URL set (and was valid): the defaults are not a filter somebody chose.
-            'carried' => array_filter(['from' => Filters::parseDate(self::one($params, 'from')), 'to' => Filters::parseDate(self::one($params, 'to')), 'source' => $source]),
+            // Only what the URL set (and was valid), in resolved order: the defaults are not a filter somebody chose.
+            'carried' => array_filter(['from' => Filters::parseDate(self::one($params, 'from')) === null ? null : $from, 'to' => Filters::parseDate(self::one($params, 'to')) === null ? null : $to, 'source' => $source]),
         ];
     }
 
     /**
-     * One account's ledger: an optional from and to. With no valid `to` the
-     * ledger runs to today, which `toShown` says (never the junk typed).
+     * One account's ledger: from (default the 1st of this month, as the
+     * journal; the opening balance carries the earlier lines) and an optional
+     * to. With no valid `to` the ledger runs to today, which `toShown` says
+     * (never the junk typed).
      *
-     * @return array{filters: array{from?: string, to?: string}, from: ?string, to: ?string, toShown: string, carried: array<string, string>}
+     * @return array{filters: array{from: string, to?: string}, from: string, to: ?string, toShown: string, carried: array<string, string>}
      */
     public static function parseLedgerFilters(array $params, ?string $today = null): array
     {
-        $from = Filters::parseDate(self::one($params, 'from'));
-        $to = Filters::parseDate(self::one($params, 'to'));
-        $filters = array_filter(['from' => $from, 'to' => $to]);
+        $today ??= Clock::today();
+        $rawFrom = Filters::parseDate(self::one($params, 'from'));
+        $rawTo = Filters::parseDate(self::one($params, 'to'));
+        ['from' => $from, 'to' => $toShown] = self::monthByDefault($rawFrom, $rawTo, $today);
+        $to = $rawTo === null ? null : $toShown;
 
-        return ['filters' => $filters, 'from' => $from, 'to' => $to, 'toShown' => $to ?? $today ?? Clock::today(), 'carried' => $filters];
+        return [
+            'filters' => array_filter(['from' => $from, 'to' => $to]), 'from' => $from, 'to' => $to, 'toShown' => $toShown,
+            'carried' => array_filter(['from' => $rawFrom === null ? null : $from, 'to' => $to]),
+        ];
     }
 
     /**
@@ -424,8 +430,12 @@ final class ListFilters
      */
     public static function parseTrialBalanceFilters(array $params, ?string $today = null): array
     {
-        $to = Filters::parseDate(self::one($params, 'to')) ?? $today ?? Clock::today();
+        $today ??= Clock::today();
         $from = Filters::parseDate(self::one($params, 'from'));
+        $to = Filters::parseDate(self::one($params, 'to')) ?? $today;
+        if ($from !== null) {
+            ['from' => $from, 'to' => $to] = self::orderedDates($from, $to, $today);
+        }
         $filters = array_filter(['from' => $from, 'to' => $to]);
 
         return ['filters' => $filters, 'from' => $from, 'to' => $to, 'carried' => $filters];
@@ -473,6 +483,9 @@ final class ListFilters
             'from' => Filters::parseDate(self::one($params, 'from')),
             'to' => Filters::parseDate(self::one($params, 'to')),
         ], fn ($v): bool => $v !== null);
+        if (isset($resolved['from'], $resolved['to'])) {
+            [$resolved['from'], $resolved['to']] = array_values(self::orderedDates($resolved['from'], $resolved['to'], Clock::today()));
+        }
         $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);
 
         $filters = array_filter([
@@ -489,6 +502,29 @@ final class ListFilters
             'page' => $paged['page'], 'pageSize' => $paged['pageSize'], 'offset' => $paged['offset'],
             'carried' => array_map('strval', $resolved),
         ];
+    }
+
+    /** Two dates through the shared resolver, so a backwards pair is swapped as the report pages do. @return array{from: string, to: string} */
+    private static function orderedDates(?string $from, ?string $to, string $today): array
+    {
+        return Filters::resolveDateRange('custom', $from, $to, $today)['range'];
+    }
+
+    /**
+     * From defaults to the 1st of this month, to to today. Only a pair both
+     * typed is swapped; a `to` alone before the 1st starts at its own month.
+     *
+     * @return array{from: string, to: string}
+     */
+    private static function monthByDefault(?string $from, ?string $to, string $today): array
+    {
+        if ($from !== null && $to !== null) {
+            return self::orderedDates($from, $to, $today);
+        }
+        $to ??= $today;
+        $from ??= min(substr($today, 0, 7), substr($to, 0, 7)).'-01';
+
+        return ['from' => $from, 'to' => $to];
     }
 
     /** @param  array<string, string>  $ids  filter key => query-string key */

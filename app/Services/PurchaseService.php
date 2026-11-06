@@ -841,19 +841,6 @@ final class PurchaseService
         ];
     }
 
-    /** @return array{count: int, total: int} posted purchase documents dated in a period */
-    public static function getPurchasesSummary(string $from, string $to): array
-    {
-        $row = DB::table('purchases')
-            ->where('purchases.business_date', '>=', $from)
-            ->where('purchases.business_date', '<=', $to)
-            ->where('purchases.status', 'POSTED')
-            ->selectRaw('COUNT(*) AS cnt, COALESCE(SUM(`purchases`.`total_minor`), 0) AS total')
-            ->first();
-
-        return ['count' => (int) $row->cnt, 'total' => (int) $row->total];
-    }
-
     /** Unpaid purchases for a supplier, oldest first: what the payment form offers. @return list<array> */
     public static function getOpenPurchases(int $supplierId): array
     {

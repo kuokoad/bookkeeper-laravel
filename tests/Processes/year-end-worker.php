@@ -58,13 +58,8 @@ while (! file_exists($go)) {
 }
 
 for ($round = 1; $round <= $rounds; $round++) {
-    // Wait at the line for every other desk, then go together.
-    // Give up waiting after 30 s, so a desk that crashed fails the test instead of hanging it.
-    touch($dir.DIRECTORY_SEPARATOR."r{$round}-w{$worker}");
-    $deadline = microtime(true) + 30;
-    while (count(glob($dir.DIRECTORY_SEPARATOR."r{$round}-w*")) < $workers && microtime(true) < $deadline) {
-        usleep(500);
-    }
+    // Every desk leaves the start line at one shared instant (boot.php), as the other races do.
+    startRound($go, $round, $worker);
     $year = YEAR_END_FIRST + $round - 1;
     $start = microtime(true);
     try {

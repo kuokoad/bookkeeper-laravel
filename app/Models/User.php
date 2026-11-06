@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
@@ -18,9 +16,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 #[Hidden(['password_hash', 'pin_hash'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory;
-
     /** The column holding the password hash. */
     protected $authPasswordName = 'password_hash';
 

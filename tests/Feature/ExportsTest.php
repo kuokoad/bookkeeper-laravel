@@ -48,6 +48,16 @@ describe('list exports', function () {
             ->and($response->getContent())->not->toContain('2026-08-10');
     });
 
+    it('names the file after the resolved dates, never the raw ones', function () {
+        signedIn($this->ownerId)->get('/export/list/sales?period=custom&from=2026-08-31&to=2026-08-15')
+            ->assertHeader('Content-Disposition', 'attachment; filename="bookkeeper_sales_2026-08-15_2026-08-31.csv"');
+    });
+
+    it('keeps a quote typed into the dates out of the download header', function () {
+        $header = signedIn($this->ownerId)->get('/export/list/sales?from=x%22y&to=x%22y')->assertOk()->headers->get('Content-Disposition');
+        expect($header)->toMatch('/^attachment; filename="[A-Za-z0-9._-]+"$/');
+    });
+
     it('answers 404 for an account that does not exist', function () {
         signedIn($this->ownerId)->get('/export/list/account?id=99999')->assertNotFound()->assertSeeText('Not found.');
     });

@@ -7,12 +7,15 @@ namespace App\Providers;
 use App\Auth\Permissions;
 use App\Auth\Principal;
 use App\Enums\PermissionModule;
+use App\Http\Middleware\EnforceSessionLimits;
+use App\Http\Middleware\EnsurePasswordChosen;
 use App\Models\User;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Features\SupportRedirects\SupportRedirects;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -51,6 +54,10 @@ class AppServiceProvider extends ServiceProvider
                 SupportRedirects::$redirectorCacheStack = [];
             }
         });
+
+        // A Livewire call runs these again for the page it came from: a session past its limits
+        // or a password still to choose must not keep acting through an open page.
+        Livewire::addPersistentMiddleware([EnforceSessionLimits::class, EnsurePasswordChosen::class]);
 
         // One ability per module and action ("sales.create"): the old requirePermission.
         // Read from the database each time, never from the session.

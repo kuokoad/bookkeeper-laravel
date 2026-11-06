@@ -179,6 +179,23 @@ it('puts the live books back from the safety copy when the load fails part way (
     rmdir($safetyDir);
 });
 
+it('loads only into the database being restored, even when the file says USE another', function () {
+    expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
+    [$file] = BackupService::existingBackups($this->dir);
+    // A dump that ends by switching to other live books and writing there.
+    $aimed = $this->dir.DIRECTORY_SEPARATOR.'uses-another-database.sql.gz';
+    file_put_contents($aimed, gzencode(gzdecode((string) file_get_contents($this->dir.DIRECTORY_SEPARATOR.$file))
+        ."\nUSE `".BACKUP_SOURCE."`;\nINSERT INTO customers (name, created_at, updated_at) VALUES ('Planted by the dump', NOW(), NOW());\n"));
+    $before = figures('source');
+
+    $restore = nuna(BACKUP_TARGET, 'nuna:restore', $aimed, '--force');
+    DB::purge('source');
+    expect($restore->successful())->toBeTrue($restore->errorOutput().$restore->output())
+        ->and(DB::connection('source')->table('customers')->where('name', 'Planted by the dump')->exists())->toBeFalse()
+        ->and(DB::connection('target')->table('customers')->where('name', 'Planted by the dump')->exists())->toBeFalse()
+        ->and(figures('source'))->toBe($before);
+});
+
 it('restores over live books that are themselves broken, keeping them in an unverified safety copy', function () {
     expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
     [$file] = BackupService::existingBackups($this->dir);

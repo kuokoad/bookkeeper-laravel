@@ -14,6 +14,7 @@ use App\Services\Actor;
 use App\Services\PaymentAccountService;
 use App\Services\ReconciliationService;
 use App\Support\Clock;
+use App\Support\Filters\ListFilters;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\Shop;
@@ -116,4 +117,16 @@ it('offers in Create Transaction only the entries a person may start', function 
 
     DB::table('business_settings')->update(['feature_quotations' => true]);
     expect($menu($this->ownerId))->toContain('Quotation');
+});
+
+it('sends Receive Payment and the receivables links to customers who owe, not to every customer', function () {
+    $html = dashboardAs($this->ownerId)->html();
+    preg_match_all('#href="(/customers\?[^"]*)"#', $html, $links);
+
+    expect($links[1])->not->toBeEmpty();
+    foreach ($links[1] as $href) {
+        parse_str((string) parse_url(html_entity_decode($href), PHP_URL_QUERY), $query);
+        // The customer list reads only what its filter parser knows; ?owing=1 was silently ignored.
+        expect(ListFilters::parseCustomerFilters($query)['filters']['balanceState'] ?? null)->toBe('owing', $href);
+    }
 });

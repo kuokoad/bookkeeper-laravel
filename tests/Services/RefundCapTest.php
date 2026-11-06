@@ -15,6 +15,7 @@ use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
 use App\Services\SupplierService;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
 const RCAP_DAY = '2026-08-10';
@@ -174,4 +175,26 @@ it('refuses a return that names the same line twice, which could refund more tha
         'refunds' => [['paymentAccountId' => $this->cash, 'amount' => 10 * 10_800]],
     ], $this->actor))->toThrow(ValidationError::class, 'Each item can appear only once in a return.');
     expect((int) SaleService::getSale($sale)['items'][0]['returnedQtyMilli'])->toBe(0);
+});
+
+describe('a refund from an archived payment account', function () {
+    beforeEach(function () {
+        $this->archiveCash = fn () => DB::table('payment_accounts')->where('id', $this->cash)->update(['is_active' => false]);
+    });
+
+    it('is refused on a customer return, as a tender would be', function () {
+        $sale = ($this->sell)(1, 10_800, false);
+        ($this->archiveCash)();
+
+        expect(fn () => ($this->bringBack)($sale, 1, 10_800))->toThrow(ValidationError::class, 'is not active');
+        expect(DB::table('sales')->where('returns_sale_id', $sale)->count())->toBe(0);
+    });
+
+    it('is refused on a supplier return, as a payment would be', function () {
+        $purchase = ($this->buy)(1, 6_000);
+        ($this->archiveCash)();
+
+        expect(fn () => ($this->sendBack)($purchase, 1, 6_000))->toThrow(ValidationError::class, 'is not active');
+        expect(DB::table('purchases')->where('returns_purchase_id', $purchase)->count())->toBe(0);
+    });
 });

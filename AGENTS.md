@@ -3,17 +3,15 @@
 Instructions for AI coding agents working in this repo.
 
 ## Project
-NunaBooks is bookkeeping, inventory and point-of-sale software for a small Ghanaian retail shop. It is being rebuilt from Next.js + SQLite + Drizzle (`C:\ClaudeProjects\bookkeeper`, the **specification**) into Laravel + MySQL 8 here. Phase: planning. [PLAN.md](PLAN.md) awaits the owner's approval, and no code is written until it is approved. See [docs/PRD.md](docs/PRD.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+NunaBooks is bookkeeping, inventory and point-of-sale software for a small Ghanaian retail shop. It is being rebuilt from Next.js + SQLite + Drizzle (`C:\ClaudeProjects\bookkeeper`, the **specification**) into Laravel + MySQL 8 here. Phase: 9, proof and cut-over. Phases 0 to 8 are built and every screen exists; what remains is reconciling a copy of the real shop data and a backup-restore rehearsal. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md). See [docs/PRD.md](docs/PRD.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 **The bar:** the product is the figures. The question is never "does it run" but "would a shop owner be right to trust this number". A plausible wrong figure is worse than a missing one. When the old app and the new code disagree on a number, the old app is right until you prove otherwise.
 
 ## Commands
-Planned; none of these exist until Phase 0 is built.
-
 | Task | Command |
 |---|---|
 | Install | `composer install` then `npm ci && npm run build` |
-| Dev server | Laragon (`http://bookkeeper-laravel.test`) or `php artisan serve` |
+| Dev server | Laragon (`http://bookkeeper-laravel.com.gh`) or `php artisan serve` |
 | Test (all) | `php artisan test` (needs MySQL databases `nunabooks_test`; the Processes suite creates `nunabooks_concurrency` and `nunabooks_import` itself) |
 | Test (single) | `php artisan test --filter=<name>` |
 | Lint / format | `vendor/bin/pint --test` (check) · `vendor/bin/pint` (fix) |
@@ -30,11 +28,11 @@ Dev PC tools: Laragon at `C:\laragon` (PHP 8.4.19 / 8.5.4, MySQL 8.4.0, Composer
 - `app/Domain/`: pure money, quantity, rate, tax, costing, batches, journal builder, dates. No DB, no clock.
 - `app/Services/`: one per old `src/services/*.service.ts`. Owns transactions, locks, journal posting, audit.
 - `app/Livewire/`, `app/Http/Controllers/`: screens and CSV/receipt routes. No business logic.
-- `app/Support/Filters/`: one filter parser per module, used by both the page and its CSV export.
+- `app/Support/Filters/`: `Filters` (the shared parsers: dates, ids, enums, amounts, sort) and `ListFilters` (one `parse...Filters` method per page, used by both the page and its CSV export).
 - `app/Enums/`: one PHP enum per database `CHECK ... IN` list.
 - `database/migrations/`, `database/seeders/`: schema and seed data.
 - `resources/docs/`: in-app Help, ported from the old `docs/`.
-- `tests/Domain`, `tests/Services`, `tests/Invariants`, `tests/Concurrency`: mirror the old `tests/`.
+- `tests/Domain`, `tests/Services`, `tests/Invariants`, `tests/Processes` (concurrency, backup and import in real processes): mirror the old `tests/`. `tests/Feature` covers the screens and routes.
 
 ## Conventions
 - **Money is `int` pesewas** (`GHS 1,250.00` = `125000`). **Quantity is `int` milli-units** (`1.5 kg` = `1500`). **Rates are basis points.** Columns are `BIGINT`, never `DECIMAL`, `FLOAT` or `DOUBLE`. No float ever touches a stored value. Multiplication that can overflow goes through `brick/math` `BigInteger`. Rounding is half away from zero (`divRoundHalf`), matching the old `domain/money.ts` to the pesewa.

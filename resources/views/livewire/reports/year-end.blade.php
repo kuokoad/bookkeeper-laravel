@@ -118,7 +118,7 @@
             <li>Owed by customers {{ $pack['integrity']['receivablesMatch'] ? 'agrees' : 'DOES NOT AGREE' }} with the customer records</li>
             <li>Owed to suppliers {{ $pack['integrity']['payablesMatch'] ? 'agrees' : 'DOES NOT AGREE' }} with the supplier records</li>
             <li>Owner&apos;s stake {{ $pack['equity']['reconciles'] ? 'reconciles' : 'DOES NOT RECONCILE' }} from opening to closing</li>
-            <li>Cash flow {{ $pack['cashFlow']['reconciles'] ? 'reconciles' : 'DOES NOT RECONCILE' }} — opening plus movement equals closing</li>
+            <li>Cash flow {{ $pack['cashFlow']['reconciles'] ? 'reconciles' : 'DOES NOT RECONCILE' }} — the closing balance equals the sum of the accounts</li>
         </ul>
     </section>
 

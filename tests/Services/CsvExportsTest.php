@@ -8,10 +8,13 @@ declare(strict_types=1);
 | with some trading in it. An unknown name is null (the controller's 404).
 */
 
+use App\Domain\Accounting\ChartOfAccounts;
 use App\Reports\Csv\Csv;
 use App\Reports\Csv\ListExport;
 use App\Reports\Csv\ReportExport;
+use App\Services\CustomerPaymentService;
 use App\Services\PaymentAccountService;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
 const CSVX_TODAY = '2026-08-31';
@@ -33,7 +36,8 @@ it('builds every list with the old headers', function (string $list, string $fir
     expect($file)->not->toBeNull()
         ->and($file['headers'][0])->toBe($firstHeader)
         ->and($file['body'])->toStartWith("\u{FEFF}".Csv::escapeField($firstHeader))
-        ->and($file['filename'])->toBe('bookkeeper_'.$list.'_'.CSVX_TODAY.'.csv');
+        // Named after the dates the rows were read with: this month for a dated list, today for a position.
+        ->and($file['filename'])->toBe('bookkeeper_'.$list.'_'.(in_array($list, ['products', 'customers', 'suppliers'], true) ? '' : '2026-08-01_').CSVX_TODAY.'.csv');
 })->with([
     ['sales', 'Receipt'], ['purchases', 'Purchase'], ['expenses', 'Number'], ['income', 'Number'], ['products', 'Stock item'],
     ['stock-movements', 'Date'], ['customers', 'Customer'], ['suppliers', 'Supplier'], ['account', 'Date'], ['quotations', 'Quote'],
@@ -73,4 +77,57 @@ it('reads the year-end year as the old Number() did', function () {
         expect($rows($spelling))->toBe($rows('2025'));
     }
     expect($rows('2025x'))->toBe($rows(null));
+});
+
+describe('balance-sheet rows add up to their own totals', function () {
+    beforeEach(function () {
+        // A 50.00 advance from a customer who owes nothing: a customer credit balance.
+        Shop::setting('allow_overpayment', true);
+        CustomerPaymentService::recordCustomerPayment(['customerId' => Shop::customer($this->actor, 'Ama'), 'businessDate' => '2026-08-20', 'paymentAccountId' => $this->cash, 'amount' => 5_000], $this->actor);
+        $this->minor = fn (string $amount): int => (int) str_replace('.', '', $amount);
+        // Sums the amount column of the rows strictly between two labels.
+        $this->sumBetween = function (array $rows, string $after, string $until, int $col = 1): int {
+            $labels = array_column($rows, 0);
+            $from = array_search($after, $labels, true);
+            $to = array_search($until, $labels, true);
+            expect($from)->not->toBeFalse()->and($to)->not->toBeFalse();
+
+            return array_sum(array_map(fn (array $r): int => ($this->minor)($r[$col]), array_slice($rows, $from + 1, $to - $from - 1)));
+        };
+    });
+
+    it('lists customer credit balances in the balance-sheet CSV so its liabilities add up', function () {
+        $rows = ReportExport::download('balance-sheet', ['asAt' => CSVX_TODAY], CSVX_TODAY)['rows'];
+        $byLabel = array_column($rows, 1, 0);
+        $assets = array_sum(array_map(fn (array $r): int => ($this->minor)($r[1]), array_filter($rows, fn (array $r): bool => str_starts_with($r[0], 'Asset: '))));
+        $liabilities = array_sum(array_map(fn (array $r): int => ($this->minor)($r[1]), array_filter($rows, fn (array $r): bool => str_starts_with($r[0], 'Liability: '))));
+
+        expect($byLabel['Liability: Customer credit balances'])->toBe('50.00')
+            ->and($byLabel)->toHaveKey('Asset: Paid to suppliers in advance')
+            ->and($assets)->toBe(($this->minor)($byLabel['Total assets']))
+            ->and($liabilities)->toBe(($this->minor)($byLabel['Total liabilities']));
+    });
+
+    it('lists customer credit balances in the year-end CSV so its balance sheet adds up', function () {
+        // An "other" asset held since the previous year: a 300.00 rent deposit paid from the owner's capital.
+        $deposit = DB::table('accounts')->insertGetId(['code' => '1500', 'name' => 'Rent deposit', 'type' => 'ASSET', 'normal_balance' => 'DEBIT']);
+        $entry = DB::table('journal_entries')->insertGetId([
+            'entry_no' => 'JE-TEST-2', 'entry_date' => '2025-06-01', 'occurred_at' => '2025-06-01 10:00:00', 'source_type' => 'CAPITAL', 'source_id' => 1,
+        ]);
+        DB::table('journal_lines')->insert([
+            ['entry_id' => $entry, 'line_no' => 1, 'account_id' => $deposit, 'debit_minor' => 30_000, 'credit_minor' => 0],
+            ['entry_id' => $entry, 'line_no' => 2, 'account_id' => DB::table('accounts')->where('code', ChartOfAccounts::OWNERS_CAPITAL)->value('id'), 'debit_minor' => 0, 'credit_minor' => 30_000],
+        ]);
+
+        $rows = ReportExport::download('year-end', ['year' => '2026'], CSVX_TODAY)['rows'];
+        $byLabel = array_column($rows, 1, 0);
+        $previous = array_column($rows, 2, 0);
+
+        expect($byLabel['Customer credit balances'])->toBe('50.00')
+            ->and($previous['Rent deposit'])->toBe('300.00');
+        foreach ([1 => $byLabel, 2 => $previous] as $col => $amounts) {
+            expect(($this->sumBetween)($rows, 'BALANCE SHEET', 'TOTAL ASSETS', $col))->toBe(($this->minor)($amounts['TOTAL ASSETS']))
+                ->and(($this->sumBetween)($rows, 'TOTAL ASSETS', 'TOTAL LIABILITIES', $col))->toBe(($this->minor)($amounts['TOTAL LIABILITIES']));
+        }
+    });
 });

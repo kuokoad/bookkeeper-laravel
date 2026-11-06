@@ -73,9 +73,12 @@ final class ExportController extends Controller
     /** @param  array{filename: string, body: string}  $file */
     private static function csv(array $file): Response
     {
+        // Only safe characters reach the header, so nothing typed into the URL can break out of the quotes.
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $file['filename']);
+
         return new Response($file['body'], 200, [
             'Content-Type' => 'text/csv; charset=utf-8',
-            'Content-Disposition' => "attachment; filename=\"{$file['filename']}\"",
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
             // Live figures: never let a proxy or the browser cache them.
             'Cache-Control' => 'no-store',
         ]);

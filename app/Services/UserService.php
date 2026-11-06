@@ -138,6 +138,8 @@ final class UserService
                     throw new ConflictError('This is the only active owner. Switching it off would lock everyone out of the shop.');
                 }
             }
+            // After the only-owner refusal, so that clearer message still wins.
+            self::assertMayTakeOver($existing, $actor, $isActive ? 'reactivate this person' : 'switch this person off');
 
             DB::table('users')->where('users.id', $id)->update(['is_active' => $isActive, 'updated_at' => Clock::stamp($now)]);
             // Switched off means stopped now, not when the session happens to expire.

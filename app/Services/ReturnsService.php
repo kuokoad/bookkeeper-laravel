@@ -270,6 +270,9 @@ final class ReturnsService
                     continue;
                 }
                 $account = $refundAccounts[$refund['paymentAccountId']] ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
+                if (! $account->is_active) {
+                    throw new ValidationError("Payment account \"{$account->name}\" is not active.");
+                }
                 DB::table('sale_payments')->insert([
                     'sale_id' => $returnId,
                     'payment_account_id' => $refund['paymentAccountId'],
@@ -549,6 +552,9 @@ final class ReturnsService
                     continue;
                 }
                 $account = $refundAccounts[$refund['paymentAccountId']] ?? throw new NotFoundError('Payment account', $refund['paymentAccountId']);
+                if (! $account->is_active) {
+                    throw new ValidationError("Payment account \"{$account->name}\" is not active.");
+                }
                 DB::table('purchase_payments')->insert([
                     'purchase_id' => $returnId,
                     'payment_account_id' => $refund['paymentAccountId'],
@@ -672,17 +678,5 @@ final class ReturnsService
             ->filter(fn (array $item): bool => $item['returnableMilli'] > 0)
             ->values()
             ->all();
-    }
-
-    /** Value of goods customers brought back in a period. */
-    public static function getSalesReturnsTotal(string $from, string $to): int
-    {
-        return (int) DB::table('sales')
-            ->where('sales.kind', 'RETURN')
-            ->where('sales.business_date', '>=', $from)
-            ->where('sales.business_date', '<=', $to)
-            ->where('sales.status', 'POSTED')
-            ->selectRaw('COALESCE(SUM(-`sales`.`total_minor`), 0) AS t')
-            ->value('t');
     }
 }

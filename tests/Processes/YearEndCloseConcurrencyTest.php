@@ -50,7 +50,7 @@ function yearEndRaceRun(array $modes, int $rounds): array
     $pool = Process::pool(function ($pool) use ($modes, $rounds) {
         foreach ($modes as $i => $mode) {
             $w = $i + 1;
-            $pool->as("{$mode}-{$w}")->env(yearEndRaceEnv())->path(base_path())->timeout(300)
+            $pool->as("{$mode}-{$w}")->env([...yearEndRaceEnv(), 'NUNA_WORKERS' => (string) count($modes)])->path(base_path())->timeout(300)
                 ->command([PHP_BINARY, 'tests/Processes/year-end-worker.php', $mode, (string) $rounds, (string) $w, (string) count($modes)]);
         }
     })->start();

@@ -43,12 +43,6 @@ final class Permissions
         };
     }
 
-    /** @return array{canView: bool, canCreate: bool, canEdit: bool, canVoid: bool} */
-    public static function permissionsFor(Principal $principal, PermissionModule $module): array
-    {
-        return $principal->role === UserRole::Owner ? self::FULL_ACCESS : ($principal->permissions[$module->value] ?? self::NO_ACCESS);
-    }
-
     /** @return list<PermissionModule> the modules this person may open: the nav links */
     public static function visibleModules(Principal $principal): array
     {

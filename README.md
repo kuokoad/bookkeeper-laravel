@@ -2,7 +2,7 @@
 
 Bookkeeping, inventory and point of sale for a small Ghanaian retail shop. It runs on the shop's own PC, with no internet needed to make a sale. This is a rebuild of the working Next.js + SQLite app in `C:\ClaudeProjects\bookkeeper` (the specification) in Laravel + MySQL 8.
 
-> **Status: Phases 0 to 7 done, and Phase 8 apart from its screens** (schema, seed, domain layer, ledger core, importer and reconcile, catalog and inventory, sales, purchases, cashbook, reports and year-end; users and sign-in, search, notifications, backup and restore, preflight, installer and updater). No screens yet: settings, logo, help and the rest come with Phase 9. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
+> **Status: Phases 0 to 8 done, Phase 9 (proof and cut-over) under way** (schema, seed, domain layer, ledger core, importer and reconcile, catalog and inventory, sales, purchases, cashbook, reports and year-end; users and sign-in, search, notifications, backup and restore, preflight, installer and updater; every screen, clicked through module by module). Still to do: reconcile a copy of the real shop data, and a backup-restore rehearsal. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
 
 ## Features
 Carried over unchanged from the old app:
@@ -61,7 +61,7 @@ Creating the schema's triggers needs a MySQL user with the `TRIGGER` privilege (
 | `NUNA_TRUST_PROXY_HEADERS` | Per-IP login throttle and audit address from `X-Forwarded-For`, only behind a proxy that overwrites it |
 
 ### Run
-No screens yet.
+Laragon serves the app at `http://bookkeeper-laravel.com.gh`; without Laragon, `php artisan serve`. Sign in as the owner created at install (or a demo user when `SEED_DEMO_DATA` is on).
 
 ### Test
 ```bash
@@ -197,6 +197,13 @@ Every behaviour difference is listed here with its reason.
 | Who owes you / who you owe, `asAt` | Read only `asAt` | Falls back to `to` when `asAt` is missing, so the CSV link and a hand-typed range give the same date | One parser for the page and its CSV (filter rule 1). |
 | Journal list with an unknown `?source=` | Passed through as a filter, so the list showed nothing | Ignored: an unknown kind narrows nothing | Filter rule 4: a value outside the list is not a filter. |
 | Receivables and payables pages | No CSV download | A CSV button, through the shared export route | Every list that shows figures can be exported with the same filters. |
+| Product stock tracking | Could change at any time | Fixed once the product has history | PLAN D28. |
+| Refund account | Any account | An archived payment account is refused | PLAN D29. |
+| Backups (schedule) | Manual only | A daily `NunaBooksBackup` scheduled task at 21:00, registered by `install.ps1` | A backup nobody remembers to take is no backup. |
+| Session limits on screens | Not applied to live screen updates | The 30-day limit and the forced password change also apply to Livewire calls | A screen left open must not outlive the session rules. |
+| Cash flow "reconciles" check | Compared opening plus movement with itself, so it could never fail | Compares the closing balance with the sum of the per-account closing balances, a separate query | A check that cannot fail checks nothing. |
+| Journal, ledger, trial balance and audit dates | A from after the to was used as typed, so the page showed nothing | Swapped, as the report pages already did; the ledger starts at the 1st of the month by default, earlier lines in its opening balance; a `to` alone before the 1st starts at its own month | Filter rule 5, and a ledger of every line ever is slow to read (PLAN D30). |
+| List CSV file name | Built from the raw `from` and `to` | Built from the resolved dates, only `A-Z a-z 0-9 . _ -` in the header | The name matches the rows; nothing typed can break the header. |
 | Restore screen | `npm run db:restore` on the shop PC; no screen | Still the command line only (`php artisan nuna:restore`); the Health screen offers backups, not restore | A restore replaces the books; it should not be one click away on a till (PLAN D18). |
 | Money shown without a currency (`Format::money`) | Each page passed the shop's currency | Defaults to the shop's `currency_code`, read once per request | So a page that forgets to pass it shows the shop's currency, not GHS. |
 | Record ids on a page (`/suppliers/1/edit`) | Fixed by the server component | `#[Locked]` Livewire properties; a browser that sends another id gets an error | Without the lock, a tampered request could save onto another record. |

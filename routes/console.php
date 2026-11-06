@@ -1,8 +1,3 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Closure-based Artisan commands go here. bootstrap/app.php names this file; the app's own commands live in app/Console/Commands.

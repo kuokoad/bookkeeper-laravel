@@ -92,12 +92,6 @@ final class Costing
         return new Movement(self::coherent($nextQty, $nextValue), $cogs, Money::mulDiv($cogs, Quantity::SCALE, $qty), 0);
     }
 
-    /** A return comes back at what it originally cost, not today's average. */
-    public static function returnIn(StockState $current, int $qty, int $originalTotalCost): Movement
-    {
-        return self::stockIn($current, $qty, $originalTotalCost);
-    }
-
     /**
      * Stock out at a known cost (voiding a purchase, a supplier return). If it
      * empties the shelf, whatever value is left over is reported as residual.
@@ -123,11 +117,6 @@ final class Costing
             Money::mulDiv($totalCost, Quantity::SCALE, $qty),
             $nextQty === 0 ? $remaining : 0,
         );
-    }
-
-    public static function writeOff(StockState $current, int $qty, ?int $fallbackUnitCost = null, bool $allowNegative = false, ?string $productName = null): Movement
-    {
-        return self::stockOut($current, $qty, $fallbackUnitCost, $allowNegative, $productName);
     }
 
     /**

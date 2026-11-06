@@ -64,3 +64,14 @@ it('install.ps1 and update.ps1 load the baseline data after migrating', function
         ->and($seed)->not->toBeFalse()
         ->and($seed)->toBeGreaterThan($migrate);
 })->with(['install.ps1', 'update.ps1']);
+
+it('install.ps1 registers a daily backup task the way it registers the update task, replacing it on a re-run', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $register = (string) strstr((string) strstr($script, 'Register-ScheduledTask -TaskName "NunaBooksBackup"'), "\n", true);
+
+    expect($script)->toContain('New-ScheduledTaskAction -Execute $php -Argument "artisan nuna:backup" -WorkingDirectory $AppDir')
+        ->and($script)->toContain('New-ScheduledTaskTrigger -Daily')
+        ->and($register)->toContain('-Trigger $daily')
+        ->and($register)->toContain('-User "SYSTEM"')
+        ->and($register)->toContain('-Force');
+});

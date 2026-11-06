@@ -9,7 +9,7 @@
 
     $attention = [];
     if ($aged !== null && $aged['overdue'] > 0) {
-        $attention[] = ['title' => Format::money($aged['overdue']).' overdue receivables', 'note' => 'Includes amounts 1–30 days overdue and all older buckets. Customer credits can reduce bucket totals.', 'href' => '/customers?owing=1'];
+        $attention[] = ['title' => Format::money($aged['overdue']).' overdue receivables', 'note' => 'Includes amounts 1–30 days overdue and all older buckets. Customer credits can reduce bucket totals.', 'href' => '/customers?balance=owing'];
     }
     foreach ($paymentAccounts as $account) {
         if ($account['balance'] < 0) {
@@ -211,7 +211,7 @@
                         <div class="space-y-3">
                             @if ($receivables !== null && $aged !== null)
                                 <div class="rounded-lg border border-line bg-surface-sunken p-3">
-                                    <a href="/customers?owing=1" class="inline-block rounded text-sm font-medium text-accent hover:underline">Customer receivables</a>
+                                    <a href="/customers?balance=owing" class="inline-block rounded text-sm font-medium text-accent hover:underline">Customer receivables</a>
                                     <p class="mb-2 mt-1 text-xs text-content-muted">Current ledger balance · invoice ageing at @date($today)</p>
                                     <x-dashboard.figure :value="$receivables" hint="Net customer ledger balance, including customer credits" />
                                     <dl class="mt-3 space-y-2 text-sm">

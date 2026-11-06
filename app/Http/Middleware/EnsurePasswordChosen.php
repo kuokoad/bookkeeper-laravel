@@ -21,7 +21,10 @@ final class EnsurePasswordChosen
     {
         $id = Auth::guard('web')->id();
         if ($id !== null && (bool) DB::table('users')->where('users.id', $id)->value('must_change_password')) {
-            return $request->expectsJson() ? response('Choose your own password first.', 403) : redirect('/account/password?required=1');
+            // Thrown, not returned: Livewire's persistent middleware honours only a redirect or an exception.
+            abort_if($request->expectsJson(), 403, 'Choose your own password first.');
+
+            return redirect('/account/password?required=1');
         }
 
         return $next($request);

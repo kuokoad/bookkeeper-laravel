@@ -294,13 +294,18 @@ final class BackupService
         }
     }
 
-    /** Pipes the gzipped dump into the mysql client. */
+    /**
+     * Pipes the gzipped dump into the mysql client. `--one-database` only skips
+     * statements after a stray USE of another database; a fully qualified
+     * statement (`db.table`) in a tampered dump would still run. Our own dumps
+     * contain no USE.
+     */
     private static function load(array $c, string $file, string $database): void
     {
         self::withOptionsFile($c, false, function (string $options) use ($file, $database): void {
             $input = fopen('compress.zlib://'.$file, 'rb');
             try {
-                $result = Process::timeout(3600)->input($input)->run([self::binary('mysql'), "--defaults-extra-file={$options}", '--default-character-set=utf8mb4', $database]);
+                $result = Process::timeout(3600)->input($input)->run([self::binary('mysql'), "--defaults-extra-file={$options}", '--default-character-set=utf8mb4', '--one-database', $database]);
             } finally {
                 fclose($input);
             }

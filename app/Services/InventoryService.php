@@ -1057,10 +1057,4 @@ final class InventoryService
 
         return $q->count();
     }
-
-    /** Display-only average unit cost for a product. */
-    public static function getAverageCost(int $productId): int
-    {
-        return Costing::averageUnitCost(self::getStockState($productId));
-    }
 }

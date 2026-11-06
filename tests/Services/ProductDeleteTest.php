@@ -12,6 +12,7 @@ declare(strict_types=1);
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
+use App\Domain\Errors\ValidationError;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
 use App\Services\QuotationService;
@@ -115,5 +116,36 @@ describe('archiving a product', function () {
 
         CatalogService::setProductActive($id, true, $this->actor);
         expect(CatalogService::getProduct($id)['isActive'])->toBeTrue();
+    });
+});
+
+describe('the stock-tracking flag (D28)', function () {
+    $edit = fn (bool $track): array => ['name' => 'Delivery', 'costPrice' => 500, 'sellingPrice' => 800, 'unit' => 'pcs', 'trackInventory' => $track];
+
+    it('cannot change once an untracked product has been sold, so a later return or void reads the flag it was sold with', function () use ($edit) {
+        $id = ($this->make)('Delivery', false);
+        Shop::sell($this->actor, [[$id, 1_000]], [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 800]]);
+
+        expect(fn () => CatalogService::updateProduct($id, $edit(true), $this->actor))->toThrow(ValidationError::class, 'whether it tracks stock cannot change')
+            ->and(Shop::productRow($id)->track_inventory)->toBeFalsy();
+    });
+
+    it('cannot change once a tracked product has stock history, even with an empty shelf', function () use ($edit) {
+        $id = ($this->make)('Delivery');
+        ($this->addStock)($id, 1, 500);
+        Shop::stockOut($this->actor, $id, 1_000, '2026-11-05');
+
+        expect(fn () => CatalogService::updateProduct($id, $edit(false), $this->actor))->toThrow(ValidationError::class, 'whether it tracks stock cannot change');
+    });
+
+    it('can still change on a new product, and an edit that keeps it is allowed after history', function () use ($edit) {
+        $id = ($this->make)('Delivery');
+        CatalogService::updateProduct($id, $edit(false), $this->actor);
+        expect(Shop::productRow($id)->track_inventory)->toBeFalsy();
+
+        CatalogService::updateProduct($id, $edit(true), $this->actor);
+        ($this->addStock)($id, 1, 500);
+        CatalogService::updateProduct($id, [...$edit(true), 'name' => 'Delivery job'], $this->actor);
+        expect(Shop::productRow($id)->name)->toBe('Delivery job');
     });
 });

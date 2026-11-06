@@ -98,7 +98,7 @@ None. The app needs no internet. Updates come from the git remote when the owner
 
 | Env | URL | Deploy trigger |
 |---|---|---|
-| Dev | `http://bookkeeper-laravel.test` (Laragon) or `php artisan serve` | manual |
+| Dev | `http://bookkeeper-laravel.com.gh` (Laragon) or `php artisan serve` | manual |
 | Test | MySQL database `nunabooks_test` on the dev PC | `php artisan test` |
 | Shop PC | `http://<shop-name>` on the LAN (hosts entry + desktop shortcut, as today) | owner-run update script |
 

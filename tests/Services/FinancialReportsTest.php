@@ -22,6 +22,7 @@ use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
 use App\Services\SupplierPaymentService;
 use App\Support\Clock;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
 const FR_TODAY = '2026-08-17';
@@ -242,6 +243,29 @@ describe('cash flow', function () {
             ->and($flow['netMovement'])->toBe(54_000)
             ->and($flow['closingBalance'])->toBe(54_000)
             ->and($flow['reconciles'])->toBeTrue();
+    });
+
+    it('says the cash flow does not reconcile when the totals and the per-account balances disagree', function () {
+        ($this->capital)('2026-08-01', $this->cash, 50_000);
+        expect(FinancialService::getCashFlow(FR_PERIOD)['reconciles'])->toBeTrue();
+
+        // A one-sided TRANSFER line on a money account: the shop-wide totals leave
+        // transfers out, the per-account balances count every payment-account line,
+        // so the two queries genuinely disagree by 1,000.
+        $entry = DB::table('journal_entries')->insertGetId([
+            'entry_no' => 'JE-TEST-1', 'entry_date' => '2026-08-10', 'occurred_at' => '2026-08-10 10:00:00',
+            'source_type' => 'TRANSFER', 'source_id' => 1,
+        ]);
+        DB::table('journal_lines')->insert([
+            'entry_id' => $entry, 'line_no' => 1, 'debit_minor' => 1_000, 'credit_minor' => 0,
+            'account_id' => DB::table('payment_accounts')->where('id', $this->cash)->value('gl_account_id'),
+            'payment_account_id' => $this->cash,
+        ]);
+
+        $flow = FinancialService::getCashFlow(FR_PERIOD);
+        expect($flow['closingBalance'])->toBe(50_000)
+            ->and(Money::sum(array_column($flow['byAccount'], 'closing')))->toBe(51_000)
+            ->and($flow['reconciles'])->toBeFalse();
     });
 
     it('carries an opening balance from before the period', function () {

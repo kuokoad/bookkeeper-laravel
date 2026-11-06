@@ -25,7 +25,10 @@ final class EnforceSessionLimits
         if ($user instanceof User && ! Sessions::stillValid($request->session()->get(Sessions::SIGNED_IN_AT), $request->session()->get(Sessions::FINGERPRINT), $user)) {
             Sessions::end($request);
 
-            return $request->expectsJson() ? response('Please sign in.', 401) : redirect()->guest('/login');
+            // Thrown, not returned: Livewire's persistent middleware honours only a redirect or an exception.
+            abort_if($request->expectsJson(), 401, 'Please sign in.');
+
+            return redirect()->guest('/login');
         }
 
         return $next($request);

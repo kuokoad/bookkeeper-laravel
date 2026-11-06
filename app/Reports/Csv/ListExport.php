@@ -69,10 +69,14 @@ final class ListExport
         $dataRows = $list === 'account' ? max(0, count($table['rows']) - 3) : count($table['rows']);
         $table = self::withTruncationNotice($table, $dataRows);
         $params = Csv::firstValues($query);
+        // The dates the rows were read with (each list's parser resolves the same way), not the raw query.
+        $defaultPeriod = ['sales' => 'month', 'purchases' => 'month', 'expenses' => 'month', 'income' => 'month', 'quotations' => 'month', 'account' => 'month', 'stock-movements' => 'all'][$list] ?? null;
+        $range = $defaultPeriod === null ? ['from' => $today, 'to' => $today]
+            : Filters::resolveDateRange($params['period'] ?? $defaultPeriod, $params['from'] ?? null, $params['to'] ?? null, $today)['range'];
 
         return [
             ...$table,
-            'filename' => Csv::filename($list, $params['from'] ?? $today, $params['to'] ?? $today),
+            'filename' => Csv::filename($list, $range['from'] === Filters::EARLIEST_DATE ? null : $range['from'], $range['to']),
             'body' => Csv::toCsv($table['headers'], $table['rows']),
         ];
     }

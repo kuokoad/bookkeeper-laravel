@@ -10,6 +10,6 @@
         {{ $label }}@if ($required)<span class="ml-1 text-danger" aria-hidden="true">*</span>@endif
     </label>
     {{ $slot }}
-    @if ($hint && ! $message)<p class="text-xs text-content-subtle">{{ $hint }}</p>@endif
+    @if ($hint && ! $message)<p id="{{ $for }}-hint" class="text-xs text-content-subtle">{{ $hint }}</p>@endif
     @if ($message)<p id="{{ $for }}-error" role="alert" class="text-xs font-medium text-danger">{{ $message }}</p>@endif
 </div>

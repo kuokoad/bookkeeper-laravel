@@ -54,6 +54,14 @@ final class Show extends Component
         $this->displayName = $row['displayName'];
         $this->selectedRole = $row['role']->value;
         $this->fillPermissions(UserService::getUserPermissions($user));
+        // "Account created" is shown by this page, not the shell, so the next action can clear it.
+        $this->status = session()->pull('status');
+    }
+
+    /** A message belongs to the action that made it: any later request starts without one. */
+    public function hydrate(): void
+    {
+        $this->status = null;
     }
 
     public function saveDetails(): void

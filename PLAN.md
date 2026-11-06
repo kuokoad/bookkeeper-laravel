@@ -352,3 +352,52 @@ screen offer the safety file in one click when a restore fails.
 never replaced a PIN hash; here an old scrypt PIN becomes argon2id on its
 first successful PIN sign-in, as passwords do (PLAN 6.3). Nothing changes for
 the person. Proposed: keep it.
+
+The next five came out of the Phase 9 click-through. Each is old-app
+behaviour the new screens reproduce on purpose; nothing changes until you
+decide.
+
+**D20. After "Save on credit" the till says "Payment received in full."**
+Old `sales/new/pos.tsx:551` (new `pos.blade.php:26`): the banner shows "Give
+change" when there is change and otherwise always "Payment received in full."
+Example: a GHS 50.00 sale, GHS 20.00 cash, saved on credit to Adwoa: the
+banner reads "Sale saved — R-0001 · Payment received in full." while she
+owes GHS 30.00 on it. The figures (the sale, her balance) are right; the
+words are not. Proposed: when the sale left money owing, say "GHS 30.00 left
+on Adwoa Mensah's account." instead.
+
+**D21. No confirmation after a customer return or owner money in/out.** Old
+`purchase.actions.ts:456` redirects to `/sales/{id}?returned=1`, which
+`sales/[id]/page.tsx` never reads; old `cashbook.actions.ts:271` returns `{}`
+and `accounts/owner-money-form.tsx` shows only errors (new
+`Sales/Show.php:150`, `Accounts/Index.php:203`). Example: return 2 of 5 bags
+of rice: the sale page reloads with the return listed and no message; record
+GHS 500.00 put in by the owner: the form clears and nothing says it was
+saved. Proposed: "Return recorded. Stock and the customer's balance were
+updated." and "Recorded. The account balance was updated.", as the other
+forms do.
+
+**D22. The purchase report ignores supplier returns.** Old
+`reporting/operations.service.ts:688` (by day), `:628` (by supplier) and
+`:658` (by product) sum the purchase documents only (new
+`Reporting/OperationsService.php:367` and neighbours). Example: one purchase of
+GHS 4,500.00, then goods worth GHS 450.00 sent back: the report shows
+GHS 4,500.00 bought, not GHS 4,050.00, while the supplier's balance and the
+ledger already show the return. Proposed: a "Returned" column dated by the
+return, and a net total, so the report agrees with the supplier pages.
+
+**D23. The sales report's daily sale count includes voided sales.** Old
+`reporting/operations.service.ts:266` counts every `kind = 'SALE'` row dated
+in the period, voided ones too (new `Reporting/OperationsService.php:140`);
+the money columns net out through the void's mirror row, the count does not.
+Example: three sales on 03 Nov, one of them voided: the day shows 3 sales
+and the takings of two. Proposed: count only sales still standing (POSTED),
+or show "3 (1 voided)".
+
+**D24. A customer's "Total bought" and "Total paid later" cover only their
+latest 100 sales and payments.** Old `customers/[id]/page.tsx:54` lists 100
+sales and 100 payments and sums those (new `Customers/Show.php:152`).
+Example: a regular with 150 sales of GHS 10.00 sees "Total bought 1,000.00",
+not 1,500.00; the balance owed (computed separately) stays right. Proposed:
+one SQL sum over all of the customer's posted sales and payments in
+`CustomerService`, keeping the list at 100.

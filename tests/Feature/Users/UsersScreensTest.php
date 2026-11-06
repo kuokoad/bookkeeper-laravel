@@ -153,3 +153,19 @@ it('narrows the audit log by action and person, and shows the resolved filters',
         ->assertViewHas('resolved', [])->assertViewHas('total', DB::table('audit_logs')->count());
     usersAs($ownerId)->withQueryParams(['q' => '%'])->test(Audit::class)->assertViewHas('total', 0);
 });
+
+it('shows "Account created" once, and clears it on the next action on the page', function () {
+    $ownerId = owner();
+    $ama = staff(['sales' => viewOnly()]);
+    $created = 'Account created. Give them the starting password';
+
+    // Shown by the account page itself, not twice by the shell as well.
+    $page = signedIn($ownerId)->withSession(['status' => "{$created} — they will be asked to choose their own the first time they sign in."])
+        ->get("/users/{$ama}")->assertOk();
+    // (The page's own copy rides in its Livewire snapshot too, which is not on screen.)
+    expect(substr_count(preg_replace('/wire:snapshot="[^"]*"/', '', $page->getContent()), $created))->toBe(1);
+
+    session()->flash('status', "{$created}.");
+    usersAs($ownerId)->test(Show::class, ['user' => $ama])->assertSee($created)
+        ->call('setActive', false)->assertHasNoErrors()->assertDontSee($created);
+});

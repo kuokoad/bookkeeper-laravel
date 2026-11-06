@@ -108,8 +108,8 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 ## Phase 9: Proof and cut-over
 - [ ] `nuna:reconcile` reports zero differences on a copy of the real shop data
 - [ ] Backup → restore into an empty DB → reports match
-- [ ] Playwright CLI click-through of every module, screenshots in `screenshots/`, figures match the old app
-- [ ] README and ARCHITECTURE list every behaviour difference and why
+- [x] Playwright CLI click-through of every module, screenshots in `screenshots/`, figures match the old app: done, 96 screenshots in `screenshots/final/`, every module passed, the figure checks agree with the old app
+- [x] README and ARCHITECTURE list every behaviour difference and why (README table; ARCHITECTURE §4.1 links it; open owner decisions in PLAN §10, D1 to D24)
 
 ## Backlog
 - [ ] HTTPS on the LAN

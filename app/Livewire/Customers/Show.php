@@ -122,7 +122,7 @@ final class Show extends Component
             return;
         }
         // Only this customer's own payments may be voided from this page.
-        $mine = collect(CustomerPaymentService::listCustomerPayments($this->customerId, 500))->contains('id', $paymentId);
+        $mine = CustomerPaymentService::paymentBelongsToCustomer($paymentId, $this->customerId);
         if (! $mine) {
             abort(404);
         }

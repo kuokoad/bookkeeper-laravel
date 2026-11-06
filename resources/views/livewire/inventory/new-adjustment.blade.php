@@ -88,14 +88,14 @@
 
                             <div class="sm:col-span-2">
                                 <label for="unit-cost-{{ $i }}" class="{{ $label }}">Unit cost {{ $product ? "(per {$unit})" : '' }}</label>
-                                <x-input amount id="unit-cost-{{ $i }}" :value="$stockOut ? '' : $cost['unitCost']" :disabled="$stockOut" :placeholder="$stockOut ? 'Automatic' : '0.00'" :invalid="$unitError !== null"
+                                <x-input amount id="unit-cost-{{ $i }}" :value="$stockOut ? '' : $cost['unitCost']" :disabled="$stockOut" :placeholder="$stockOut ? 'Automatic' : '0.00'" :invalid="$unitError"
                                     x-on:input.debounce.400ms="$wire.setCost({{ $i }}, 'unit', $event.target.value)" />
                                 @if ($unitError)<p id="unit-cost-{{ $i }}-error" class="mt-1 text-xs font-medium text-danger">{{ $unitError }}</p>@endif
                             </div>
 
                             <div class="sm:col-span-2">
                                 <label for="value-{{ $i }}" class="{{ $label }}">Total value</label>
-                                <x-input amount id="value-{{ $i }}" :value="$stockOut ? '' : $cost['total']" :disabled="$stockOut" :placeholder="$stockOut ? 'Automatic' : '0.00'" :invalid="$totalError !== null"
+                                <x-input amount id="value-{{ $i }}" :value="$stockOut ? '' : $cost['total']" :disabled="$stockOut" :placeholder="$stockOut ? 'Automatic' : '0.00'" :invalid="$totalError"
                                     x-on:input.debounce.400ms="$wire.setCost({{ $i }}, 'total', $event.target.value)" />
                                 @if ($totalError)<p id="value-{{ $i }}-error" class="mt-1 text-xs font-medium text-danger">{{ $totalError }}</p>@endif
                             </div>

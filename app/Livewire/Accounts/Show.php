@@ -15,6 +15,7 @@ use App\Support\Filters\ListFilters;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -47,6 +48,7 @@ final class Show extends Component
 
     private const SLUGS = ['cash' => 1, 'momo' => 2, 'bank' => 3];
 
+    #[Locked]
     public int $accountId;
 
     public array $params = [];

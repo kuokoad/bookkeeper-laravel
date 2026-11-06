@@ -10,6 +10,7 @@ use App\Domain\Errors\NotFoundError;
 use App\Services\Reporting\LedgerService;
 use App\Services\StockAdjustmentService;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -17,6 +18,7 @@ use Livewire\Component;
 #[Title('Stock adjustment')]
 final class Adjustment extends Component
 {
+    #[Locked]
     public int $adjustmentId;
 
     public string $reason = '';

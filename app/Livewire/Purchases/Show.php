@@ -17,6 +17,7 @@ use App\Services\SettingsService;
 use App\Support\Clock;
 use App\Support\Filters\Filters;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -28,6 +29,7 @@ use Livewire\Component;
 #[Title('Purchase')]
 final class Show extends Component
 {
+    #[Locked]
     public int $purchaseId;
 
     public string $reason = '';

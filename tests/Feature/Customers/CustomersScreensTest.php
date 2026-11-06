@@ -12,6 +12,7 @@ use App\Livewire\Customers\Index;
 use App\Livewire\Customers\Show;
 use App\Models\User;
 use App\Services\Actor;
+use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
 use App\Support\Clock;
 use App\View\Format;
@@ -138,4 +139,16 @@ it('lists every unpaid invoice on the statement and totals the ledger balance', 
 
     $clear = Shop::customer($this->actor, 'Kojo Clear');
     signedIn($this->ownerId)->get("/customers/{$clear}/statement")->assertOk()->assertSee('Nothing outstanding');
+});
+
+it('checks payment ownership with one query, so a payment of any age can be voided but not one of another customer', function () {
+    ['customer' => $customer] = owingCustomer($this);
+    $other = Shop::customer($this->actor, 'Kofi Boateng');
+    customersAs($this->ownerId, Show::class, ['id' => $customer])->set('amount', '10')->call('receivePayment')->assertHasNoErrors();
+    $payment = (int) DB::table('customer_payments')->value('id');
+    expect(CustomerPaymentService::paymentBelongsToCustomer($payment, $customer))->toBeTrue()
+        ->and(CustomerPaymentService::paymentBelongsToCustomer($payment, $other))->toBeFalse();
+
+    customersAs($this->ownerId, Show::class, ['id' => $other])->set("voidReasons.{$payment}", 'Wrong customer')->call('voidPayment', $payment)->assertNotFound();
+    expect(CustomerService::getCustomerBalance($customer))->toBe(2_000);
 });

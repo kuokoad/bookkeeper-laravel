@@ -51,13 +51,13 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 ## Phase 8: Users, settings and shell 🟡 (FR-14 to FR-16)
 - ✅ Users, permissions, PINs, legacy hash upgrade, sign-in limits, search, notifications, backup and restore, preflight, installer, update (services, gates, middleware, commands, scripts)
-- ⬜ Settings screen, logo upload, looks, help pages: screens, with Phase 9
+- ✅ Settings screen, logo upload, looks, help pages: screens, with Phase 9
 
-## Phase 9: Proof and cut-over ⬜
-- Reconcile shows zero differences on a copy of real data
-- Backup restored into an empty DB with matching reports
-- Playwright click-through with screenshots
-- README and ARCHITECTURE list every behaviour difference
+## Phase 9: Proof and cut-over 🟡
+- ⬜ Reconcile shows zero differences on a copy of real data (waiting for a copy of the shop database; zero differences on the old demo database)
+- ✅ Backup restored into an empty DB with matching reports (BackupRestoreTest; nuna:backup and nuna:restore run on the demo shop 2026-11-06, verified)
+- ✅ Playwright click-through with screenshots (`screenshots/final/`, 96 files, all modules passed, figures agree)
+- ✅ README and ARCHITECTURE list every behaviour difference
 
 **Exit criteria:** the "Done means" list in [../PROMPT.md](../PROMPT.md) is all true.
 

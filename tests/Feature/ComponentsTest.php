@@ -77,3 +77,24 @@ it('opens a confirm dialog again only for its own errors, not another form\'s on
         ->and($render(['form' => 'That sale is already void.']))->toContain('confirming: true')
         ->and($render(['note' => 'x'], ':keys="[\'note\']"'))->toContain('confirming: true');
 });
+
+it('points an input at its error only when the error is on screen, and at the field hint otherwise', function () {
+    $render = function (array $messages, string $template): string {
+        view()->share('errors', (new ViewErrorBag)->put('default', new MessageBag($messages)));
+
+        return Blade::render($template);
+    };
+    $field = '<x-field label="Amount" for="amount" hint="In cedis."><x-input id="amount" :invalid="$errors->has(\'amount\')" /></x-field>';
+
+    $hinted = $render([], $field);
+    expect($hinted)->toContain('id="amount-hint"')->toContain('aria-describedby="amount-hint"')->not->toContain('aria-invalid');
+
+    $failed = $render(['amount' => 'Enter an amount.'], $field);
+    expect($failed)->toContain('id="amount-error"')->toContain('aria-describedby="amount-error"')->toContain('aria-invalid="true"')
+        ->not->toContain('amount-hint');
+
+    // Red without a message under it (the till's quantity box): no reference to text that is not there.
+    expect($render([], '<x-input id="qty-1" :invalid="true" />'))->toContain('aria-invalid="true"')->not->toContain('aria-describedby')
+        ->and($render([], '<x-input id="q-1" invalid="Enter a quantity." />'))->toContain('aria-describedby="q-1-error"')
+        ->and($render([], '<x-date-input id="from" :invalid="true" />'))->not->toContain('aria-describedby');
+});

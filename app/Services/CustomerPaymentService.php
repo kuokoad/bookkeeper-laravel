@@ -225,6 +225,12 @@ final class CustomerPaymentService
     // --- reads --------------------------------------------------------------
 
     /** @return list<array> */
+    /** Whether a payment is this customer's, however old: the customer page voids only its own. */
+    public static function paymentBelongsToCustomer(int $paymentId, int $customerId): bool
+    {
+        return DB::table('customer_payments')->where('customer_payments.id', $paymentId)->where('customer_payments.customer_id', $customerId)->exists();
+    }
+
     public static function listCustomerPayments(?int $customerId = null, int $limit = 100): array
     {
         $q = DB::table('customer_payments')

@@ -11,6 +11,7 @@ use App\Services\CatalogService;
 use App\Services\ProductReplaceService;
 use App\Support\Clock;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -22,9 +23,11 @@ final class Replace extends Component
 {
     use ProductFields;
 
+    #[Locked]
     public int $productId;
 
     /** The stock the page showed, so a count made against stock that has since moved is refused. */
+    #[Locked]
     public int $expectedQty = 0;
 
     /** Starts blank on purpose: the old count is in the old unit. */

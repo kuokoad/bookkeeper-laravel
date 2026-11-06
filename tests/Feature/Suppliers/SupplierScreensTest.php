@@ -100,3 +100,14 @@ it('voids a payment with a reason and restores the debt', function () {
 
     expect(SupplierService::getSupplierBalance($this->supplierId))->toBe(10_000);
 });
+
+it('checks payment ownership with one query, so a payment of any age can be voided but not one of another supplier', function () {
+    $payment = SupplierPaymentService::recordSupplierPayment(['supplierId' => $this->supplierId, 'businessDate' => Clock::today(), 'paymentAccountId' => $this->cash, 'amount' => 3_000], $this->actor);
+    expect(SupplierPaymentService::paymentBelongsToSupplier($payment['paymentId'], $this->supplierId))->toBeTrue()
+        ->and(SupplierPaymentService::paymentBelongsToSupplier($payment['paymentId'], $this->other))->toBeFalse();
+
+    Livewire::actingAs(User::query()->findOrFail($this->ownerId))->test(Show::class, ['id' => (string) $this->other])
+        ->set("voidReasons.{$payment['paymentId']}", 'Paid the wrong supplier')->call('voidPayment', $payment['paymentId'])
+        ->assertHasErrors(["void.{$payment['paymentId']}" => 'That payment could not be found.']);
+    expect(SupplierService::getSupplierBalance($this->supplierId))->toBe(7_000);
+});

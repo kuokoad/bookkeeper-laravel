@@ -9,6 +9,7 @@ use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Services\SupplierService;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -17,8 +18,10 @@ use Livewire\Component;
  */
 final class Form extends Component
 {
+    #[Locked]
     public ?int $supplierId = null;
 
+    #[Locked]
     public string $supplierName = '';
 
     public string $name = '';

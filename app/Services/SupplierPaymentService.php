@@ -203,6 +203,12 @@ final class SupplierPaymentService
     // --- reads --------------------------------------------------------------
 
     /** @return list<array> */
+    /** Whether a payment is this supplier's, however old: the supplier page voids only its own. */
+    public static function paymentBelongsToSupplier(int $paymentId, int $supplierId): bool
+    {
+        return DB::table('supplier_payments')->where('supplier_payments.id', $paymentId)->where('supplier_payments.supplier_id', $supplierId)->exists();
+    }
+
     public static function listSupplierPayments(?int $supplierId = null, int $limit = 100): array
     {
         $q = DB::table('supplier_payments')

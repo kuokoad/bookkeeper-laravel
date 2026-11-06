@@ -47,6 +47,18 @@ app/Console/Commands/                nuna:import-sqlite, nuna:reconcile, nuna:ba
 
 **The rule that matters:** a financial calculation exists in `app/Domain` exactly once. Blade and Livewire never compute money; services never re-derive a total the domain already produced.
 
+### 4.1 The UI layer (Phase 9)
+
+How the screens sit on the services; the working rules are in [UI-CONVENTIONS.md](UI-CONVENTIONS.md).
+
+- **Livewire full-page components** in `app/Livewire/<Module>/<Page>.php`, views in `resources/views/livewire/<module>/`, rendered inside the shell layout (`config/livewire.php`). A page parses input, calls a service, and formats the result through `App\View\Format` (`@money`, `@qty`, `@date`); no SQL, no `DB::`, no money arithmetic. Figures a page needs come from a service read (for example `SaleService::documentPayments` for the receipt and invoice lines). Record ids and slugs a page takes from its URL are `#[Locked]`.
+- **Routes** live in `routes/modules/<module>.php`, one file per module, all required inside the signed-in group of `routes/web.php` (`auth`, `session.limits`, `password.chosen`). Receipts, invoices, statements, prints and file downloads are plain controllers in `app/Http/Controllers/<Module>/`.
+- **Gates.** Every route carries `permission:<module>,<action>`; `RouteGuardTest` fails a route without it. Livewire actions are POSTs to `/livewire/update`, which route middleware does not cover, so every write action calls `$this->authorize('<module>.<action>')` first, and views ask the same Gate (`@can`) before offering a button.
+- **One filter parser per module** in `app/Support/Filters/ListFilters.php`, shared by the page and its CSV (`GET /export/list/{list}`, `/export/report/{report}`, `ExportController`): parse once, filter in SQL before the limit, totals on the same conditions, every id, enum, date, amount and sort key validated, controls showing the resolved value, and CSV links carrying the resolved dates.
+- **Components** in `resources/views/components` (`x-filter-bar`, `x-table`, `x-th`, `x-pagination`, `x-csv-button`, `x-field` with `x-input`/`x-date-input`, `x-confirm-dialog`, `x-flash`), styled with the theme tokens in `resources/css/app.css`.
+
+Where the screens behave differently from the old app (session flashes, switch user, the native date picker, the till's server-side search, the logo behind sign-in, CSV links with resolved dates, restore staying on the command line, and the rest) is listed, with the reason, in the README table [Differences from the old app](../README.md#differences-from-the-old-app). Old behaviour kept on purpose but awaiting the owner is in [PLAN.md §10](../PLAN.md#10-owner-decisions-old-app-money-behaviour-kept-for-now).
+
 ## 5. Key flows
 
 ### Sale (one transaction, two tills at once)

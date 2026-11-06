@@ -25,6 +25,7 @@ use App\Support\Clock;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -157,9 +158,15 @@ final class Pos extends Component
         $this->dispatch('pos-focus-search');
     }
 
-    /** A barcode scanner types fast and presses Enter: an exact barcode or SKU is a scan, else the first match. */
-    public function scan(): void
+    /**
+     * A barcode scanner types fast and presses Enter: an exact barcode or SKU is a scan, else the first match.
+     * Enter passes the box's own value, because the debounced search may not have reached the server yet.
+     */
+    public function scan(?string $term = null): void
     {
+        if ($term !== null) {
+            $this->search = mb_substr($term, 0, 200);
+        }
         if (JsCompat::trim($this->search) === '') {
             return;
         }
@@ -336,6 +343,21 @@ final class Pos extends Component
         $this->saved = ['receiptNo' => $result['receiptNo'], 'saleId' => $result['saleId'], 'change' => $result['change']];
         // A new cart needs a new name, or the next sale would replay this one.
         $this->salesCompleted++;
+        // The sale may have changed what a customer owes.
+        unset($this->customers);
+    }
+
+    /**
+     * The customer list, as the old till's (200, the service default). Kept between
+     * the requests of one till (so typing in the search does not reload it) and
+     * read again after each sale.
+     *
+     * @return list<array<string, mixed>>
+     */
+    #[Computed(persist: true)]
+    public function customers(): array
+    {
+        return CustomerService::listCustomers(['limit' => 200]);
     }
 
     /**
@@ -474,7 +496,7 @@ final class Pos extends Component
             'needsCustomer' => $needsCustomer,
             'canSubmit' => $this->lines !== [] && ! $totals['invalid'] && ! $needsCustomer,
             'accounts' => $accounts,
-            'customers' => CustomerService::listCustomers(['limit' => 500]),
+            'customers' => $this->customers,
             'referencePlaceholder' => in_array('MOBILE_MONEY', $tenderKinds, true) ? 'MoMo transaction id' : (in_array('BANK', $tenderKinds, true) ? 'Cheque or transfer number' : ''),
             'currency' => $settings->currency_code ?? 'GHS',
             'today' => $today,

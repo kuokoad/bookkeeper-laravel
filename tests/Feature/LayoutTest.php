@@ -54,6 +54,14 @@ it('formats money, quantities and dates through the domain', function () {
         ->and(Format::money(125_000, bare: true))->toBe('1,250.00');
 });
 
+it('shows money in the shop currency when the shop is not in GHS', function () {
+    DB::table('business_settings')->update(['currency_code' => 'NGN']);
+    expect(Blade::render('@money($v)', ['v' => 125_000]))->toBe('NGN 1,250.00')
+        ->and(Format::moneyAccounting(-125_000))->toBe('NGN (1,250.00)')
+        ->and(Format::money(125_000, currencyCode: 'USD'))->toBe('USD 1,250.00');
+    signedIn(owner())->get('/dashboard')->assertOk()->assertSee('NGN 0.00')->assertDontSee('GHS 0.00');
+});
+
 it('flashes a one-shot message after a redirect', function () {
     signedIn(owner())->withSession(['status' => 'Saved.'])->get('/dashboard')->assertSee('Saved.');
 });

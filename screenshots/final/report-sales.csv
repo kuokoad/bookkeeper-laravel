@@ -1,0 +1,14 @@
+﻿Section,Name,Category,Count/Qty,Amount,Cost,Profit,Amount is
+By day,2026-11-05,,1,18950.00,17392.62,1557.38,Takings with tax
+By day,2026-11-06,,4,3200.00,2821.21,378.79,Takings with tax
+By product,Cement 50kg,Cement,210,19560.00,18262.25,1297.75,Revenue net of tax and discounts
+By product,Iron rod 12mm,Steel,20,2240.00,1951.58,288.42,Revenue net of tax and discounts
+By product,Cartage to site,Services,1,350.00,0.00,350.00,Revenue net of tax and discounts
+By product,Sand (tipper load),Cement,0,0.00,0.00,0.00,Revenue net of tax and discounts
+By category,Cement,,,19560.00,18262.25,1297.75,Revenue net of tax and discounts
+By category,Steel,,,2240.00,1951.58,288.42,Revenue net of tax and discounts
+By category,Services,,,350.00,0.00,350.00,Revenue net of tax and discounts
+By customer,Adom Construction Ltd,,1,18950.00,,1557.38,Takings with tax
+By customer,Walk-in customers,,3,2240.00,,288.42,Takings with tax
+By customer,QA Final Builders,,1,960.00,,90.37,Takings with tax
+By payment method,Cash,,,2240.00,,,Money received

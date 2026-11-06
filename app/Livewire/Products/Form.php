@@ -10,6 +10,7 @@ use App\Services\CatalogService;
 use App\Services\UnitsService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -21,6 +22,7 @@ final class Form extends Component
 {
     use ProductFields;
 
+    #[Locked]
     public ?int $productId = null;
 
     public function mount(?string $id = null): void

@@ -16,6 +16,7 @@ use App\Services\SupplierService;
 use App\Support\Clock;
 use App\Support\Filters\Filters;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -27,6 +28,7 @@ use Livewire\Component;
 #[Title('Supplier')]
 final class Show extends Component
 {
+    #[Locked]
     public int $supplierId;
 
     public string $businessDate = '';
@@ -107,7 +109,7 @@ final class Show extends Component
             return;
         }
         // Only this supplier's payments are offered; anything else is refused, not voided.
-        $ours = collect(SupplierPaymentService::listSupplierPayments($this->supplierId, 500))->contains('id', $paymentId);
+        $ours = SupplierPaymentService::paymentBelongsToSupplier($paymentId, $this->supplierId);
         if (! $ours) {
             $this->addError("void.{$paymentId}", 'That payment could not be found.');
 

@@ -4,7 +4,7 @@ The routine, what the commands actually do, and what to do on a bad day.
 
 ## Prerequisites
 
-Terminal access on the machine running the app, or an owner account for the in-app
+Terminal access on the machine running the app, or someone allowed to change Settings for the in-app
 download at `/settings/health`.
 
 ## What a backup is
@@ -78,7 +78,7 @@ dropped, or having its disk fail — which are the three things you are backing 
 against. A copy on the same disk protects you only from your own mistakes, which is
 the least likely of the four.
 
-If the shop has no terminal, an owner can download a verified copy from
+If the shop has no terminal, someone allowed to change Settings can download a verified copy from
 **Settings → Health & backup**. Same file, same verification.
 
 ## Before anything risky

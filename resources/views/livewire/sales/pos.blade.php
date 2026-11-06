@@ -47,7 +47,7 @@
 
                 <div class="rounded-xl border border-line bg-surface-raised p-4">
                     <label for="pos-search" class="mb-1.5 block text-sm font-medium text-content">Find a product</label>
-                    <x-input id="pos-search" wire:model.live.debounce.150ms="search" wire:keydown.enter.prevent="scan"
+                    <x-input id="pos-search" wire:model.live.debounce.150ms="search" wire:keydown.enter.prevent="scan($event.target.value)"
                         placeholder="Type a name, or scan a barcode" autocomplete="off" autofocus class="h-12 text-base" />
 
                     @if ($matches !== [])

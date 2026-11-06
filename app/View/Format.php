@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\View;
 
+use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
 use App\Domain\Quantity;
 use App\Services\InventoryService;
+use App\Services\SettingsService;
 use Illuminate\Support\Carbon;
 
 /**
@@ -18,19 +20,35 @@ use Illuminate\Support\Carbon;
 final class Format
 {
     /** "GHS 1,250.00", or "1,250.00" when bare (a column already headed GHS). */
-    public static function money(int $value, bool $bare = false, string $currencyCode = 'GHS'): string
+    public static function money(int $value, bool $bare = false, ?string $currencyCode = null): string
     {
-        return $bare ? Money::toDecimalString($value) : Money::format($value, $currencyCode);
+        return $bare ? Money::toDecimalString($value) : Money::format($value, $currencyCode ?? self::shopCurrency());
     }
 
     /** Negatives in accounting parentheses: "GHS (1,250.00)". */
-    public static function moneyAccounting(int $value, bool $bare = false, string $currencyCode = 'GHS'): string
+    public static function moneyAccounting(int $value, bool $bare = false, ?string $currencyCode = null): string
     {
         if ($value >= 0) {
             return self::money($value, $bare, $currencyCode);
         }
 
-        return ($bare ? '' : $currencyCode.' ').'('.Money::toDecimalString(Money::absolute($value)).')';
+        return ($bare ? '' : ($currencyCode ?? self::shopCurrency()).' ').'('.Money::toDecimalString(Money::absolute($value)).')';
+    }
+
+    /** The shop's currency_code, read once per request (GHS before setup has made the settings row). */
+    public static function shopCurrency(): string
+    {
+        // Kept on the request, not in a static, so the next request (and the next test request) reads it afresh.
+        $attributes = request()->attributes;
+        if (! $attributes->has('nuna.currencyCode')) {
+            try {
+                $attributes->set('nuna.currencyCode', SettingsService::get()->currency_code ?? 'GHS');
+            } catch (NotFoundError) {
+                return 'GHS';
+            }
+        }
+
+        return (string) $attributes->get('nuna.currencyCode');
     }
 
     /** "1.5 kg", or "1.5" without a unit. */

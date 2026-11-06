@@ -7,6 +7,7 @@ namespace App\Livewire\Accounting;
 use App\Domain\Errors\NotFoundError;
 use App\Services\Reporting\LedgerService;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -14,6 +15,7 @@ use Livewire\Component;
 #[Title('Journal entry')]
 final class Entry extends Component
 {
+    #[Locked]
     public int $entryId;
 
     public function mount(string $id): void

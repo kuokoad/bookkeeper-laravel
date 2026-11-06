@@ -906,6 +906,28 @@ final class SaleService
     }
 
     /**
+     * The payment lines a receipt and an invoice print, from a getSale() result:
+     * change given at the till, what has been paid since (returns credited to the
+     * account are not money received), what is still due, and any credit in hand.
+     *
+     * @return array{change: int, alreadyPaid: int, amountDue: int, inCredit: int, settled: bool}
+     */
+    public static function documentPayments(array $sale): array
+    {
+        $total = (int) $sale['totalMinor'];
+        $outstanding = (int) $sale['outstandingMinor'];
+        $tendered = Money::sum(array_map(fn (array $t): int => (int) $t['amountMinor'], $sale['tenders']));
+
+        return [
+            'change' => Money::atLeastZero(Money::subtract($tendered, $total)),
+            'alreadyPaid' => Money::subtract(Money::subtract($total, (int) $sale['creditedMinor']), $outstanding),
+            'amountDue' => Money::atLeastZero($outstanding),
+            'inCredit' => Money::atLeastZero(Money::negate($outstanding)),
+            'settled' => $outstanding <= 0,
+        ];
+    }
+
+    /**
      * Totals for a period: every sale document dated in it, voided ones too,
      * so the figure agrees with the P&L; count is sales rung up.
      *

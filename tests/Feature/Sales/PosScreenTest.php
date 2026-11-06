@@ -117,3 +117,27 @@ it('records a backdated sale only for somebody who may backdate', function () {
     // Without the right the day is the server's, whatever the form held.
     expect(DB::table('sales')->orderByDesc('id')->value('business_date'))->toBe(Clock::today());
 });
+
+it('scans the value in the box when Enter beats the debounced search', function () {
+    // The scanner typed the code and pressed Enter before the 150 ms search update was sent.
+    tillAs($this->ownerId)->set('search', '600')->call('scan', '6001234500001')
+        ->assertSet('search', '')->assertSee('Cart (1)')->assertSee('GHS 10.00');
+});
+
+it('loads the customer list once, not on every search keystroke, and again after a sale', function () {
+    Shop::customer($this->actor, 'Adwoa Mensah');
+    $till = tillAs($this->ownerId)->assertSee('Adwoa Mensah');
+
+    $queries = 0;
+    DB::listen(function ($query) use (&$queries) {
+        if (str_contains($query->sql, 'from `customers`')) {
+            $queries++;
+        }
+    });
+    $till->set('search', 'r')->set('search', 'ri')->set('search', 'ric')->assertSee('Adwoa Mensah');
+    expect($queries)->toBe(0);
+
+    Shop::customer($this->actor, 'Kofi Boateng');
+    $till->call('add', $this->rice)->set('tenderAmount', '10')->call('complete')->assertHasNoErrors()->assertSee('Kofi Boateng');
+    expect($queries)->toBeGreaterThan(0);
+});

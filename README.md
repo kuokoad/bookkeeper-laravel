@@ -186,6 +186,25 @@ Every behaviour difference is listed here with its reason.
 | "Update now" | `update.ps1` started as a child of the Node server; `npm ci`, a build; migrations ran at startup | The `NunaBooksUpdate` scheduled task runs `update.ps1`; `composer install --no-dev` and `migrate --force` (no build: assets ship built); stops Apache before the backup; rolls back the code if the update fails before migrating, and the code and the backup once a migration has begun | PLAN 6.1. Apache, unlike Node, is a service the script stops. |
 | The demo users' passwords | Laravel `Hash::make` (bcrypt) since Phase 6 | argon2id, the driver now configured | They sign in with the published credentials (tested). |
 | A query-string key given twice (`?from=2026-01-01&from=2026-02-01`) on a list or report page or its CSV | `searchParams.get` took the first value | PHP keeps the last value before any code runs | Not reachable from the app's own links and forms, which send each key once. An explicit array (`from[]=`) still takes its first element. |
+| Messages after a save that moves to another page ("Account created", "Customer added", "Sale voided") | Carried in the address (`/users/5?created=1`), so the banner came back on a refresh or a shared link | A one-shot session flash (`->with('status')`, `<x-flash />`); the account page shows "Account created" itself and clears it on the next action | Laravel's way; the message belongs to the action, not the URL. |
+| Switch user | Only "Sign out", back to the sign-in page | Also "Switch user": signs out and opens the sign-in page on the till-PIN tab (`/login?mode=pin`) | Switching is how the next cashier takes the till, and they sign in by PIN. |
+| Date fields | A home-made calendar (`ui/date-field.tsx`) | The browser's own `<input type="date">` (`<x-date-input>`), still showing the resolved date and its min and max | The native picker has the keyboard, screen-reader and phone wheel for free, with no script to port. |
+| Till product search | The whole catalogue sent to the browser on page load and searched there | The server is asked per search (debounced), for at most 8 matches; Enter scans the box's own value; the customer list (200, as the old default) is read once per till and again after each sale | A Livewire page has no client-side catalogue; a shop with thousands of products no longer loads them all to ring up one. |
+| Receipt printing | A "feeding paper" animation before the print dialog | The print dialog opens straight away | Decoration with no figure in it; `?print=1` still prints on arrival. |
+| The shop's logo (`/logo`) | Served to anyone, signed in or not (`api/logo/route.ts`), so a printed receipt could show it | Behind sign-in like every page | Every receipt is printed from a signed-in page, so nothing is lost, and nothing is served to a stranger. |
+| Batch page (`/inventory/batches/{id}`) | Needs `products` view; changing the expiry needs `inventory` edit | The same | Listed because the planning table (UI-CONVENTIONS §9) said `inventory` view; the old page wins. |
+| Report CSV links | Carried the query as typed (`?period=month`), and the export worked the dates out again | Carry the resolved `from` and `to` the page used | Filter rule 5: the export matches what was on screen. |
+| Who owes you / who you owe, `asAt` | Read only `asAt` | Falls back to `to` when `asAt` is missing, so the CSV link and a hand-typed range give the same date | One parser for the page and its CSV (filter rule 1). |
+| Journal list with an unknown `?source=` | Passed through as a filter, so the list showed nothing | Ignored: an unknown kind narrows nothing | Filter rule 4: a value outside the list is not a filter. |
+| Receivables and payables pages | No CSV download | A CSV button, through the shared export route | Every list that shows figures can be exported with the same filters. |
+| Restore screen | `npm run db:restore` on the shop PC; no screen | Still the command line only (`php artisan nuna:restore`); the Health screen offers backups, not restore | A restore replaces the books; it should not be one click away on a till (PLAN D18). |
+| Money shown without a currency (`Format::money`) | Each page passed the shop's currency | Defaults to the shop's `currency_code`, read once per request | So a page that forgets to pass it shows the shop's currency, not GHS. |
+| Record ids on a page (`/suppliers/1/edit`) | Fixed by the server component | `#[Locked]` Livewire properties; a browser that sends another id gets an error | Without the lock, a tampered request could save onto another record. |
+| Voiding a customer or supplier payment from their page | The payment had to be theirs | The same, checked with one query by id, so a payment older than the newest 500 can still be voided | The first port looked only at the newest 500. |
+
+### Owner decisions pending
+
+Old-app behaviour the port keeps on purpose but that may give a wrong figure or message is listed in [PLAN.md §10](PLAN.md#10-owner-decisions-old-app-money-behaviour-kept-for-now) (D1 to D24). Nothing there changes until the owner decides.
 
 ## Documentation
 - [Build plan](PLAN.md)

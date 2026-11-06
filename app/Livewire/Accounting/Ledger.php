@@ -9,6 +9,7 @@ use App\Services\Reporting\LedgerService;
 use App\Support\Filters\ListFilters;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -16,6 +17,7 @@ use Livewire\Component;
 #[Title('Account ledger')]
 final class Ledger extends Component
 {
+    #[Locked]
     public int $accountId;
 
     public array $params = [];

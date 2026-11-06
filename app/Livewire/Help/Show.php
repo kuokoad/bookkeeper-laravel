@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Livewire\Help;
 
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /** One help page: the old (app)/help/[slug]. Only slugs in Pages::PAGES exist. */
 final class Show extends Component
 {
+    #[Locked]
     public string $slug;
 
     public function mount(string $slug): void

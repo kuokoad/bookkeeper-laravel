@@ -13,6 +13,7 @@ use App\Services\InventoryService;
 use App\Support\Clock;
 use App\Support\Filters\Filters;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -34,6 +35,7 @@ final class Batch extends Component
         'OPENING' => 'On the shelf at the start',
     ];
 
+    #[Locked]
     public int $batchId;
 
     public string $expiryDate = '';

@@ -140,6 +140,27 @@ final class SettingsService
         });
     }
 
+    /**
+     * First-run setup's half of the old setupOwnerAction, after the owner
+     * account exists: the shop's name and type, the type's feature switches
+     * written explicitly (the row already carries the column defaults, so
+     * choosing Building materials and saying nothing more would leave every
+     * feature on), and the moment setup finished. Not audited, as before.
+     */
+    public static function completeSetup(string $businessName, BusinessType $type): void
+    {
+        $features = Feature::defaults($type);
+        $now = Carbon::now()->format('Y-m-d H:i:s.v');
+        Tx::run(fn () => DB::table('business_settings')->where('id', 1)->update([
+            'business_name' => $businessName,
+            'business_type' => $type->value,
+            'feature_expiry_batches' => $features[Feature::ExpiryBatches->value],
+            'feature_quotations' => $features[Feature::Quotations->value],
+            'setup_completed_at' => $now,
+            'updated_at' => $now,
+        ]));
+    }
+
     /** @return array{hasLogo: bool, mime: ?string, width: ?int, height: ?int, bytes: int, updatedAt: ?string} */
     public static function logoSummary(): array
     {

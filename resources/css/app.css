@@ -1,9 +1,843 @@
+/*
+  Ported verbatim from the old src/app/globals.css (Tailwind v4 there and
+  here). Only the @source lines are new: Tailwind scans the Blade views.
+*/
 @import 'tailwindcss';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../views/**/*.blade.php';
+@source '../../app/**/*.php';
 @source '../../storage/framework/views/*.php';
 
+@font-face {
+  font-family: 'Nuna Inter';
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nuna Material Symbols';
+  src: url('/fonts/MaterialSymbolsOutlined.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+.stitch-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Nuna Material Symbols';
+  font-weight: 400;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  font-feature-settings: 'liga';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+  Design tokens.
+
+  Light and dark are both defined here so the app is legible in a bright shop
+  during the day and on a phone at night. Colours are referenced by role
+  (surface, muted, danger) rather than by hue, so a future rebrand touches this
+  file only.
+*/
+
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+
+  /* Brand: a calm green — money and growth, without shouting. */
+  --color-brand-50: oklch(0.97 0.02 165);
+  --color-brand-100: oklch(0.94 0.04 165);
+  --color-brand-200: oklch(0.88 0.07 165);
+  --color-brand-300: oklch(0.8 0.1 165);
+  --color-brand-400: oklch(0.72 0.13 165);
+  --color-brand-500: oklch(0.64 0.14 165);
+  --color-brand-600: oklch(0.55 0.13 165);
+  --color-brand-700: oklch(0.46 0.11 165);
+  --color-brand-800: oklch(0.38 0.09 165);
+  --color-brand-900: oklch(0.3 0.07 165);
+}
+
+:root {
+  --surface: oklch(0.99 0.002 250);
+  --surface-raised: oklch(1 0 0);
+  --surface-sunken: oklch(0.96 0.004 250);
+  --border: oklch(0.9 0.006 250);
+  --border-strong: oklch(0.82 0.008 250);
+  --text: oklch(0.25 0.01 250);
+  --text-muted: oklch(0.52 0.012 250);
+  --text-subtle: oklch(0.64 0.01 250);
+
+  --accent: oklch(0.55 0.13 165);
+  --accent-text: oklch(0.99 0 0);
+  --accent-soft: oklch(0.95 0.03 165);
+
+  /* The sidebar is dark in BOTH themes, deliberately.
+     It is chrome, not content: keeping it constant gives the eye a fixed frame
+     while the working area follows the shop's light or dark preference. */
+  --sidebar: oklch(0.24 0.012 250);
+  --sidebar-raised: oklch(0.29 0.014 250);
+  --sidebar-border: oklch(0.35 0.014 250);
+  --sidebar-text: oklch(0.97 0.003 250);
+  --sidebar-muted: oklch(0.76 0.008 250);
+  --sidebar-subtle: oklch(0.62 0.01 250);
+
+  --danger: oklch(0.55 0.19 25);
+  --danger-soft: oklch(0.96 0.03 25);
+  --warning: oklch(0.68 0.15 75);
+  --warning-soft: oklch(0.96 0.05 75);
+  --success: oklch(0.55 0.14 150);
+  --success-soft: oklch(0.95 0.04 150);
+
+  /* How a card sits on the page: Ledger's paper-on-a-desk shape, shared by every
+     look. Ledger re-tints the shadow warm; the geometry is the same everywhere. */
+  --card-radius: 1rem;
+  --card-shadow:
+    0 2px 0 oklch(0.62 0.01 250 / 0.16), 0 10px 22px oklch(0.42 0.01 250 / 0.1);
+
+  /* The donut's slices. Roles rather than the brand ramp used directly, so a
+     look can dress them — the default's values ARE that ramp, so a shop that
+     has not switched sees exactly the chart it always did. Every other mark in
+     chart.tsx already reads --accent and --border-strong, which is why the
+     donut was the one thing that stayed green when the look changed. */
+  --chart-1: var(--color-brand-500);
+  --chart-2: var(--color-brand-300);
+  --chart-3: var(--color-brand-700);
+  --chart-4: var(--color-brand-200);
+  --chart-5: var(--color-brand-800);
+}
+
+/* ---------------------------------------------------------------------------
+   Dark colours, written once and applied from two places.
+
+   Three states, which is one more than people expect:
+
+     - no `data-theme`  -> follow the device (the default)
+     - data-theme="light" -> light, even on a device set to dark
+     - data-theme="dark"  -> dark, even on a device set to light
+
+   The media query is guarded with `:not([data-theme="light"])`, or a person who
+   explicitly chose light would still be handed the dark palette by their phone.
+   `color-scheme` is set alongside so scrollbars, form controls and the browser's
+   own chrome follow too — without it, a dark page keeps white scrollbars.
+   --------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: oklch(0.19 0.008 250);
+    --surface-raised: oklch(0.23 0.009 250);
+    --surface-sunken: oklch(0.15 0.008 250);
+    --border: oklch(0.32 0.01 250);
+    --border-strong: oklch(0.42 0.012 250);
+    --text: oklch(0.95 0.004 250);
+    --text-muted: oklch(0.72 0.008 250);
+    --text-subtle: oklch(0.6 0.01 250);
+
+    --accent: oklch(0.72 0.13 165);
+    --accent-text: oklch(0.16 0.01 165);
+    --accent-soft: oklch(0.28 0.05 165);
+
+    --danger: oklch(0.68 0.17 25);
+    --danger-soft: oklch(0.28 0.06 25);
+    --warning: oklch(0.78 0.13 75);
+    --warning-soft: oklch(0.3 0.06 75);
+    --success: oklch(0.7 0.13 150);
+    --success-soft: oklch(0.27 0.05 150);
+
+    --card-shadow: 0 2px 0 oklch(0.12 0.01 250 / 0.5), 0 10px 22px oklch(0.08 0.01 250 / 0.45);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+    --surface: oklch(0.19 0.008 250);
+    --surface-raised: oklch(0.23 0.009 250);
+    --surface-sunken: oklch(0.15 0.008 250);
+    --border: oklch(0.32 0.01 250);
+    --border-strong: oklch(0.42 0.012 250);
+    --text: oklch(0.95 0.004 250);
+    --text-muted: oklch(0.72 0.008 250);
+    --text-subtle: oklch(0.6 0.01 250);
+
+    --accent: oklch(0.72 0.13 165);
+    --accent-text: oklch(0.16 0.01 165);
+    --accent-soft: oklch(0.28 0.05 165);
+
+    --danger: oklch(0.68 0.17 25);
+    --danger-soft: oklch(0.28 0.06 25);
+    --warning: oklch(0.78 0.13 75);
+    --warning-soft: oklch(0.3 0.06 75);
+    --success: oklch(0.7 0.13 150);
+    --success-soft: oklch(0.27 0.05 150);
+
+    --card-shadow: 0 2px 0 oklch(0.12 0.01 250 / 0.5), 0 10px 22px oklch(0.08 0.01 250 / 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+   The Ledger look.
+
+   Paint, and only paint. Every rule below is keyed on `data-look='ledger'`,
+   which the root layout writes from the shop's settings; the default look sets
+   no attribute at all, so nothing here can reach it. Both looks render the same
+   components from the same figures — there is no second dashboard, and no way
+   for the two to disagree about the shop's money.
+
+   Light and dark are BOTH defined, through all three of the same states the
+   theme uses. Choosing Ledger must never quietly cancel somebody's dark mode:
+   a till assistant on a phone at midnight asked for a dark screen and is
+   entitled to one, warm or not.
+
+   The sidebar stays a constant within each look, exactly as it does in the
+   default one, for the reason given up there: it is chrome, not content.
+   --------------------------------------------------------------------------- */
+
+:root[data-look='ledger'] {
+  /* Sand desk, cream cards, ink brown. Hue 70: warm, dark enough to read. */
+  --surface: oklch(0.91 0.022 78);
+  --surface-raised: oklch(0.975 0.012 85);
+  --surface-sunken: oklch(0.87 0.026 76);
+  --border: oklch(0.85 0.028 72);
+  --border-strong: oklch(0.75 0.035 68);
+  --text: oklch(0.33 0.03 58);
+  --text-muted: oklch(0.52 0.028 62);
+  --text-subtle: oklch(0.62 0.024 66);
+
+  /* Sage rather than the default green: the same role, a warmer neighbour. */
+  --accent: oklch(0.52 0.075 145);
+  --accent-text: oklch(0.98 0.01 85);
+  --accent-soft: oklch(0.9 0.04 145);
+
+  --sidebar: oklch(0.29 0.028 62);
+  --sidebar-raised: oklch(0.36 0.03 62);
+  --sidebar-border: oklch(0.42 0.03 62);
+  --sidebar-text: oklch(0.93 0.02 82);
+  --sidebar-muted: oklch(0.76 0.028 76);
+  --sidebar-subtle: oklch(0.64 0.03 72);
+
+  /* Clay, not fire engine: a loss should read as serious, not as an emergency. */
+  --danger: oklch(0.52 0.13 35);
+  --danger-soft: oklch(0.91 0.04 40);
+  --warning: oklch(0.63 0.11 78);
+  --warning-soft: oklch(0.92 0.05 82);
+  --success: oklch(0.52 0.09 145);
+  --success-soft: oklch(0.9 0.04 145);
+
+  /* The shared card shape, with the shadow re-tinted warm to match the desk. */
+  --card-shadow:
+    0 2px 0 oklch(0.62 0.035 70 / 0.16), 0 10px 22px oklch(0.42 0.04 65 / 0.1);
+
+  /* Sage through clay: a spending breakdown in the same earth as everything
+     else here, rather than the default's emerald sitting on warm sand. */
+  --chart-1: oklch(0.55 0.08 145);
+  --chart-2: oklch(0.72 0.06 130);
+  --chart-3: oklch(0.5 0.1 55);
+  --chart-4: oklch(0.78 0.05 90);
+  --chart-5: oklch(0.42 0.07 40);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-look='ledger']:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: oklch(0.2 0.016 62);
+    --surface-raised: oklch(0.25 0.018 64);
+    --surface-sunken: oklch(0.16 0.014 60);
+    --border: oklch(0.34 0.022 64);
+    --border-strong: oklch(0.44 0.026 66);
+    --text: oklch(0.93 0.018 82);
+    --text-muted: oklch(0.74 0.022 76);
+    --text-subtle: oklch(0.62 0.024 72);
+
+    --accent: oklch(0.72 0.09 145);
+    --accent-text: oklch(0.19 0.02 62);
+    --accent-soft: oklch(0.3 0.045 145);
+
+    --danger: oklch(0.68 0.13 38);
+    --danger-soft: oklch(0.3 0.05 38);
+    --warning: oklch(0.76 0.11 80);
+    --warning-soft: oklch(0.31 0.05 80);
+    --success: oklch(0.71 0.1 148);
+    --success-soft: oklch(0.29 0.045 148);
+
+    --card-shadow: 0 2px 0 oklch(0.12 0.01 60 / 0.5), 0 10px 22px oklch(0.08 0.01 60 / 0.45);
+  }
+}
+
+:root[data-look='ledger'][data-theme='dark'] {
+  color-scheme: dark;
+    --surface: oklch(0.2 0.016 62);
+    --surface-raised: oklch(0.25 0.018 64);
+    --surface-sunken: oklch(0.16 0.014 60);
+    --border: oklch(0.34 0.022 64);
+    --border-strong: oklch(0.44 0.026 66);
+    --text: oklch(0.93 0.018 82);
+    --text-muted: oklch(0.74 0.022 76);
+    --text-subtle: oklch(0.62 0.024 72);
+
+    --accent: oklch(0.72 0.09 145);
+    --accent-text: oklch(0.19 0.02 62);
+    --accent-soft: oklch(0.3 0.045 145);
+
+    --danger: oklch(0.68 0.13 38);
+    --danger-soft: oklch(0.3 0.05 38);
+    --warning: oklch(0.76 0.11 80);
+    --warning-soft: oklch(0.31 0.05 80);
+    --success: oklch(0.71 0.1 148);
+    --success-soft: oklch(0.29 0.045 148);
+
+    --card-shadow: 0 2px 0 oklch(0.12 0.01 60 / 0.5), 0 10px 22px oklch(0.08 0.01 60 / 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+   The Classic look, dark.
+
+   Light Classic needs no rules: the :root tokens ARE it. Dark needs its own,
+   because Stitch only ever repainted light, so the default dark palette is
+   both Standard's and the old app's — Classic would be indistinguishable from
+   Standard after sunset. This is a slate evening rather than Standard's near
+   black: lighter cool-grey ground, a softer mint in place of the bright green,
+   and a sidebar sitting darker than the page instead of level with it.
+
+   Every text-on-ground pair clears WCAG AA (4.5:1; 3:1 for the subtle tier).
+   Same three states as Ledger, and for the same reason.
+   --------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root[data-look='classic']:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: oklch(0.27 0.02 250);
+    --surface-raised: oklch(0.31 0.022 250);
+    --surface-sunken: oklch(0.23 0.018 250);
+    --border: oklch(0.39 0.022 250);
+    --border-strong: oklch(0.48 0.025 250);
+    --text: oklch(0.96 0.005 250);
+    --text-muted: oklch(0.8 0.015 250);
+    --text-subtle: oklch(0.68 0.018 250);
+
+    --accent: oklch(0.78 0.11 170);
+    --accent-text: oklch(0.2 0.03 170);
+    --accent-soft: oklch(0.36 0.06 170);
+
+    --sidebar: oklch(0.2 0.02 250);
+    --sidebar-raised: oklch(0.26 0.022 250);
+    --sidebar-border: oklch(0.32 0.022 250);
+    --sidebar-text: oklch(0.96 0.005 250);
+    --sidebar-muted: oklch(0.76 0.015 250);
+    --sidebar-subtle: oklch(0.62 0.018 250);
+
+    --danger: oklch(0.74 0.15 25);
+    --danger-soft: oklch(0.34 0.06 25);
+    --warning: oklch(0.83 0.12 80);
+    --warning-soft: oklch(0.36 0.06 80);
+    --success: oklch(0.78 0.12 155);
+    --success-soft: oklch(0.34 0.05 155);
+  }
+}
+
+:root[data-look='classic'][data-theme='dark'] {
+  color-scheme: dark;
+    --surface: oklch(0.27 0.02 250);
+    --surface-raised: oklch(0.31 0.022 250);
+    --surface-sunken: oklch(0.23 0.018 250);
+    --border: oklch(0.39 0.022 250);
+    --border-strong: oklch(0.48 0.025 250);
+    --text: oklch(0.96 0.005 250);
+    --text-muted: oklch(0.8 0.015 250);
+    --text-subtle: oklch(0.68 0.018 250);
+
+    --accent: oklch(0.78 0.11 170);
+    --accent-text: oklch(0.2 0.03 170);
+    --accent-soft: oklch(0.36 0.06 170);
+
+    --sidebar: oklch(0.2 0.02 250);
+    --sidebar-raised: oklch(0.26 0.022 250);
+    --sidebar-border: oklch(0.32 0.022 250);
+    --sidebar-text: oklch(0.96 0.005 250);
+    --sidebar-muted: oklch(0.76 0.015 250);
+    --sidebar-subtle: oklch(0.62 0.018 250);
+
+    --danger: oklch(0.74 0.15 25);
+    --danger-soft: oklch(0.34 0.06 25);
+    --warning: oklch(0.83 0.12 80);
+    --warning-soft: oklch(0.36 0.06 80);
+    --success: oklch(0.78 0.12 155);
+    --success-soft: oklch(0.34 0.05 155);
+}
+
+/* ---------------------------------------------------------------------------
+   Showing the right half of the theme switch.
+
+   The switch has two buttons — "go dark" and "go light" — and CSS decides which
+   is visible. That is what lets a real toggle work while "match my device"
+   exists: under that setting the server cannot know which scheme the device is
+   actually showing, but the browser can, so the choice is made in the one place
+   that has the answer.
+   --------------------------------------------------------------------------- */
+
+.theme-when-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-when-light {
+    display: none;
+  }
+  :root:not([data-theme='light']) .theme-when-dark {
+    display: inline-flex;
+  }
+}
+
+:root[data-theme='dark'] .theme-when-light {
+  display: none;
+}
+:root[data-theme='dark'] .theme-when-dark {
+  display: inline-flex;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-raised: var(--sidebar-raised);
+  --color-sidebar-line: var(--sidebar-border);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-subtle: var(--sidebar-subtle);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-content: var(--text);
+  --color-content-muted: var(--text-muted);
+  --color-content-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+}
+
+/* In the base layer: unlayered, it beat every border colour utility, so an invalid field never turned red. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+}
+
+html {
+  /* Stop layout shifting sideways when a long report adds a scrollbar. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  background-color: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+  Money and quantities are tabular figures everywhere. Columns of amounts that
+  do not line up are genuinely harder to check, and checking is the point.
+*/
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Visible keyboard focus. Staff use this on a till with a keyboard. */
+:focus-visible:not(input):not(select):not(textarea),
+input[type='checkbox']:focus-visible,
+input[type='radio']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+input:not([type='checkbox']):not([type='radio']):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.date-input-frame:has(input:focus-visible) {
+  border-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Motion.
+   
+   Deliberately small. This is a till: someone is standing at a counter with a
+   queue, and motion that delays a tap is worse than no motion at all. Every
+   animation here is an ENTRANCE — nothing loops, nothing moves on a timer, and
+   nothing animates a figure changing. A number sliding into place reads as the
+   value still being uncertain, which is the last impression a set of books
+   should give.
+   
+   Durations are short enough to feel like the page settling rather than a
+   performance: 160ms for content, 120ms for feedback.
+   --------------------------------------------------------------------------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The content area settling after a navigation. */
+.motion-page {
+  animation: rise 160ms ease-out both;
+}
+
+/* Something that has just appeared in response to an action, such as an alert
+   confirming a save or explaining a refusal. */
+.motion-appear {
+  animation: rise 160ms ease-out both;
+}
+
+/* A menu section opening. Slightly quicker than a page: the content is
+   already on screen conceptually, it is only being uncovered. */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.motion-reveal {
+  animation: reveal 140ms ease-out both;
+}
+
+.motion-fade {
+  animation: fade 120ms ease-out both;
+}
+
+/* Respect a user's reduced-motion preference; we use little motion anyway. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Duration alone still lets the element jump from its offset start. These
+     land the content where it belongs with no movement at all. */
+  .motion-page,
+  .motion-appear,
+  .motion-fade,
+  .motion-reveal {
+    animation: none !important;
+  }
+}
+
+/*
+  The paper.
+
+  `margin: 0` is doing something specific and is not a mistake. Chrome draws its
+  own furniture — the page URL, the document title, the date, "1/2" — into the
+  page MARGIN. Leave a margin and every invoice a shop hands a customer carries
+  "localhost:5177/sales/14/invoice" across the top. There is no CSS that removes
+  that text; taking the margin away removes the space it lives in, which is the
+  only reliable way to be rid of it.
+
+  The real margin then has to come from somewhere else, and that is the padding
+  on `body` below. It is not merely cosmetic: printers cannot mark the outer few
+  millimetres of a sheet, so content laid flush to a zero margin comes out
+  clipped on the edges.
+
+  A4 because every document here except the receipt is a business paper: an
+  invoice, a statement, a trial balance, the year-end pack an accountant reads.
+*/
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  /* A receipt must render in its final state, not mid-entrance. */
+  .motion-page,
+  .motion-appear,
+  .motion-fade,
+  .motion-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /*
+    Flatten the shell.
+
+    On screen the layout reserves a full viewport height and leaves 6rem clear
+    at the bottom for the mobile bar that floats over it. On paper both are dead
+    space, and together they are enough to push a second sheet out of the
+    printer carrying nothing at all — which is exactly what a receipt did before
+    this rule existed. The chrome itself is hidden by `no-print` above; this is
+    the space it used to occupy.
+  */
+  .app-shell {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  .app-main {
+    padding: 0 !important;
+  }
+
+  /*
+    Plain paper, not a photograph of a screen.
+
+    On screen a document sits as a card on a tinted ground: a border, rounded
+    corners, a shadow, and a width chosen to stay readable on a wide monitor. On
+    paper the SHEET is the card. The border then prints as a box drawn around
+    the document, the corners round off a page that has square ones, and the
+    width leaves half the sheet empty. All three are furniture for a screen and
+    none of it belongs on something a customer or an accountant keeps.
+
+    `!important` is doing real work here: Card sets its radius and shadow as
+    inline styles, which nothing but this overrides.
+  */
+  .app-main > .motion-page > * {
+    max-width: none !important;
+    margin-inline: 0 !important;
+  }
+
+  article,
+  .app-main section {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /*
+    The outermost card gives up its inset too, because the page margin already
+    provides one. Cards NESTED inside a report keep theirs, so its sections do
+    not run into one another on the page.
+  */
+  .app-main > .motion-page > * > article,
+  .app-main > .motion-page > * > section {
+    padding: 0 !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+    /* The margin @page gave up. See the note above. */
+    padding: 14mm;
+  }
+
+  /*
+    Tables are the whole point of most of these documents, and a table that
+    breaks badly is what makes a printout look untrustworthy.
+
+    A row split down the middle of a figure is the worst of it: half an amount
+    on one sheet and half on the next is not a rounding error a reader can spot,
+    it is a number they will read wrongly. `table-header-group` repeats the
+    column headings on every sheet, so page four of a general ledger still says
+    which column is debit and which is credit.
+  */
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr,
+  img {
+    break-inside: avoid;
+  }
+
+  /* A heading alone at the foot of a sheet, with its section overleaf. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  /* A single line stranded from its paragraph reads as a printing fault. */
+  p,
+  li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /*
+    Print in ink, not in screen greys. The tokens are tuned for a lit screen and
+    several of them come out as barely-there grey on paper, which matters most
+    on exactly the small print a reader is squinting at anyway.
+  */
+  .text-content-muted,
+  .text-content-subtle {
+    color: #333 !important;
+  }
+}
+
+
+/* Stitch's compact financial interface, scoped to authenticated screens. */
+.app-shell {
+  font-family: 'Nuna Inter', ui-sans-serif, system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--text);
+}
+/* The three palette rules below are Stitch's colours, so they belong to the
+   Standard look alone — the one look that sets no `data-look`. Every other look
+   paints its own tokens on `:root`, and these would cover them inside the shell:
+   Ledger in light came out Stitch blue-grey until they were scoped. Classic
+   needs no rules at all, since the `:root` tokens up top ARE the green-on-cool-
+   grey the app wore before Stitch. Layout and type stay shared by every look. */
+:root:not([data-look]) .stitch-sidebar {
+  --sidebar: #141d23;
+  --sidebar-raised: rgb(219 228 237 / 15%);
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #bdcac0;
+  --sidebar-subtle: rgb(189 202 192 / 70%);
+  --sidebar-border: rgb(189 202 192 / 20%);
+}
+:root[data-theme='light']:not([data-look]) .app-shell {
+  --attention-negative-bg: rgb(255 218 214 / 20%);
+  --attention-negative-border: #ffdad6;
+  --attention-negative-text: #ba1a1a;
+  --attention-icon: #4b6157;
+  --surface: #f6faff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ecf5fe;
+  --border: #dbe4ed;
+  --text: #141d23;
+  --text-muted: #5a5f64;
+  --accent: #006947;
+  --accent-text: #ffffff;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']):not([data-look]) .app-shell {
+    --attention-negative-bg: rgb(255 218 214 / 20%);
+    --attention-negative-border: #ffdad6;
+    --attention-negative-text: #ba1a1a;
+    --attention-icon: #4b6157;
+    --surface: #f6faff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #ecf5fe;
+    --border: #dbe4ed;
+    --text: #141d23;
+    --text-muted: #5a5f64;
+    --accent: #006947;
+    --accent-text: #ffffff;
+  }
+}
+.stitch-dashboard { font-size: 13px; line-height: 18px; }
+.stitch-dashboard .text-sm { font-size: 13px; line-height: 18px; }
+.stitch-dashboard .text-xs { font-size: 11px; line-height: 14px; }
+.stitch-dashboard h3 { font-size: 12px; line-height: 16px; }
+.stitch-dashboard .needs-attention a {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+.stitch-dashboard .needs-attention .attention-note {
+  font-size: 14px;
+  line-height: 20px;
+}
+.stitch-dashboard .needs-attention .attention-heading-icon {
+  color: var(--attention-icon, var(--text-muted));
+  font-size: 18px;
+}
+.stitch-dashboard .needs-attention .negative-account-alert {
+  background: var(--attention-negative-bg, var(--danger-soft));
+  border-color: var(--attention-negative-border, var(--danger));
+}
+.stitch-dashboard .needs-attention .negative-account-alert a {
+  color: var(--attention-negative-text, var(--danger));
+}
+.stitch-dashboard [aria-labelledby='trends-heading'] h3 { font-size: 16px; line-height: 24px; }
+.stitch-sidebar .stitch-symbol { font-size: 18px; }
+.stitch-sidebar,
+.stitch-sidebar * {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+.stitch-sidebar::-webkit-scrollbar,
+.stitch-sidebar *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.stitch-sidebar::-webkit-scrollbar-track,
+.stitch-sidebar *::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.stitch-sidebar::-webkit-scrollbar-thumb,
+.stitch-sidebar *::-webkit-scrollbar-thumb,
+.stitch-sidebar::-webkit-scrollbar-thumb:hover,
+.stitch-sidebar *::-webkit-scrollbar-thumb:hover,
+.stitch-sidebar::-webkit-scrollbar-thumb:active,
+.stitch-sidebar *::-webkit-scrollbar-thumb:active {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.stitch-sidebar::-webkit-scrollbar-button,
+.stitch-sidebar *::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+@supports selector(::-webkit-scrollbar) {
+  .stitch-sidebar,
+  .stitch-sidebar * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}
+.stitch-dashboard a .stitch-symbol { font-size: 16px; }
+.stitch-dashboard .tabular.text-2xl {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+
+/* Alpine: hidden until it has started, so a closed panel never flashes open. */
+[x-cloak] {
+  display: none !important;
 }

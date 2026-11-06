@@ -12,11 +12,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Wired onto routes in Phase 9: ['auth', 'session.limits', 'permission:sales,create'].
+        // routes/web.php: ['auth', 'session.limits', 'password.chosen'] on the app group, 'permission:sales,create' per route.
         $middleware->alias([
             'permission' => App\Http\Middleware\RequirePermission::class,
             'session.limits' => App\Http\Middleware\EnforceSessionLimits::class,
+            'password.chosen' => App\Http\Middleware\EnsurePasswordChosen::class,
         ]);
+        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectUsersTo('/dashboard');
+        // Light or dark is read on the server before the first paint; it is not a secret.
+        $middleware->encryptCookies(except: ['bk_theme']);
+        // A password is what was typed, spaces included, as the old forms took it.
+        $middleware->trimStrings(except: ['password', 'currentPassword', 'newPassword', 'confirmPassword']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

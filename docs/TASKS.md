@@ -97,7 +97,7 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] The demo users (`owner`, `ama`) sign in, PIN included (AuthTest)
 - [x] Validate the client address taken from proxy headers before it reaches `rate_limits.key` / `audit_logs.ip_address` (the old app took it unchecked)
 - [x] `LegacyScrypt`: RFC 7914 vectors, the old app's own hashes in `tests/Fixtures/old-demo.db`, and hashes made by running the old `hashPassword`/`hashPin` under Node (`tests/Fixtures/legacy-scrypt.json`, NFKC case included); rehash on first sign-in, password and PIN. Measured on the dev PC: 6.2 s plain PHP, 0.87 s with the opcache JIT; still to measure on the shop PC
-- [ ] Route guard test (replaces `page-guards`, `action-guards`): waits for the routes (Phase 9); `SessionLimitsTest` already proves the middleware on test routes
+- [x] Route guard test (replaces `page-guards`, `action-guards`): `tests/Feature/RouteGuardTest.php` over the real route list (Phase 9a)
 - [ ] Settings screen, logo upload (port `tests/lib/image`), looks and light/dark (port `look`, `theme`, `motion`)
 - [x] Port `search`, `notifications` (the notices; its write-off and per-product window cases are inventory and catalog behaviour, ported in Phase 3), `backup-status`, `update`, `preflight-money`
 - [ ] Help pages from `resources/docs` (port `tests/lib/help`, `markdown`); carry over `docs/how-to`, `reference`, `explanation`, `tutorials`

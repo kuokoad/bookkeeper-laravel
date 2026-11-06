@@ -292,3 +292,63 @@ can land a hair either side of a tie. Example: a loss of 1.00 on sales of
 20,000.00 is exactly −0.5 bp: the old app shows a margin of 0 bp (0.00%),
 half away from zero gives −1 bp (−0.01%). The effect is at most 1 bp.
 Proposed: integer `Money::divRoundHalf(profit × 10,000, revenue)`.
+
+**D12. A sign-in for an account still on its old-app password answers more
+slowly.** Old `services/auth.service.ts` spent one scrypt on every attempt,
+real or not, so timing never told a guesser which usernames exist. Here an
+unknown username, or one already on a Laravel hash, costs one argon2id check
+(about 50 ms); an account whose old scrypt hash has not yet been replaced
+costs a plain-PHP scrypt (about 6 s, under 1 s with the opcache JIT the
+installer turns on). Until everyone has signed in once after the switch, the
+delay says "this username exists and has not signed in since the cut-over".
+Burning a full scrypt for every unknown username would close that, but would
+let anyone keep the till PC busy for seconds per guess. Kept as is (the gap
+closes as people sign in); say if you would rather pay the scrypt.
+
+**D13. Changing your own password signs you out too.** Old
+`user.service.ts` `changeOwnPassword` says "every OTHER session is ended;
+this one keeps working", but the code deletes every session of that person,
+the current one included (and the old test asserts zero sessions). Ported as
+the code behaves. Proposed: Phase 9's password page calls
+`Sessions::begin()` again after a successful change, so the person stays
+signed in on that screen only, as the comment intended.
+
+**D14. Taking over another account through its PIN or password. DONE (for
+security, without waiting).** Old `user.service.ts:312` (`resetUserPassword`)
+and `:397` (`setUserPin`) let anyone with `users` edit set any account's
+credential, an owner's included, though `role-guard.ts` says its two rules
+"close every route". Setting a credential is signing in as that person, so a
+staff member trusted with the team could become the owner. Now an owner's PIN
+or password needs an owner, and anyone else's needs the actor to hold every
+right the target holds (`UserService::assertMayTakeOver`, tested in
+`PrivilegeTest`). Role changes already needed an owner; switching someone off
+grants the actor nothing, so it is unchanged.
+
+**D15. Without a trusted proxy, every sign-in shares one throttle bucket.**
+With `NUNA_TRUST_PROXY_HEADERS=false` (the default, and right for the shop)
+every attempt counts against one key, so 10 wrong guesses in 10 minutes from
+anyone block every till, and one success clears the bucket for the guesser
+too. Proposed: throttle per username plus a looser shared ceiling (say 50 per
+10 minutes), and do not clear the shared count on a success.
+
+**D16. Anyone can lock the owner out for 15 minutes.** Five wrong passwords
+for the owner's username lock that account, from any till, and again as soon
+as the lock ends. Proposed: keep the lock for staff; for an owner, slow down
+instead (a growing delay per failure) and show the failed attempts on the
+owner's next sign-in.
+
+**D17. Owner accounts can sign in with a till PIN.** A 4 to 6 digit PIN is
+the weakest credential in the shop, and on an owner account it opens
+everything. Proposed: refuse PIN sign-in for owners, who keep their password.
+
+**D18. A restore drops the live database before loading the file.** If the
+load fails part way (disk full, MySQL stops), the database is empty or
+partial until the owner restores the `...-before-restore` file; the error
+names it. Renaming aside is impossible (MySQL cannot move a table with
+triggers to another schema). Proposed: keep it, and have the Phase 9 restore
+screen offer the safety file in one click when a restore fails.
+
+**D19. Till PINs are now rehashed on sign-in (new behaviour).** The old app
+never replaced a PIN hash; here an old scrypt PIN becomes argon2id on its
+first successful PIN sign-in, as passwords do (PLAN 6.3). Nothing changes for
+the person. Proposed: keep it.

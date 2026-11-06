@@ -12,7 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Wired onto routes in Phase 9: ['auth', 'session.limits', 'permission:sales,create'].
+        $middleware->alias([
+            'permission' => App\Http\Middleware\RequirePermission::class,
+            'session.limits' => App\Http\Middleware\EnforceSessionLimits::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

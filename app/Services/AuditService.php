@@ -31,10 +31,12 @@ final class AuditService
         ?Carbon $at = null,
         ?string $ipAddress = null,
         ?string $userAgent = null,
+        ?string $username = null,
     ): void {
         DB::table('audit_logs')->insert([
             'user_id' => $actor?->id,
-            'username' => $actor?->username,
+            // A failed sign-in has no actor, only the name that was typed (cut to the column).
+            'username' => $actor?->username ?? ($username === null ? null : mb_substr($username, 0, 40)),
             'action' => $action->value,
             'entity_type' => $entityType,
             'entity_id' => $entityId === null ? null : (string) $entityId,

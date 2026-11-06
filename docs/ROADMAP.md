@@ -49,8 +49,9 @@ Every phase follows the same loop: port the old tests → write the code → com
 
 **Exit criteria:** report and invariant tests green; reconcile passes on the P&L, balance sheet and tax payable for every year.
 
-## Phase 8: Users, settings and shell ⬜ (FR-14 to FR-16)
-- Users, permissions, PINs, legacy hash upgrade, settings, logo, search, notifications, help, backup and restore, installer, update
+## Phase 8: Users, settings and shell 🟡 (FR-14 to FR-16)
+- ✅ Users, permissions, PINs, legacy hash upgrade, sign-in limits, search, notifications, backup and restore, preflight, installer, update (services, gates, middleware, commands, scripts)
+- ⬜ Settings screen, logo upload, looks, help pages: screens, with Phase 9
 
 ## Phase 9: Proof and cut-over ⬜
 - Reconcile shows zero differences on a copy of real data

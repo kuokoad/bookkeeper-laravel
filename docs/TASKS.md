@@ -92,16 +92,18 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] `nuna:benchmark` (port of `scripts/benchmark.ts`) on its own throwaway database; run at a year of trading (292k lines). It found the trial balance, balance sheet, general ledger and integrity check at 1–2.5 s; fixed with a covering `idx_journal_lines_account`, an all-time-less-outside sum for wide windows, a one-account general-ledger header and a hashed integrity scan; slowest report now 0.6 s (integrity check)
 
 ## Phase 8: Users, settings and shell
-- [ ] Port `auth`, `privilege`, `users`, `tests/lib/password`, `rate-limit`, `http-throttle`
-- [ ] The demo users (`owner`, `ama`, seeded in Phase 6 with Laravel `Hash::make` hashes) sign in
-- [ ] Validate the client address taken from proxy headers before it reaches `rate_limits.key` / `audit_logs.ip_address` (the old app took it unchecked)
-- [ ] `LegacyScrypt`: RFC 7914 vectors + old-app hashes; rehash on first sign-in; measure time on the shop PC
-- [ ] Route guard test (replaces `page-guards`, `action-guards`)
+- [x] `AuthService` (password and PIN sign-in, lockout, first-run, createUser, changePassword), `UserService` (list, edit, roles, switch off and on, permissions, reset, own password, PIN, unlock; never delete), `App\Auth\{Passwords, LegacyScrypt, Principal, Permissions, RoleGuard, Sessions, ClientAddress}`, `App\Support\{RateLimit, HttpThrottle}`; Gate abilities `module.action`; middleware `permission:module,action` and `session.limits` (wired to routes in Phase 9); argon2id for new hashes
+- [x] Port `auth`, `privilege`, `users`, `tests/lib/password`, `rate-limit`, `http-throttle` (the throttle's "routes use it" structural cases wait for the routes)
+- [x] The demo users (`owner`, `ama`) sign in, PIN included (AuthTest)
+- [x] Validate the client address taken from proxy headers before it reaches `rate_limits.key` / `audit_logs.ip_address` (the old app took it unchecked)
+- [x] `LegacyScrypt`: RFC 7914 vectors, the old app's own hashes in `tests/Fixtures/old-demo.db`, and hashes made by running the old `hashPassword`/`hashPin` under Node (`tests/Fixtures/legacy-scrypt.json`, NFKC case included); rehash on first sign-in, password and PIN. Measured on the dev PC: 6.2 s plain PHP, 0.87 s with the opcache JIT; still to measure on the shop PC
+- [ ] Route guard test (replaces `page-guards`, `action-guards`): waits for the routes (Phase 9); `SessionLimitsTest` already proves the middleware on test routes
 - [ ] Settings screen, logo upload (port `tests/lib/image`), looks and light/dark (port `look`, `theme`, `motion`)
-- [ ] Port `search`, `notifications`, `backup-status`, `update`, `preflight-money`
+- [x] Port `search`, `notifications` (the notices; its write-off and per-product window cases are inventory and catalog behaviour, ported in Phase 3), `backup-status`, `update`, `preflight-money`
 - [ ] Help pages from `resources/docs` (port `tests/lib/help`, `markdown`); carry over `docs/how-to`, `reference`, `explanation`, `tutorials`
-- [ ] `nuna:backup` / `nuna:restore` / `nuna:preflight`; rewrite `how-to/back-up-and-restore.md` (port `tests/db/backup`, `restore`, `preflight`)
-- [ ] Windows installer and update scripts (PLAN Q1)
+- [x] `nuna:backup` / `nuna:restore` / `nuna:preflight` (port `tests/db/backup`, `restore`, `preflight`: `tests/Processes/BackupRestoreTest`, `tests/Services/PreflightTest`)
+- [ ] Rewrite `how-to/back-up-and-restore.md`: waits for the Help pages
+- [x] Windows installer and update scripts (PLAN Q1): `scripts/install.ps1`, `scripts/update.ps1`; ASCII and parse-checked (`tests/Feature/PowerShellScriptsTest`), not yet run on a shop PC
 
 ## Phase 9: Proof and cut-over
 - [ ] `nuna:reconcile` reports zero differences on a copy of the real shop data

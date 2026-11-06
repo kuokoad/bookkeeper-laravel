@@ -2,7 +2,7 @@
 
 Bookkeeping, inventory and point of sale for a small Ghanaian retail shop. It runs on the shop's own PC, with no internet needed to make a sale. This is a rebuild of the working Next.js + SQLite app in `C:\ClaudeProjects\bookkeeper` (the specification) in Laravel + MySQL 8.
 
-> **Status: Phases 0 to 4 done** (schema, seed, domain layer, ledger core, importer and reconcile, catalog and inventory, sales). No screens yet. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
+> **Status: Phases 0 to 7 done, and Phase 8 apart from its screens** (schema, seed, domain layer, ledger core, importer and reconcile, catalog and inventory, sales, purchases, cashbook, reports and year-end; users and sign-in, search, notifications, backup and restore, preflight, installer and updater). No screens yet: settings, logo, help and the rest come with Phase 9. [PLAN.md](PLAN.md) is approved; progress is in [docs/TASKS.md](docs/TASKS.md).
 
 ## Features
 Carried over unchanged from the old app:
@@ -50,19 +50,47 @@ Creating the schema's triggers needs a MySQL user with the `TRIGGER` privilege (
 | Variable | Purpose |
 |---|---|
 | `DB_*` | MySQL connection (app user) |
-| `DB_BACKUP_*` | MySQL user for `mysqldump` |
+| `NUNA_BACKUP_DB_USERNAME`, `NUNA_BACKUP_DB_PASSWORD` | Optional dump-only MySQL user for `mysqldump` (the installer creates one) |
+| `NUNA_BACKUP_DIR`, `NUNA_BACKUP_KEEP` | Where `nuna:backup` writes, and how many verified copies it keeps (default `storage/backups`, 14) |
+| `NUNA_MYSQL_BIN` | Folder with `mysqldump.exe` and `mysql.exe` (default: the newest `C:\laragon\bin\mysql\*\bin`, else the PATH) |
+| `NUNA_APACHE_SERVICE` | The Apache Windows service; `nuna:restore` refuses while it runs (default `NunaBooksApache`) |
+| `HASH_DRIVER` | `argon2id` (the default here): new password and PIN hashes |
+| `SESSION_LIFETIME` | Idle minutes before a session ends (10080, a week, as the old app) |
 | `SEED_DEMO_DATA` | Seed demo shop data (refused in production) |
 | `SESSION_SECURE_COOKIE` | `true` only behind HTTPS |
-| `TRUST_PROXY_HEADERS` | Per-IP login throttle behind a proxy |
+| `NUNA_TRUST_PROXY_HEADERS` | Per-IP login throttle and audit address from `X-Forwarded-For`, only behind a proxy that overwrites it |
 
 ### Run
 No screens yet.
 
 ### Test
 ```bash
-php artisan test
+vendor/bin/pest --parallel --exclude-testsuite=Processes
+vendor/bin/pest --testsuite=Processes   # on its own: real processes and their own databases
 vendor/bin/pint --test
 ```
+
+The Processes suite creates `nunabooks_concurrency`, `nunabooks_import`, `nunabooks_backup_source` and `nunabooks_backup_target` itself.
+
+### Back up and restore
+```bash
+php artisan nuna:backup [--keep=14] [--dir=E:\backups]
+php artisan nuna:restore storage/backups/nunabooks-2026-11-06T18-00-00.sql.gz --force
+php artisan nuna:preflight
+```
+
+`nuna:backup` runs `mysqldump --single-transaction --quick --triggers --hex-blob` (a consistent copy while the shop trades) and gzips it. The copy counts only after it has been loaded into a scratch database (`<db>_scratch_<random>`, dropped afterwards) and found sound: every entry and the trial balance balance, receivables and payables equal their control accounts, every product's stock replays to its cached figures and the stock ledger equals GL 1200, every unit belongs to a batch, an owner can sign in; and its triggers, the row counts of the tables nothing deletes from (audit log, journal entries and lines) and the per-account totals match the live books. Other tables lose rows while the shop trades, so their counts are not compared. A mismatch is retried once with a fresh dump. A copy that fails is deleted and the command exits non-zero. Old copies are trimmed only after a verified one exists, and each backup writes the audit row the dashboard's backup notice reads.
+
+`nuna:restore` refuses without `--force` and while the Apache service runs. It checks the file in a scratch database first (a bad file changes nothing), dumps the books it is about to replace to `...-before-restore.sql.gz` (not checked against themselves: they may be the broken thing being replaced), then empties the database, loads the file and checks it again, triggers included. Restoring into an empty database (a new PC) skips the safety copy.
+
+`nuna:preflight` is the old `npm run preflight`: configuration, migrations, broken references, the books, the stock replay, batches, demo data and accounts, an owner, mysqldump, the last backup; it warns when the binary log would refuse `CREATE TRIGGER` and when an interrupted backup left a `*_scratch_*` database behind. It exits non-zero on any failure.
+
+### Shop install and update (Windows)
+`scripts/install.ps1` (PowerShell as Administrator, from the cloned app folder) sets up PLAN Q1: PHP's extensions plus opcache with the JIT in `php.ini`; MySQL as the `NunaBooksMySQL` service on `127.0.0.1` with its own `my.ini` and a random root password, shown once on screen for the owner to write down and saved nowhere (it warns if an existing MySQL has the binary log on and `log_bin_trust_function_creators` off); the database, an app user (with rights on `<db>_scratch_%` for backup checks) and a dump-only backup user, written to `.env` with `APP_ENV=production`; `composer install --no-dev`, the app key, a `nuna:backup` if the database already exists, `migrate --force` and the config, route and view caches; Apache with mod_fcgid as the `NunaBooksApache` service; the firewall rule (`-Firewall`, private networks only), the hosts entry and a desktop shortcut; and the `NunaBooksUpdate` scheduled task. It ends with `nuna:preflight`. Paths to PHP, MySQL and Apache are parameters (Laragon's by default); it downloads nothing.
+
+`scripts/update.ps1` is what "Update now" runs, through that scheduled task (a child of Apache would die when the update stops it): stop Apache (so no sale lands after the backup), a verified `nuna:backup` (it starts Apache again and stops there if that fails), `git pull --ff-only`, `composer install --no-dev`, `migrate --force`, the caches, start Apache and check `/up`. A failure before the migration puts the code back to the commit it started from; any failure once the migration has begun puts the code back AND restores the backup, since the books may be half migrated. Native commands are judged by their exit code, so a warning on stderr does not stop it under PowerShell 5.1. The outcome goes to `storage/app/update-status.json` for the Health page, the output to `storage/logs/update.log`.
+
+Neither script has been run on a shop PC yet; both are checked for plain ASCII and parsed by Windows PowerShell 5.1 in the test suite.
 
 ### Prove it matches the old app
 Into a freshly migrated, unseeded database:
@@ -138,6 +166,25 @@ Every behaviour difference is listed here with its reason.
 | Books integrity check, unbalanced entries | Every entry LEFT JOINed to its lines | Lines grouped by entry in one hashed scan, then joined to the few that differ | Same result (an entry with no lines balances at 0 = 0 either way); 2.5 s became 0.6 s at a year of trading. |
 | General ledger's account header | Built the whole chart of accounts to find one account | That account's own subtree | Same balance, roll-up and depth; about 1.1 s became 80 ms. |
 | `nuna:benchmark` | `npm run benchmark` on a temp SQLite file, raw queries and their plans | Its own MySQL database (`nunabooks_bench*`, dropped afterwards), the old raw queries plus every report service as the app calls it; no query plans | The figure that matters is what a screen waits for. |
+| New password and PIN hashes | `scrypt$32768$8$1$...` (Node `crypto.scrypt`) | Laravel's `Hash` with argon2id, from the same NFKC-normalised password | Laravel's hasher, as the brief asks; argon2id rather than bcrypt, which reads only the first 72 bytes of a password the old app let run to 200 characters. |
+| Old-app hashes | Verified with scrypt; rehashed only when its parameters were weaker | Verified by `App\Auth\LegacyScrypt` (RFC 7914 in plain PHP, the old bounds and refusals plus N x r x p no more than the old app's own 2^15 x 8 x 1, NFKC, timing-safe compare) and replaced with an argon2id hash on that person's first successful sign-in, inside the sign-in write, one person at a time; a till PIN likewise on its first PIN sign-in | PLAN 6.3. Never a bulk rewrite. The old app never rehashed a PIN (PLAN D19). A tampered row with each bound in range but N=2^20, r=32, p=16 would have tied up the till for minutes; the combined cap refuses it at once. |
+| The first sign-in after the switch | Nothing else happens | That person's OTHER sessions end, once | The rehash changes the stored hash, and every session carries a fingerprint of it (see "Ending a person's sessions"). Sessions from before the switch are not imported (PLAN Q7), so this only ends a session on another till they signed into since. |
+| First sign-in with an old-app password | About as fast as any other | About 6 s in plain PHP, under 1 s with the opcache JIT (the installer turns it on) | PHP has no scrypt that takes N, r and p. Paid once per person. See PLAN D12 for what it means for timing. |
+| A legacy hash with an N that is not a power of two | Node threw: the sign-in failed with an error | Refused like any malformed hash (the password simply does not match) | No real hash has one; an error page is not an answer. |
+| A sign-in whose checked hash was replaced meanwhile (an owner reset it, or it was switched off, while the password was being checked) | Signed in on the old password | Refused as a wrong password | The check and the write are separate (a scrypt check must not hold a row lock); the write re-reads the locked row and refuses if what was checked is no longer the credential. `changeOwnPassword` likewise refuses if the password changed under it. |
+| Sessions | Hashed tokens; the expiry slid a week forward only when less than a day was left (so idle sessions ended after 6 to 7 days); a 30-day ceiling from sign-in | Laravel's database sessions: idle exactly a week (`SESSION_LIFETIME`), the same 30-day ceiling (`EnforceSessionLimits`) | PLAN Q7. |
+| Ending a person's sessions (password change or reset, role or permission change, switched off) | Their session rows deleted | Their rows deleted, and every request also compares a fingerprint of the password hash, role and permissions taken at sign-in | Laravel saves a session back at the end of a request, so a request already in flight would otherwise bring a deleted session back. A PIN change, as before, ends nothing. |
+| Sign-in throttle and lockout | 10 attempts per 10 minutes per client (one shared bucket without a trusted proxy); 5 failures lock the account for 15 minutes; serving the lock gives the attempts back | The same numbers and rules (`AuthService` constants, `RateLimit` on the `rate_limits` table) | Unchanged. The throttle is applied by the Phase 9 sign-in controller, before `AuthService::login`. |
+| Client address from proxy headers | Taken as sent | Must parse as an IP address, else unknown | So a forged header cannot write arbitrary text into `rate_limits.key` or the audit log. |
+| Setting another person's PIN or resetting their password | Allowed to anyone with `users` edit, an owner's included (old `user.service.ts:312`, `:397`), though `role-guard.ts` says its two rules "close every route" | An owner's needs an owner; anyone else's needs the actor to hold every right the target holds (`RoleGuard`) | Setting a credential is signing in as that person: a staff member with `users` edit could take over the owner. PLAN D14. |
+| Switched-off account | Refused by the session check | Also refused by every Gate ability (`Principal::load` returns null) | Holds even where no middleware stands guard. |
+| Audit row of a sign-in for an unknown username | The typed name in `username`, any length | Cut to the column's 40 characters; the summary keeps it whole | `audit_logs.username` is `VARCHAR(40)` here. |
+| Global search | SQLite `LIKE ... ESCAPE '\'` (case folding of ASCII only); rows in whatever order SQLite returned on ties | `LOWER(col) LIKE LOWER(?)` with escaped wildcards, every Unicode letter folded; ties broken by id | The collation is binary, so LIKE alone would be case-sensitive. |
+| Backups | A consistent copy of the SQLite file, checked for integrity, foreign keys and a balanced trial balance; kept in `./backups` | `mysqldump` gzipped, checked by loading it into a scratch database: the balance checks plus stock replay, stock ledger = GL 1200, AR and AP = their control accounts, batch coverage, an active owner, and triggers, insert-only row counts and per-account totals against the live books; kept in `storage/backups` | PLAN 6.2. A shop that has not yet created its owner cannot take a verified backup. |
+| Restore | Refused with `NODE_ENV=production` unless `ALLOW_PRODUCTION_RESTORE=true`; the replaced file copied aside as `.replaced-<time>` | Refused while the Apache service runs; the replaced books kept as `...-before-restore.sql.gz`, a plain dump that is not checked, so broken books can still be replaced; the restored triggers are compared with the file's | PLAN 6.2 asked to rename the database aside, but MySQL cannot move a table with triggers to another schema; a verified dump keeps the same undo. |
+| Preflight | `Database is not corrupt` (SQLite `integrity_check`), `Session secret is real`, migrations counted in `__drizzle_migrations` | No corruption check (InnoDB checksums its own pages; `CHECK TABLE` would commit mid-test); `App key is real`; pending migration files against those run; new: `Backups can be taken` (mysqldump found), `A backup has been taken`, `Migrations can create triggers` and `No scratch databases left over` (both warnings) | Same questions for this install. |
+| "Update now" | `update.ps1` started as a child of the Node server; `npm ci`, a build; migrations ran at startup | The `NunaBooksUpdate` scheduled task runs `update.ps1`; `composer install --no-dev` and `migrate --force` (no build: assets ship built); stops Apache before the backup; rolls back the code if the update fails before migrating, and the code and the backup once a migration has begun | PLAN 6.1. Apache, unlike Node, is a service the script stops. |
+| The demo users' passwords | Laravel `Hash::make` (bcrypt) since Phase 6 | argon2id, the driver now configured | They sign in with the published credentials (tested). |
 | A query-string key given twice (`?from=2026-01-01&from=2026-02-01`) on a list or report page or its CSV | `searchParams.get` took the first value | PHP keeps the last value before any code runs | Not reachable from the app's own links and forms, which send each key once. An explicit array (`from[]=`) still takes its first element. |
 
 ## Documentation

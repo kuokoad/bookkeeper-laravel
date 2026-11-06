@@ -1,0 +1,30 @@
+[
+  {
+    "kind": "password",
+    "secret": "kwame-shop-2026",
+    "hash": "scrypt$32768$8$1$yt-ioPjpbhlIA0NVyX013Q$06XjfWrs5pPaj76ABadp9sKo91qsNCg9755I8dq6rpD_6hBiIUT51ctZjD1YXqiz_JrRwBbFeDHvLIZMZvBRfA",
+    "aliasVerifies": null,
+    "alias": null
+  },
+  {
+    "kind": "password",
+    "secret": "Adwoa-Ɔsɛe-2026",
+    "hash": "scrypt$32768$8$1$a8rsK0v0bXZV3wBS5wx1eA$GqELKwDcaZgYVWv-aY3mA6Jm5NnFZoi9WmxubZmX9UANexm8-4LfQR2Ifp3M-n8P2Udngi31giLtva8e4ZokDA",
+    "aliasVerifies": null,
+    "alias": null
+  },
+  {
+    "kind": "password",
+    "secret": "ofﬁce-２026-café",
+    "hash": "scrypt$32768$8$1$VovwqHFpWssW4R6eMgtbHQ$cxKyiKw_it9UPDM1e_q2MgCOm2_GY2QTMXu1xd0snW_sTbHaHXmW8z22NuDRPr3eGVbiH7SxWnXDmPFsVgO1zw",
+    "aliasVerifies": true,
+    "alias": "office-2026-café"
+  },
+  {
+    "kind": "pin",
+    "secret": "8351",
+    "hash": "scrypt$32768$8$1$4p4dssamfwlNBmHceZdhWg$5Rzbx_4iEYyaFHZd8DP77St6pPOEjERvLc_wYl3sJNgcrKB2j9ANza6A6UrsBYIyPWR4RWlRBpmOjhhhmqwBDA",
+    "aliasVerifies": null,
+    "alias": null
+  }
+]

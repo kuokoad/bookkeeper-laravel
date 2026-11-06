@@ -274,6 +274,15 @@ final class PaymentAccountService
         return self::summaries($includeInactive ? null : fn (Builder $q) => $q->where('payment_accounts.is_active', true));
     }
 
+    /**
+     * Total money held: the balances of the ACTIVE accounts among those given
+     * (the /accounts page passes listPaymentAccounts(true)), as the old page.
+     */
+    public static function getTotalHeld(array $accounts): int
+    {
+        return Money::sum(array_column(array_filter($accounts, fn (array $a): bool => $a['isActive']), 'balance'));
+    }
+
     /** One account's summary, read on its own (no sweep of every account). */
     public static function getPaymentAccount(int $id): array
     {

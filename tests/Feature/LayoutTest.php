@@ -57,3 +57,12 @@ it('formats money, quantities and dates through the domain', function () {
 it('flashes a one-shot message after a redirect', function () {
     signedIn(owner())->withSession(['status' => 'Saved.'])->get('/dashboard')->assertSee('Saved.');
 });
+
+it('searches as you type from the top bar, over a form that works without JavaScript', function () {
+    $html = signedIn(owner())->get('/search?q=rice')->assertOk()->getContent();
+    expect($html)->toContain('action="/search"')
+        ->toContain("fetch('/search/suggest?q=' + encodeURIComponent(q)")
+        ->toContain('See all results for')
+        ->toContain('x-on:keydown.enter="enter($event)"')
+        ->toContain('value="rice"');
+});

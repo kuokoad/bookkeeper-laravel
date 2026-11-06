@@ -575,6 +575,9 @@ final class CatalogService
                 : ($row->alt_cost_price_minor === null ? Quantity::extendPrice((int) $row->cost_price_minor, $altFactor) : (int) $row->alt_cost_price_minor),
             'altSellingPrice' => $altFactor === null ? null
                 : ($row->alt_selling_price_minor === null ? Quantity::extendPrice((int) $row->selling_price_minor, $altFactor) : (int) $row->alt_selling_price_minor),
+            // As saved: null means derived from the base price (the edit form shows it blank).
+            'storedAltCostPrice' => $row->alt_cost_price_minor === null ? null : (int) $row->alt_cost_price_minor,
+            'storedAltSellingPrice' => $row->alt_selling_price_minor === null ? null : (int) $row->alt_selling_price_minor,
             'costPrice' => (int) $row->cost_price_minor,
             'sellingPrice' => (int) $row->selling_price_minor,
             'qtyOnHand' => $qty,

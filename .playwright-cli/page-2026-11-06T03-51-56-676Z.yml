@@ -1,0 +1,422 @@
+- generic [ref=f2e2]:
+  - complementary [ref=f2e3]:
+    - link "NunaBooks dashboard" [ref=f2e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f2e6]:
+        - paragraph [ref=f2e7]: NunaBooks
+        - paragraph [ref=f2e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f2e10]:
+      - group [ref=f2e11]:
+        - generic "Daily" [ref=f2e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e14]: ›
+        - list [ref=f2e15]:
+          - listitem [ref=f2e16]:
+            - link "Dashboard" [ref=f2e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f2e18]: space_dashboard
+          - listitem [ref=f2e20]:
+            - link "Sales" [ref=f2e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f2e22]: shopping_cart
+          - listitem [ref=f2e24]:
+            - link "Quotations" [ref=f2e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f2e26]: request_quote
+          - listitem [ref=f2e28]:
+            - link "Purchases" [ref=f2e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f2e30]: receipt_long
+          - listitem [ref=f2e32]:
+            - link "Expenses" [ref=f2e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f2e34]: payments
+      - group [ref=f2e36]:
+        - generic "Stock" [ref=f2e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e39]: ›
+        - list [ref=f2e40]:
+          - listitem [ref=f2e41]:
+            - link "Products" [ref=f2e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f2e43]: inventory_2
+          - listitem [ref=f2e45]:
+            - link "Inventory" [ref=f2e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f2e47]: warehouse
+      - group [ref=f2e49]:
+        - generic "People" [ref=f2e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e52]: ›
+        - list [ref=f2e53]:
+          - listitem [ref=f2e54]:
+            - link "Customers" [ref=f2e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f2e56]: group
+          - listitem [ref=f2e58]:
+            - link "Suppliers" [ref=f2e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f2e60]: local_shipping
+      - group [ref=f2e62]:
+        - generic "Money" [ref=f2e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e65]: ›
+        - list [ref=f2e66]:
+          - listitem [ref=f2e67]:
+            - link "Accounts" [ref=f2e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f2e69]: account_balance
+          - listitem [ref=f2e71]:
+            - link "Reconciliation" [ref=f2e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f2e73]: balance
+          - listitem [ref=f2e75]:
+            - link "Accounting" [ref=f2e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f2e77]: analytics
+          - listitem [ref=f2e79]:
+            - link "Reports" [ref=f2e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f2e81]: analytics
+      - group [ref=f2e83]:
+        - generic "Admin" [ref=f2e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e86]: ›
+        - list [ref=f2e87]:
+          - listitem [ref=f2e88]:
+            - link "Users" [ref=f2e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f2e90]: group
+          - listitem [ref=f2e92]:
+            - link "Settings" [ref=f2e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f2e94]: settings
+      - link "Support" [ref=f2e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f2e97]: help
+    - generic [ref=f2e99]:
+      - generic [ref=f2e100]:
+        - generic [ref=f2e101]:
+          - paragraph [ref=f2e102]: Demo Owner
+          - paragraph [ref=f2e103]: owner
+        - link "Change my password" [ref=f2e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f2e105]: lock_reset
+      - generic [ref=f2e106]:
+        - button "Switch user" [ref=f2e108]
+        - button "Sign out" [ref=f2e110]
+  - generic [ref=f2e111]:
+    - banner [ref=f2e112]:
+      - search [ref=f2e113]:
+        - generic [ref=f2e114]: Search
+        - generic [ref=f2e115]:
+          - generic [aria-hidden] [ref=f2e116]: search
+          - searchbox "Search" [ref=f2e117]
+      - generic [ref=f2e118]:
+        - switch "Dark mode" [ref=f2e121]
+        - group [ref=f2e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f2e124] [cursor=pointer]':
+            - generic [ref=f2e125]:
+              - generic [aria-hidden] [ref=f2e126]: notifications
+              - generic [aria-hidden] [ref=f2e127]: "2"
+        - generic [ref=f2e128]:
+          - generic [aria-hidden] [ref=f2e129]: ST
+          - paragraph [ref=f2e130]: Structural Supplies
+    - main [ref=f2e131]:
+      - generic [ref=f2e133]:
+        - generic [ref=f2e134]:
+          - generic [ref=f2e135]:
+            - heading "Products" [level=1] [ref=f2e136]
+            - paragraph [ref=f2e137]: What you sell, what it costs you, and how much is on the shelf.
+          - generic [ref=f2e138]:
+            - link "Download CSV" [ref=f2e139] [cursor=pointer]:
+              - /url: /export/list/products
+            - link "Categories" [ref=f2e140] [cursor=pointer]:
+              - /url: /products/categories
+            - link "Units" [ref=f2e141] [cursor=pointer]:
+              - /url: /products/units
+            - link "Import" [ref=f2e142] [cursor=pointer]:
+              - /url: /products/import
+            - link "Add product" [ref=f2e143] [cursor=pointer]:
+              - /url: /products/new
+        - generic [ref=f2e144]:
+          - generic [ref=f2e145]:
+            - generic [ref=f2e146]:
+              - paragraph [ref=f2e147]: Products
+              - generic [aria-hidden] [ref=f2e149]: inventory_2
+            - paragraph [ref=f2e150]: "12"
+          - generic [ref=f2e151]:
+            - generic [ref=f2e152]:
+              - paragraph [ref=f2e153]: Stock value
+              - generic [aria-hidden] [ref=f2e155]: warehouse
+            - paragraph [ref=f2e156]: GHS 219,330.38
+            - paragraph [ref=f2e157]: At weighted average cost
+          - generic [ref=f2e158]:
+            - generic [ref=f2e159]:
+              - paragraph [ref=f2e160]: Low stock
+              - generic [aria-hidden] [ref=f2e162]: warning
+            - paragraph [ref=f2e163]: "0"
+          - generic [ref=f2e164]:
+            - generic [ref=f2e165]:
+              - paragraph [ref=f2e166]: Out of stock
+              - generic [aria-hidden] [ref=f2e168]: warning
+            - paragraph [ref=f2e169]: "0"
+        - generic "Quick filters" [ref=f2e170]:
+          - link "Low stock" [ref=f2e171] [cursor=pointer]:
+            - /url: "?stock=low"
+          - link "Out of stock" [ref=f2e172] [cursor=pointer]:
+            - /url: "?stock=out"
+          - link "Archived" [ref=f2e173] [cursor=pointer]:
+            - /url: "?archived=archived"
+        - region "Filters" [ref=f2e174]:
+          - generic [ref=f2e175]:
+            - generic [ref=f2e176]:
+              - text: Search
+              - searchbox "Search" [ref=f2e177]
+            - generic [ref=f2e178]:
+              - text: Category
+              - combobox "Category" [ref=f2e179]:
+                - option "All categories" [selected]
+                - option "Cement"
+                - option "Fixings"
+                - option "Plumbing"
+                - option "Roofing"
+                - option "Services"
+                - option "Steel"
+            - generic [ref=f2e180]:
+              - text: Supplier
+              - combobox "Supplier" [ref=f2e181]:
+                - option "All suppliers" [selected]
+                - option "Amasaman Pipes & Sheets"
+                - option "Ghacem Depot, Tema"
+                - option "Tema Steel Works"
+            - generic [ref=f2e182]:
+              - text: Stock status
+              - combobox "Stock status" [ref=f2e183]:
+                - option "Any stock level" [selected]
+                - option "In stock"
+                - option "Low or out"
+                - option "Out of stock"
+            - generic [ref=f2e184]:
+              - text: Product status
+              - combobox "Product status" [ref=f2e185]:
+                - option "Active only" [selected]
+                - option "Active"
+                - option "Archived"
+            - generic [ref=f2e186]:
+              - button "Apply" [ref=f2e187]
+              - link "Clear all" [ref=f2e188] [cursor=pointer]:
+                - /url: "?"
+        - table [ref=f2e190]:
+          - rowgroup [ref=f2e191]:
+            - row [ref=f2e192]:
+              - columnheader [ref=f2e193]:
+                - link "Product" [ref=f2e194] [cursor=pointer]:
+                  - /url: "?sort=name&direction=desc"
+                  - text: Product
+                  - generic [aria-hidden] [ref=f2e195]: ▲
+              - columnheader [ref=f2e196]:
+                - link "Category" [ref=f2e197] [cursor=pointer]:
+                  - /url: "?sort=category&direction=asc"
+                  - text: Category
+                  - generic [aria-hidden] [ref=f2e198]: ⇅
+              - columnheader [ref=f2e199]:
+                - link "In stock" [ref=f2e200] [cursor=pointer]:
+                  - /url: "?sort=quantity&direction=asc"
+                  - text: In stock
+                  - generic [aria-hidden] [ref=f2e201]: ⇅
+              - columnheader [ref=f2e202]:
+                - link "Avg cost" [ref=f2e203] [cursor=pointer]:
+                  - /url: "?sort=cost&direction=desc"
+                  - text: Avg cost
+                  - generic [aria-hidden] [ref=f2e204]: ⇅
+              - columnheader [ref=f2e205]:
+                - link "Selling price" [ref=f2e206] [cursor=pointer]:
+                  - /url: "?sort=price&direction=desc"
+                  - text: Selling price
+                  - generic [aria-hidden] [ref=f2e207]: ⇅
+              - columnheader [ref=f2e208]:
+                - link "Stock value" [ref=f2e209] [cursor=pointer]:
+                  - /url: "?sort=value&direction=desc"
+                  - text: Stock value
+                  - generic [aria-hidden] [ref=f2e210]: ⇅
+              - columnheader [ref=f2e211]
+          - rowgroup [ref=f2e212]:
+            - row [ref=f2e213]:
+              - cell "Binding wire SKU BWIRE" [ref=f2e214]:
+                - generic [ref=f2e215]: Binding wire
+                - generic [ref=f2e216]: SKU BWIRE
+              - cell "Steel" [ref=f2e218]
+              - cell "34 roll" [ref=f2e219]
+              - cell "88.00" [ref=f2e221]
+              - cell "108.00" [ref=f2e222]
+              - cell "2,992.00" [ref=f2e223]
+              - cell [ref=f2e224]:
+                - generic [ref=f2e225]:
+                  - link "History" [ref=f2e226] [cursor=pointer]:
+                    - /url: /inventory?product=6
+                  - link "Edit" [ref=f2e227] [cursor=pointer]:
+                    - /url: /products/6/edit
+            - row [ref=f2e228]:
+              - cell "Cartage to site SKU CARTAGE" [ref=f2e229]:
+                - generic [ref=f2e230]: Cartage to site
+                - generic [ref=f2e231]: SKU CARTAGE
+              - cell "Services" [ref=f2e233]
+              - cell "Not tracked" [ref=f2e234]
+              - cell "—" [ref=f2e235]
+              - cell "350.00" [ref=f2e236]
+              - cell "0.00" [ref=f2e237]
+              - cell [ref=f2e238]:
+                - generic [ref=f2e239]:
+                  - link "History" [ref=f2e240] [cursor=pointer]:
+                    - /url: /inventory?product=12
+                  - link "Edit" [ref=f2e241] [cursor=pointer]:
+                    - /url: /products/12/edit
+            - row [ref=f2e242]:
+              - cell "Cement 50kg SKU CEM50" [ref=f2e243]:
+                - generic [ref=f2e244]: Cement 50kg
+                - generic [ref=f2e245]: SKU CEM50
+              - cell "Cement" [ref=f2e247]
+              - cell "965 bag" [ref=f2e248]
+              - cell "86.96" [ref=f2e250]
+              - cell "96.00" [ref=f2e251]
+              - cell "83,919.38" [ref=f2e252]
+              - cell [ref=f2e253]:
+                - generic [ref=f2e254]:
+                  - link "History" [ref=f2e255] [cursor=pointer]:
+                    - /url: /inventory?product=1
+                  - link "Edit" [ref=f2e256] [cursor=pointer]:
+                    - /url: /products/1/edit
+            - row [ref=f2e257]:
+              - cell "Chippings 3/4in (tipper load) SKU CHIP34" [ref=f2e258]:
+                - generic [ref=f2e259]: Chippings 3/4in (tipper load)
+                - generic [ref=f2e260]: SKU CHIP34
+              - cell "Cement" [ref=f2e262]
+              - cell "2 load" [ref=f2e263]
+              - cell "1,150.00" [ref=f2e265]
+              - cell "1,380.00" [ref=f2e266]
+              - cell "2,300.00" [ref=f2e267]
+              - cell [ref=f2e268]:
+                - generic [ref=f2e269]:
+                  - link "History" [ref=f2e270] [cursor=pointer]:
+                    - /url: /inventory?product=3
+                  - link "Edit" [ref=f2e271] [cursor=pointer]:
+                    - /url: /products/3/edit
+            - row [ref=f2e272]:
+              - cell "Iron rod 12mm SKU ROD12" [ref=f2e273]:
+                - generic [ref=f2e274]: Iron rod 12mm
+                - generic [ref=f2e275]: SKU ROD12
+              - cell "Steel" [ref=f2e277]
+              - cell "380 length" [ref=f2e278]
+              - cell "97.58" [ref=f2e280]
+              - cell "112.00" [ref=f2e281]
+              - cell "37,080.00" [ref=f2e282]
+              - cell [ref=f2e283]:
+                - generic [ref=f2e284]:
+                  - link "History" [ref=f2e285] [cursor=pointer]:
+                    - /url: /inventory?product=4
+                  - link "Edit" [ref=f2e286] [cursor=pointer]:
+                    - /url: /products/4/edit
+            - row [ref=f2e287]:
+              - cell "Iron rod 16mm SKU ROD16" [ref=f2e288]:
+                - generic [ref=f2e289]: Iron rod 16mm
+                - generic [ref=f2e290]: SKU ROD16
+              - cell "Steel" [ref=f2e292]
+              - cell "140 length" [ref=f2e293]
+              - cell "174.40" [ref=f2e295]
+              - cell "198.00" [ref=f2e296]
+              - cell "24,416.00" [ref=f2e297]
+              - cell [ref=f2e298]:
+                - generic [ref=f2e299]:
+                  - link "History" [ref=f2e300] [cursor=pointer]:
+                    - /url: /inventory?product=5
+                  - link "Edit" [ref=f2e301] [cursor=pointer]:
+                    - /url: /products/5/edit
+            - row [ref=f2e302]:
+              - cell "PVC elbow 4in SKU ELB4" [ref=f2e303]:
+                - generic [ref=f2e304]: PVC elbow 4in
+                - generic [ref=f2e305]: SKU ELB4
+              - cell "Plumbing" [ref=f2e307]
+              - cell "130 pcs (13 box)" [ref=f2e308]
+              - cell "16.00" [ref=f2e310]
+              - cell "24.00" [ref=f2e311]
+              - cell "2,080.00" [ref=f2e312]
+              - cell [ref=f2e313]:
+                - generic [ref=f2e314]:
+                  - link "History" [ref=f2e315] [cursor=pointer]:
+                    - /url: /inventory?product=9
+                  - link "Edit" [ref=f2e316] [cursor=pointer]:
+                    - /url: /products/9/edit
+            - row [ref=f2e317]:
+              - cell "PVC pipe 2in SKU PVC2" [ref=f2e318]:
+                - generic [ref=f2e319]: PVC pipe 2in
+                - generic [ref=f2e320]: SKU PVC2
+              - cell "Plumbing" [ref=f2e322]
+              - cell "166 length" [ref=f2e323]
+              - cell "54.25" [ref=f2e325]
+              - cell "68.00" [ref=f2e326]
+              - cell "9,005.27" [ref=f2e327]
+              - cell [ref=f2e328]:
+                - generic [ref=f2e329]:
+                  - link "History" [ref=f2e330] [cursor=pointer]:
+                    - /url: /inventory?product=8
+                  - link "Edit" [ref=f2e331] [cursor=pointer]:
+                    - /url: /products/8/edit
+            - row [ref=f2e332]:
+              - cell "PVC pipe 4in SKU PVC4" [ref=f2e333]:
+                - generic [ref=f2e334]: PVC pipe 4in
+                - generic [ref=f2e335]: SKU PVC4
+              - cell "Plumbing" [ref=f2e337]
+              - cell "108 length" [ref=f2e338]
+              - cell "119.07" [ref=f2e340]
+              - cell "142.00" [ref=f2e341]
+              - cell "12,860.09" [ref=f2e342]
+              - cell [ref=f2e343]:
+                - generic [ref=f2e344]:
+                  - link "History" [ref=f2e345] [cursor=pointer]:
+                    - /url: /inventory?product=7
+                  - link "Edit" [ref=f2e346] [cursor=pointer]:
+                    - /url: /products/7/edit
+            - row [ref=f2e347]:
+              - cell "Roofing nails 3in SKU NAIL3" [ref=f2e348]:
+                - generic [ref=f2e349]: Roofing nails 3in
+                - generic [ref=f2e350]: SKU NAIL3
+              - cell "Fixings" [ref=f2e352]
+              - cell "109.5 kg" [ref=f2e353]
+              - cell "14.00" [ref=f2e355]
+              - cell "19.00" [ref=f2e356]
+              - cell "1,533.00" [ref=f2e357]
+              - cell [ref=f2e358]:
+                - generic [ref=f2e359]:
+                  - link "History" [ref=f2e360] [cursor=pointer]:
+                    - /url: /inventory?product=11
+                  - link "Edit" [ref=f2e361] [cursor=pointer]:
+                    - /url: /products/11/edit
+            - row [ref=f2e362]:
+              - cell "Roofing sheet aluzinc 3m SKU ROOF3M" [ref=f2e363]:
+                - generic [ref=f2e364]: Roofing sheet aluzinc 3m
+                - generic [ref=f2e365]: SKU ROOF3M
+              - cell "Roofing" [ref=f2e367]
+              - cell "226 sheet" [ref=f2e368]
+              - cell "182.94" [ref=f2e370]
+              - cell "214.00" [ref=f2e371]
+              - cell "41,344.64" [ref=f2e372]
+              - cell [ref=f2e373]:
+                - generic [ref=f2e374]:
+                  - link "History" [ref=f2e375] [cursor=pointer]:
+                    - /url: /inventory?product=10
+                  - link "Edit" [ref=f2e376] [cursor=pointer]:
+                    - /url: /products/10/edit
+            - row [ref=f2e377]:
+              - cell "Sand (tipper load) SKU SAND-TIP" [ref=f2e378]:
+                - generic [ref=f2e379]: Sand (tipper load)
+                - generic [ref=f2e380]: SKU SAND-TIP
+              - cell "Cement" [ref=f2e382]
+              - cell "2 load" [ref=f2e383]
+              - cell "900.00" [ref=f2e385]
+              - cell "1,100.00" [ref=f2e386]
+              - cell "1,800.00" [ref=f2e387]
+              - cell [ref=f2e388]:
+                - generic [ref=f2e389]:
+                  - link "History" [ref=f2e390] [cursor=pointer]:
+                    - /url: /inventory?product=2
+                  - link "Edit" [ref=f2e391] [cursor=pointer]:
+                    - /url: /products/2/edit
+        - navigation "Pagination" [ref=f2e392]:
+          - paragraph [ref=f2e393]: Showing 1–12 of 12 products
+        - paragraph [ref=f2e394]: Stock quantities cannot be typed in directly. Every change comes from a purchase, a sale or a recorded stock adjustment, which is what lets any figure here be traced back to its source.

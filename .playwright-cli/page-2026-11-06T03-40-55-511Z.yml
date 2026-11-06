@@ -1,0 +1,520 @@
+- generic [ref=f7e2]:
+  - complementary [ref=f7e3]:
+    - link "NunaBooks dashboard" [ref=f7e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f7e6]:
+        - paragraph [ref=f7e7]: NunaBooks
+        - paragraph [ref=f7e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f7e10]:
+      - group [ref=f7e11]:
+        - generic "Daily" [ref=f7e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e14]: ›
+        - list [ref=f7e15]:
+          - listitem [ref=f7e16]:
+            - link "Dashboard" [ref=f7e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f7e18]: space_dashboard
+          - listitem [ref=f7e20]:
+            - link "Sales" [ref=f7e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f7e22]: shopping_cart
+          - listitem [ref=f7e24]:
+            - link "Quotations" [ref=f7e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f7e26]: request_quote
+          - listitem [ref=f7e28]:
+            - link "Purchases" [ref=f7e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f7e30]: receipt_long
+          - listitem [ref=f7e32]:
+            - link "Expenses" [ref=f7e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f7e34]: payments
+      - group [ref=f7e36]:
+        - generic "Stock" [ref=f7e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e39]: ›
+        - list [ref=f7e40]:
+          - listitem [ref=f7e41]:
+            - link "Products" [ref=f7e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f7e43]: inventory_2
+          - listitem [ref=f7e45]:
+            - link "Inventory" [ref=f7e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f7e47]: warehouse
+      - group [ref=f7e49]:
+        - generic "People" [ref=f7e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e52]: ›
+        - list [ref=f7e53]:
+          - listitem [ref=f7e54]:
+            - link "Customers" [ref=f7e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f7e56]: group
+          - listitem [ref=f7e58]:
+            - link "Suppliers" [ref=f7e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f7e60]: local_shipping
+      - group [ref=f7e62]:
+        - generic "Money" [ref=f7e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e65]: ›
+        - list [ref=f7e66]:
+          - listitem [ref=f7e67]:
+            - link "Accounts" [ref=f7e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f7e69]: account_balance
+          - listitem [ref=f7e71]:
+            - link "Reconciliation" [ref=f7e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f7e73]: balance
+          - listitem [ref=f7e75]:
+            - link "Accounting" [ref=f7e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f7e77]: analytics
+          - listitem [ref=f7e79]:
+            - link "Reports" [ref=f7e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f7e81]: analytics
+      - group [ref=f7e83]:
+        - generic "Admin" [ref=f7e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e86]: ›
+        - list [ref=f7e87]:
+          - listitem [ref=f7e88]:
+            - link "Users" [ref=f7e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f7e90]: group
+          - listitem [ref=f7e92]:
+            - link "Settings" [ref=f7e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f7e94]: settings
+      - link "Support" [ref=f7e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f7e97]: help
+    - generic [ref=f7e99]:
+      - generic [ref=f7e100]:
+        - generic [ref=f7e101]:
+          - paragraph [ref=f7e102]: Demo Owner
+          - paragraph [ref=f7e103]: owner
+        - link "Change my password" [ref=f7e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f7e105]: lock_reset
+      - generic [ref=f7e106]:
+        - button "Switch user" [ref=f7e108]
+        - button "Sign out" [ref=f7e110]
+  - generic [ref=f7e111]:
+    - banner [ref=f7e112]:
+      - search [ref=f7e113]:
+        - generic [ref=f7e114]: Search
+        - generic [ref=f7e115]:
+          - generic [aria-hidden] [ref=f7e116]: search
+          - searchbox "Search" [ref=f7e117]
+      - generic [ref=f7e118]:
+        - switch "Dark mode" [ref=f7e121]
+        - group [ref=f7e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f7e124] [cursor=pointer]':
+            - generic [ref=f7e125]:
+              - generic [aria-hidden] [ref=f7e126]: notifications
+              - generic [aria-hidden] [ref=f7e127]: "2"
+        - generic [ref=f7e128]:
+          - generic [aria-hidden] [ref=f7e129]: ST
+          - paragraph [ref=f7e130]: Structural Supplies
+    - main [ref=f7e131]:
+      - generic [ref=f7e133]:
+        - generic [ref=f7e134]:
+          - generic [ref=f7e135]:
+            - heading "Audit log" [level=1] [ref=f7e136]
+            - paragraph [ref=f7e137]: Everything that has happened, who did it, and when.
+          - link "Users" [ref=f7e139] [cursor=pointer]:
+            - /url: /users
+        - generic [ref=f7e140]:
+          - generic [ref=f7e141]:
+            - generic [ref=f7e142]:
+              - paragraph [ref=f7e143]: Records found
+              - generic [aria-hidden] [ref=f7e145]: search
+            - paragraph [ref=f7e146]: "76"
+          - generic [ref=f7e147]:
+            - paragraph [ref=f7e149]: Showing
+            - paragraph [ref=f7e150]: 50 of 76
+            - paragraph [ref=f7e151]: Page 1 of 2
+          - generic [ref=f7e152]:
+            - generic [ref=f7e153]:
+              - paragraph [ref=f7e154]: People
+              - generic [aria-hidden] [ref=f7e156]: group
+            - paragraph [ref=f7e157]: "2"
+        - region "Filters" [ref=f7e158]:
+          - generic [ref=f7e159]:
+            - generic [ref=f7e160]:
+              - text: Search
+              - searchbox "Search" [ref=f7e161]
+            - generic [ref=f7e162]:
+              - text: Person
+              - combobox "Person" [ref=f7e163]:
+                - option "Anyone" [selected]
+                - option "Ama (Demo Staff)"
+                - option "Demo Owner"
+            - generic [ref=f7e164]:
+              - text: Action
+              - combobox "Action" [ref=f7e165]:
+                - option "Anything" [selected]
+                - option "Signed in"
+                - option "Failed sign-in"
+                - option "Signed out"
+                - option "Created"
+                - option "Changed"
+                - option "Archived"
+                - option "Restored"
+                - option "Voided"
+                - option "Reversed"
+                - option "Counted"
+                - option "Permissions"
+                - option "Password"
+                - option "Settings"
+                - option "Demo data"
+                - option "Demo purge"
+            - generic [ref=f7e166]:
+              - text: Kind of record
+              - combobox "Kind of record" [ref=f7e167]:
+                - option "Anything" [selected]
+                - option "category"
+                - option "customer"
+                - option "customer payment"
+                - option "expense"
+                - option "income"
+                - option "owner capital"
+                - option "product"
+                - option "purchase"
+                - option "quotations"
+                - option "reconciliation"
+                - option "sale"
+                - option "stock adjustment"
+                - option "supplier"
+                - option "supplier payment"
+                - option "system"
+                - option "unit"
+                - option "user"
+            - generic [ref=f7e168]:
+              - text: From
+              - textbox "From" [ref=f7e170]
+            - generic [ref=f7e171]:
+              - text: To
+              - textbox "To" [ref=f7e173]
+            - generic [ref=f7e174]:
+              - button "Apply" [ref=f7e175]
+              - link "Clear all" [ref=f7e176] [cursor=pointer]:
+                - /url: "?"
+        - table [ref=f7e178]:
+          - rowgroup [ref=f7e179]:
+            - row [ref=f7e180]:
+              - columnheader "When" [ref=f7e181]
+              - columnheader "Who" [ref=f7e182]
+              - columnheader "Action" [ref=f7e183]
+              - columnheader "What happened" [ref=f7e184]
+              - columnheader "Record" [ref=f7e185]
+          - rowgroup [ref=f7e186]:
+            - row [ref=f7e187]:
+              - cell "06 Nov 2026, 03:40 am" [ref=f7e188]
+              - cell "owner" [ref=f7e189]
+              - cell "Signed in" [ref=f7e190]
+              - cell "Demo Owner signed in" [ref=f7e192]
+              - 'cell "user #1" [ref=f7e193]'
+            - row [ref=f7e194]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e195]
+              - cell "owner" [ref=f7e196]
+              - cell "Counted" [ref=f7e197]
+              - 'cell "REC-00002: MTN MoMo counted and agreed exactly" [ref=f7e199]'
+              - 'cell "reconciliation #2" [ref=f7e200]'
+            - row [ref=f7e201]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e202]
+              - cell "owner" [ref=f7e203]
+              - cell "Counted" [ref=f7e204]
+              - 'cell "REC-00001: Cash short by GHS 3.50 (adjusted)" [ref=f7e206]'
+              - 'cell "reconciliation #1" [ref=f7e207]'
+            - row [ref=f7e208]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e209]
+              - cell "owner" [ref=f7e210]
+              - cell "Created" [ref=f7e211]
+              - 'cell "INC-00005: Service Income — Offloading charged to a customer" [ref=f7e213]'
+              - 'cell "income #2" [ref=f7e214]'
+            - row [ref=f7e215]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e216]
+              - cell "owner" [ref=f7e217]
+              - cell "Created" [ref=f7e218]
+              - 'cell "INC-00004: Commission — Weighbridge fee recovered" [ref=f7e220]'
+              - 'cell "income #1" [ref=f7e221]'
+            - row [ref=f7e222]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e223]
+              - cell "owner" [ref=f7e224]
+              - cell "Created" [ref=f7e225]
+              - 'cell "EXP-00011: Transport — Tipper hire, Kasoa delivery" [ref=f7e227]'
+              - 'cell "expense #11" [ref=f7e228]'
+            - row [ref=f7e229]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e230]
+              - cell "owner" [ref=f7e231]
+              - cell "Created" [ref=f7e232]
+              - 'cell "EXP-00010: Internet & Airtime — Airtime for the yard line" [ref=f7e234]'
+              - 'cell "expense #10" [ref=f7e235]'
+            - row [ref=f7e236]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e237]
+              - cell "owner" [ref=f7e238]
+              - cell "Created" [ref=f7e239]
+              - 'cell "EXP-00009: Rent — Yard rent for the month" [ref=f7e241]'
+              - 'cell "expense #9" [ref=f7e242]'
+            - row [ref=f7e243]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e244]
+              - cell "owner" [ref=f7e245]
+              - cell "Created" [ref=f7e246]
+              - 'cell "EXP-00008: MoMo Charges — Withdrawal charges" [ref=f7e248]'
+              - 'cell "expense #8" [ref=f7e249]'
+            - row [ref=f7e250]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e251]
+              - cell "owner" [ref=f7e252]
+              - cell "Created" [ref=f7e253]
+              - 'cell "EXP-00007: Staff Wages — Yard hands — monthly wages" [ref=f7e255]'
+              - 'cell "expense #7" [ref=f7e256]'
+            - row [ref=f7e257]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e258]
+              - cell "owner" [ref=f7e259]
+              - cell "Created" [ref=f7e260]
+              - 'cell "EXP-00006: Transport — Forklift diesel" [ref=f7e262]'
+              - 'cell "expense #6" [ref=f7e263]'
+            - row [ref=f7e264]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e265]
+              - cell "owner" [ref=f7e266]
+              - cell "Created" [ref=f7e267]
+              - 'cell "EXP-00005: Electricity — ECG prepaid top-up" [ref=f7e269]'
+              - 'cell "expense #5" [ref=f7e270]'
+            - row [ref=f7e271]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e272]
+              - cell "owner" [ref=f7e273]
+              - cell "Created" [ref=f7e274]
+              - 'cell "EXP-00004: Rent — Yard rent for the month" [ref=f7e276]'
+              - 'cell "expense #4" [ref=f7e277]'
+            - row [ref=f7e278]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e279]
+              - cell "owner" [ref=f7e280]
+              - cell "Created" [ref=f7e281]
+              - 'cell "EXP-00003: Staff Wages — Yard hands — monthly wages" [ref=f7e283]'
+              - 'cell "expense #3" [ref=f7e284]'
+            - row [ref=f7e285]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e286]
+              - cell "owner" [ref=f7e287]
+              - cell "Created" [ref=f7e288]
+              - 'cell "EXP-00002: Transport — Tipper hire, Adenta delivery" [ref=f7e290]'
+              - 'cell "expense #2" [ref=f7e291]'
+            - row [ref=f7e292]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e293]
+              - cell "owner" [ref=f7e294]
+              - cell "Created" [ref=f7e295]
+              - 'cell "EXP-00001: Rent — Yard rent for the month" [ref=f7e297]'
+              - 'cell "expense #1" [ref=f7e298]'
+            - row [ref=f7e299]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e300]
+              - cell "owner" [ref=f7e301]
+              - cell "Created" [ref=f7e302]
+              - cell "Owner opening bank balance — Bank Account" [ref=f7e304]
+              - 'cell "owner capital #3" [ref=f7e305]'
+            - row [ref=f7e306]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e307]
+              - cell "owner" [ref=f7e308]
+              - cell "Created" [ref=f7e309]
+              - cell "Owner opening MoMo balance — MTN MoMo" [ref=f7e311]
+              - 'cell "owner capital #2" [ref=f7e312]'
+            - row [ref=f7e313]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e314]
+              - cell "owner" [ref=f7e315]
+              - cell "Created" [ref=f7e316]
+              - cell "Owner opening cash float — Cash" [ref=f7e318]
+              - 'cell "owner capital #1" [ref=f7e319]'
+            - row [ref=f7e320]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e321]
+              - cell "owner" [ref=f7e322]
+              - cell "Created" [ref=f7e323]
+              - 'cell "RCP-00008: 2 item(s), total GHS 18,950.00, dated 05 Nov 2026" [ref=f7e325]'
+              - 'cell "sale #8" [ref=f7e326]'
+            - row [ref=f7e327]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e328]
+              - cell "owner" [ref=f7e329]
+              - cell "Created" [ref=f7e330]
+              - 'cell "PUR-00004: 1 line(s) from Ghacem Depot, Tema, total GHS 53,400.00" [ref=f7e332]'
+              - 'cell "purchase #4" [ref=f7e333]'
+            - row [ref=f7e334]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e335]
+              - cell "owner" [ref=f7e336]
+              - cell "Created" [ref=f7e337]
+              - 'cell "RCP-00007: 2 item(s), total GHS 1,487.50, dated 25 Oct 2026" [ref=f7e339]'
+              - 'cell "sale #7" [ref=f7e340]'
+            - row [ref=f7e341]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e342]
+              - cell "owner" [ref=f7e343]
+              - cell "Created" [ref=f7e344]
+              - 'cell "PUR-00003: 3 line(s) from Amasaman Pipes & Sheets, total GHS 28,150.00" [ref=f7e346]'
+              - 'cell "purchase #3" [ref=f7e347]'
+            - row [ref=f7e348]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e349]
+              - cell "owner" [ref=f7e350]
+              - cell "Created" [ref=f7e351]
+              - 'cell "PAY-00001: paid GHS 6,000.00 to Tema Steel Works" [ref=f7e353]'
+              - 'cell "supplier payment #1" [ref=f7e354]'
+            - row [ref=f7e355]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e356]
+              - cell "owner" [ref=f7e357]
+              - cell "Created" [ref=f7e358]
+              - 'cell "RCP-00006: 2 item(s), total GHS 12,528.00, dated 16 Oct 2026" [ref=f7e360]'
+              - 'cell "sale #6" [ref=f7e361]'
+            - row [ref=f7e362]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e363]
+              - cell "owner" [ref=f7e364]
+              - cell "Created" [ref=f7e365]
+              - 'cell "RCP-00005: 3 item(s), total GHS 4,908.00, dated 09 Oct 2026" [ref=f7e367]'
+              - 'cell "sale #5" [ref=f7e368]'
+            - row [ref=f7e369]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e370]
+              - cell "owner" [ref=f7e371]
+              - cell "Changed" [ref=f7e372]
+              - cell "Quote QTE-00003 converted to sale RCP-00004" [ref=f7e374]
+              - 'cell "quotations #3" [ref=f7e375]'
+            - row [ref=f7e376]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e377]
+              - cell "owner" [ref=f7e378]
+              - cell "Created" [ref=f7e379]
+              - 'cell "RCP-00004: 3 item(s), total GHS 6,312.00, dated 07 Oct 2026" [ref=f7e381]'
+              - 'cell "sale #4" [ref=f7e382]'
+            - row [ref=f7e383]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e384]
+              - cell "owner" [ref=f7e385]
+              - cell "Created" [ref=f7e386]
+              - 'cell "RCV-00001: received GHS 20,000.00 from Adom Construction Ltd" [ref=f7e388]'
+              - 'cell "customer payment #1" [ref=f7e389]'
+            - row [ref=f7e390]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e391]
+              - cell "owner" [ref=f7e392]
+              - cell "Created" [ref=f7e393]
+              - 'cell "RCP-00003: 2 item(s), total GHS 5,288.00, dated 26 Sept 2026" [ref=f7e395]'
+              - 'cell "sale #3" [ref=f7e396]'
+            - row [ref=f7e397]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e398]
+              - cell "owner" [ref=f7e399]
+              - cell "Created" [ref=f7e400]
+              - 'cell "PUR-00002: 2 line(s) from Tema Steel Works, total GHS 34,040.00" [ref=f7e402]'
+              - 'cell "purchase #2" [ref=f7e403]'
+            - row [ref=f7e404]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e405]
+              - cell "owner" [ref=f7e406]
+              - cell "Created" [ref=f7e407]
+              - 'cell "RCP-00002: 4 item(s), total GHS 33,080.00, dated 12 Sept 2026" [ref=f7e409]'
+              - 'cell "sale #2" [ref=f7e410]'
+            - row [ref=f7e411]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e412]
+              - cell "owner" [ref=f7e413]
+              - cell "Created" [ref=f7e414]
+              - 'cell "RCP-00001: 2 item(s), total GHS 16,000.00, dated 04 Sept 2026" [ref=f7e416]'
+              - 'cell "sale #1" [ref=f7e417]'
+            - row [ref=f7e418]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e419]
+              - cell "owner" [ref=f7e420]
+              - cell "Created" [ref=f7e421]
+              - 'cell "PUR-00001: 1 line(s) from Ghacem Depot, Tema, total GHS 50,400.00" [ref=f7e423]'
+              - 'cell "purchase #1" [ref=f7e424]'
+            - row [ref=f7e425]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e426]
+              - cell "owner" [ref=f7e427]
+              - cell "Archived" [ref=f7e428]
+              - 'cell "Quote QTE-00004 cancelled: Customer bought from another yard" [ref=f7e430]'
+              - 'cell "quotations #4" [ref=f7e431]'
+            - row [ref=f7e432]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e433]
+              - cell "owner" [ref=f7e434]
+              - cell "Created" [ref=f7e435]
+              - cell "Quote QTE-00004 for Grace Ofori, valid to 2026-11-10" [ref=f7e437]
+              - 'cell "quotations #4" [ref=f7e438]'
+            - row [ref=f7e439]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e440]
+              - cell "owner" [ref=f7e441]
+              - cell "Created" [ref=f7e442]
+              - cell "Quote QTE-00003 for Mensah & Sons Builders, valid to 2026-11-02" [ref=f7e444]
+              - 'cell "quotations #3" [ref=f7e445]'
+            - row [ref=f7e446]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e447]
+              - cell "owner" [ref=f7e448]
+              - cell "Created" [ref=f7e449]
+              - cell "Quote QTE-00002 for Kwame Boateng, valid to 2026-10-15" [ref=f7e451]
+              - 'cell "quotations #2" [ref=f7e452]'
+            - row [ref=f7e453]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e454]
+              - cell "owner" [ref=f7e455]
+              - cell "Created" [ref=f7e456]
+              - cell "Quote QTE-00001 for Adom Construction Ltd, valid to 2026-12-02" [ref=f7e458]
+              - 'cell "quotations #1" [ref=f7e459]'
+            - row [ref=f7e460]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e461]
+              - cell "owner" [ref=f7e462]
+              - cell "Created" [ref=f7e463]
+              - cell "Added customer \"Kofi Owusu\"" [ref=f7e465]
+              - 'cell "customer #3" [ref=f7e466]'
+            - row [ref=f7e467]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e468]
+              - cell "owner" [ref=f7e469]
+              - cell "Created" [ref=f7e470]
+              - cell "Added customer \"Mensah & Sons Builders\"" [ref=f7e472]
+              - 'cell "customer #2" [ref=f7e473]'
+            - row [ref=f7e474]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e475]
+              - cell "owner" [ref=f7e476]
+              - cell "Created" [ref=f7e477]
+              - cell "Added customer \"Adom Construction Ltd\"" [ref=f7e479]
+              - 'cell "customer #1" [ref=f7e480]'
+            - row [ref=f7e481]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e482]
+              - cell "owner" [ref=f7e483]
+              - cell "Created" [ref=f7e484]
+              - cell "Added supplier \"Amasaman Pipes & Sheets\"" [ref=f7e486]
+              - 'cell "supplier #3" [ref=f7e487]'
+            - row [ref=f7e488]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e489]
+              - cell "owner" [ref=f7e490]
+              - cell "Created" [ref=f7e491]
+              - cell "Added supplier \"Tema Steel Works\"" [ref=f7e493]
+              - 'cell "supplier #2" [ref=f7e494]'
+            - row [ref=f7e495]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e496]
+              - cell "owner" [ref=f7e497]
+              - cell "Created" [ref=f7e498]
+              - cell "Added supplier \"Ghacem Depot, Tema\"" [ref=f7e500]
+              - 'cell "supplier #1" [ref=f7e501]'
+            - row [ref=f7e502]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e503]
+              - cell "owner" [ref=f7e504]
+              - cell "Created" [ref=f7e505]
+              - 'cell "ADJ-00001: Opening stock, 11 product(s)" [ref=f7e507]'
+              - 'cell "stock adjustment #1" [ref=f7e508]'
+            - row [ref=f7e509]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e510]
+              - cell "owner" [ref=f7e511]
+              - cell "Created" [ref=f7e512]
+              - cell "Created product \"Cartage to site\"" [ref=f7e514]
+              - 'cell "product #12" [ref=f7e515]'
+            - row [ref=f7e516]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e517]
+              - cell "owner" [ref=f7e518]
+              - cell "Created" [ref=f7e519]
+              - cell "Created product \"Roofing nails 3in\"" [ref=f7e521]
+              - 'cell "product #11" [ref=f7e522]'
+            - row [ref=f7e523]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e524]
+              - cell "owner" [ref=f7e525]
+              - cell "Created" [ref=f7e526]
+              - cell "Created product \"Roofing sheet aluzinc 3m\"" [ref=f7e528]
+              - 'cell "product #10" [ref=f7e529]'
+            - row [ref=f7e530]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f7e531]
+              - cell "owner" [ref=f7e532]
+              - cell "Created" [ref=f7e533]
+              - cell "Created product \"PVC elbow 4in\"" [ref=f7e535]
+              - 'cell "product #9" [ref=f7e536]'
+        - navigation "Pagination" [ref=f7e537]:
+          - paragraph [ref=f7e538]: Showing 1–50 of 76 records
+          - generic [ref=f7e539]:
+            - button "Previous" [disabled] [ref=f7e540]
+            - generic [ref=f7e541]: Page 1 of 2
+            - link "Next" [ref=f7e542] [cursor=pointer]:
+              - /url: "?page=2"
+        - paragraph [ref=f7e543]: Nothing here can be edited or removed — there is no code path in the application that changes or deletes an audit record. Passwords and PINs are never written to it.

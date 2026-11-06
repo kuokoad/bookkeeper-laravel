@@ -1,0 +1,150 @@
+- generic [ref=f15e2]:
+  - complementary [ref=f15e3]:
+    - link "NunaBooks dashboard" [ref=f15e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f15e6]:
+        - paragraph [ref=f15e7]: NunaBooks
+        - paragraph [ref=f15e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f15e10]:
+      - group [ref=f15e11]:
+        - generic "Daily" [ref=f15e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e14]: ›
+        - list [ref=f15e15]:
+          - listitem [ref=f15e16]:
+            - link "Dashboard" [ref=f15e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f15e18]: space_dashboard
+          - listitem [ref=f15e20]:
+            - link "Sales" [ref=f15e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f15e22]: shopping_cart
+          - listitem [ref=f15e24]:
+            - link "Quotations" [ref=f15e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f15e26]: request_quote
+          - listitem [ref=f15e28]:
+            - link "Purchases" [ref=f15e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f15e30]: receipt_long
+          - listitem [ref=f15e32]:
+            - link "Expenses" [ref=f15e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f15e34]: payments
+      - group [ref=f15e36]:
+        - generic "Stock" [ref=f15e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e39]: ›
+        - list [ref=f15e40]:
+          - listitem [ref=f15e41]:
+            - link "Products" [ref=f15e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f15e43]: inventory_2
+          - listitem [ref=f15e45]:
+            - link "Inventory" [ref=f15e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f15e47]: warehouse
+      - group [ref=f15e49]:
+        - generic "People" [ref=f15e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e52]: ›
+        - list [ref=f15e53]:
+          - listitem [ref=f15e54]:
+            - link "Customers" [ref=f15e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f15e56]: group
+          - listitem [ref=f15e58]:
+            - link "Suppliers" [ref=f15e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f15e60]: local_shipping
+      - group [ref=f15e62]:
+        - generic "Money" [ref=f15e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e65]: ›
+        - list [ref=f15e66]:
+          - listitem [ref=f15e67]:
+            - link "Accounts" [ref=f15e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f15e69]: account_balance
+          - listitem [ref=f15e71]:
+            - link "Reconciliation" [ref=f15e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f15e73]: balance
+          - listitem [ref=f15e75]:
+            - link "Accounting" [ref=f15e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f15e77]: analytics
+          - listitem [ref=f15e79]:
+            - link "Reports" [ref=f15e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f15e81]: analytics
+      - group [ref=f15e83]:
+        - generic "Admin" [ref=f15e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e86]: ›
+        - list [ref=f15e87]:
+          - listitem [ref=f15e88]:
+            - link "Users" [ref=f15e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f15e90]: group
+          - listitem [ref=f15e92]:
+            - link "Settings" [ref=f15e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f15e94]: settings
+      - link "Support" [ref=f15e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f15e97]: help
+    - generic [ref=f15e99]:
+      - generic [ref=f15e100]:
+        - generic [ref=f15e101]:
+          - paragraph [ref=f15e102]: Demo Owner
+          - paragraph [ref=f15e103]: owner
+        - link "Change my password" [ref=f15e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f15e105]: lock_reset
+      - generic [ref=f15e106]:
+        - button "Switch user" [ref=f15e108]
+        - button "Sign out" [ref=f15e110]
+  - generic [ref=f15e111]:
+    - banner [ref=f15e112]:
+      - search [ref=f15e113]:
+        - generic [ref=f15e114]: Search
+        - generic [ref=f15e115]:
+          - generic [aria-hidden] [ref=f15e116]: search
+          - searchbox "Search" [ref=f15e117]
+      - generic [ref=f15e118]:
+        - switch "Dark mode" [ref=f15e121]
+        - group [ref=f15e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f15e124] [cursor=pointer]':
+            - generic [ref=f15e125]:
+              - generic [aria-hidden] [ref=f15e126]: notifications
+              - generic [aria-hidden] [ref=f15e127]: "2"
+        - generic [ref=f15e128]:
+          - generic [aria-hidden] [ref=f15e129]: ST
+          - paragraph [ref=f15e130]: Structural Supplies
+    - main [ref=f15e131]:
+      - generic [ref=f15e133]:
+        - generic [ref=f15e135]:
+          - heading "Edit supplier" [level=1] [ref=f15e136]
+          - paragraph [ref=f15e137]: Ghacem Depot, Tema
+        - generic [ref=f15e138]:
+          - generic [ref=f15e140]:
+            - generic [ref=f15e141]:
+              - generic [ref=f15e142]: Supplier name*
+              - textbox "Supplier name" [active] [ref=f15e143]: Ghacem Depot, Tema
+            - generic [ref=f15e144]:
+              - generic [ref=f15e145]: Contact person
+              - textbox "Contact person" [ref=f15e146]: Mr Adjei
+            - generic [ref=f15e147]:
+              - generic [ref=f15e148]: Phone
+              - textbox "Phone" [ref=f15e149]:
+                - /placeholder: e.g. 024 000 0000
+                - text: 030 222 1100
+            - generic [ref=f15e150]:
+              - generic [ref=f15e151]: Email
+              - textbox "Email" [ref=f15e152]
+            - generic [ref=f15e153]:
+              - generic [ref=f15e154]: Address
+              - textbox "Address" [ref=f15e155]: Heavy Industrial Area, Tema
+            - generic [ref=f15e156]:
+              - generic [ref=f15e157]: Notes
+              - textbox "Notes" [ref=f15e158]
+          - generic [ref=f15e159]:
+            - button "Save changes" [ref=f15e160]
+            - link "Cancel" [ref=f15e162] [cursor=pointer]:
+              - /url: /suppliers/1

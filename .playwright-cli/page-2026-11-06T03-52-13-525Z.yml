@@ -1,0 +1,334 @@
+- generic [ref=f10e2]:
+  - complementary [ref=f10e3]:
+    - link "NunaBooks dashboard" [ref=f10e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f10e6]:
+        - paragraph [ref=f10e7]: NunaBooks
+        - paragraph [ref=f10e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f10e10]:
+      - group [ref=f10e11]:
+        - generic "Daily" [ref=f10e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e14]: ›
+        - list [ref=f10e15]:
+          - listitem [ref=f10e16]:
+            - link "Dashboard" [ref=f10e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f10e18]: space_dashboard
+          - listitem [ref=f10e20]:
+            - link "Sales" [ref=f10e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f10e22]: shopping_cart
+          - listitem [ref=f10e24]:
+            - link "Quotations" [ref=f10e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f10e26]: request_quote
+          - listitem [ref=f10e28]:
+            - link "Purchases" [ref=f10e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f10e30]: receipt_long
+          - listitem [ref=f10e32]:
+            - link "Expenses" [ref=f10e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f10e34]: payments
+      - group [ref=f10e36]:
+        - generic "Stock" [ref=f10e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e39]: ›
+        - list [ref=f10e40]:
+          - listitem [ref=f10e41]:
+            - link "Products" [ref=f10e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f10e43]: inventory_2
+          - listitem [ref=f10e45]:
+            - link "Inventory" [ref=f10e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f10e47]: warehouse
+      - group [ref=f10e49]:
+        - generic "People" [ref=f10e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e52]: ›
+        - list [ref=f10e53]:
+          - listitem [ref=f10e54]:
+            - link "Customers" [ref=f10e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f10e56]: group
+          - listitem [ref=f10e58]:
+            - link "Suppliers" [ref=f10e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f10e60]: local_shipping
+      - group [ref=f10e62]:
+        - generic "Money" [ref=f10e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e65]: ›
+        - list [ref=f10e66]:
+          - listitem [ref=f10e67]:
+            - link "Accounts" [ref=f10e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f10e69]: account_balance
+          - listitem [ref=f10e71]:
+            - link "Reconciliation" [ref=f10e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f10e73]: balance
+          - listitem [ref=f10e75]:
+            - link "Accounting" [ref=f10e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f10e77]: analytics
+          - listitem [ref=f10e79]:
+            - link "Reports" [ref=f10e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f10e81]: analytics
+      - group [ref=f10e83]:
+        - generic "Admin" [ref=f10e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e86]: ›
+        - list [ref=f10e87]:
+          - listitem [ref=f10e88]:
+            - link "Users" [ref=f10e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f10e90]: group
+          - listitem [ref=f10e92]:
+            - link "Settings" [ref=f10e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f10e94]: settings
+      - link "Support" [ref=f10e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f10e97]: help
+    - generic [ref=f10e99]:
+      - generic [ref=f10e100]:
+        - generic [ref=f10e101]:
+          - paragraph [ref=f10e102]: Demo Owner
+          - paragraph [ref=f10e103]: owner
+        - link "Change my password" [ref=f10e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f10e105]: lock_reset
+      - generic [ref=f10e106]:
+        - button "Switch user" [ref=f10e108]
+        - button "Sign out" [ref=f10e110]
+  - generic [ref=f10e111]:
+    - banner [ref=f10e112]:
+      - search [ref=f10e113]:
+        - generic [ref=f10e114]: Search
+        - generic [ref=f10e115]:
+          - generic [aria-hidden] [ref=f10e116]: search
+          - searchbox "Search" [ref=f10e117]
+      - generic [ref=f10e118]:
+        - switch "Dark mode" [ref=f10e121]
+        - group [ref=f10e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f10e124] [cursor=pointer]':
+            - generic [ref=f10e125]:
+              - generic [aria-hidden] [ref=f10e126]: notifications
+              - generic [aria-hidden] [ref=f10e127]: "2"
+        - generic [ref=f10e128]:
+          - generic [aria-hidden] [ref=f10e129]: ST
+          - paragraph [ref=f10e130]: Structural Supplies
+    - main [ref=f10e131]:
+      - generic [ref=f10e133]:
+        - generic [ref=f10e134]:
+          - generic [ref=f10e135]:
+            - heading "Purchases" [level=1] [ref=f10e136]
+            - paragraph [ref=f10e137]: What you bought, from whom, and what you still owe.
+          - generic [ref=f10e138]:
+            - link "Download CSV" [ref=f10e139] [cursor=pointer]:
+              - /url: /export/list/purchases?period=all
+            - link "New purchase" [ref=f10e140] [cursor=pointer]:
+              - /url: /purchases/new
+        - generic [ref=f10e141]:
+          - generic [ref=f10e142]:
+            - generic [ref=f10e143]:
+              - paragraph [ref=f10e144]: Deliveries
+              - generic [aria-hidden] [ref=f10e146]: receipt_long
+            - paragraph [ref=f10e147]: "4"
+            - paragraph [ref=f10e148]: Everything up to 2026-11-06
+          - generic [ref=f10e149]:
+            - generic [ref=f10e150]:
+              - paragraph [ref=f10e151]: Total cost
+              - generic [aria-hidden] [ref=f10e153]: payments
+            - paragraph [ref=f10e154]: GHS 165,990.00
+          - generic [ref=f10e155]:
+            - generic [ref=f10e156]:
+              - paragraph [ref=f10e157]: Paid
+              - generic [aria-hidden] [ref=f10e159]: account_balance_wallet
+            - paragraph [ref=f10e160]: 106,400.00
+          - generic [ref=f10e161]:
+            - generic [ref=f10e162]:
+              - paragraph [ref=f10e163]: Owing on these
+              - generic [aria-hidden] [ref=f10e165]: assignment
+            - paragraph [ref=f10e166]: 59,590.00
+          - generic [ref=f10e167]:
+            - generic [ref=f10e168]:
+              - paragraph [ref=f10e169]: You owe suppliers
+              - generic [aria-hidden] [ref=f10e171]: local_shipping
+            - paragraph [ref=f10e172]: GHS 59,590.00
+            - paragraph [ref=f10e173]: Accounts payable, whole shop
+        - generic "Quick filters" [ref=f10e174]:
+          - link "Today's purchases" [ref=f10e175] [cursor=pointer]:
+            - /url: "?period=today"
+          - link "Credit purchases" [ref=f10e176] [cursor=pointer]:
+            - /url: "?period=all&paid=outstanding"
+          - link "Fully paid" [ref=f10e177] [cursor=pointer]:
+            - /url: "?period=all&paid=paid"
+          - link "Partly paid" [ref=f10e178] [cursor=pointer]:
+            - /url: "?period=all&paid=partial"
+        - region "Filters" [ref=f10e179]:
+          - generic [ref=f10e180]:
+            - generic [ref=f10e181]:
+              - text: Period
+              - combobox "Period" [ref=f10e182]:
+                - option "Today"
+                - option "Yesterday"
+                - option "This week"
+                - option "Last week"
+                - option "This month"
+                - option "Last month"
+                - option "This year"
+                - option "Everything" [selected]
+                - option "Custom range"
+            - generic [ref=f10e183]:
+              - text: From
+              - textbox "From" [ref=f10e185]
+            - generic [ref=f10e186]:
+              - text: To
+              - textbox "To" [ref=f10e188]: 2026-11-06
+            - generic [ref=f10e189]:
+              - text: Search
+              - searchbox "Search" [ref=f10e190]
+            - generic [ref=f10e191]:
+              - text: Supplier
+              - combobox "Supplier" [ref=f10e192]:
+                - option "All suppliers" [selected]
+                - option "Amasaman Pipes & Sheets"
+                - option "Ghacem Depot, Tema"
+                - option "Tema Steel Works"
+            - generic [ref=f10e193]:
+              - text: Category
+              - combobox "Category" [ref=f10e194]:
+                - option "All categories" [selected]
+                - option "Cement"
+                - option "Fixings"
+                - option "Plumbing"
+                - option "Roofing"
+                - option "Services"
+                - option "Steel"
+            - generic [ref=f10e195]:
+              - text: Product
+              - combobox "Product" [ref=f10e196]:
+                - option "All products" [selected]
+                - option "Binding wire"
+                - option "Cartage to site"
+                - option "Cement 50kg"
+                - option "Chippings 3/4in (tipper load)"
+                - option "Iron rod 12mm"
+                - option "Iron rod 16mm"
+                - option "PVC elbow 4in"
+                - option "PVC pipe 2in"
+                - option "PVC pipe 4in"
+                - option "Roofing nails 3in"
+                - option "Roofing sheet aluzinc 3m"
+                - option "Sand (tipper load)"
+            - generic [ref=f10e197]:
+              - text: Paid from
+              - combobox "Paid from" [ref=f10e198]:
+                - option "Any account" [selected]
+                - option "Cash"
+                - option "MTN MoMo"
+                - option "Bank Account"
+            - generic [ref=f10e199]:
+              - text: Status
+              - combobox "Status" [ref=f10e200]:
+                - option "All" [selected]
+                - option "Posted"
+                - option "Voided"
+            - group "Total" [ref=f10e201]:
+              - generic [ref=f10e203]:
+                - textbox "Total from" [ref=f10e204]:
+                  - /placeholder: Min
+                - generic [aria-hidden] [ref=f10e205]: –
+                - textbox "Total to" [ref=f10e206]:
+                  - /placeholder: Max
+            - generic [ref=f10e207]:
+              - button "Apply" [ref=f10e208]
+              - link "Clear all" [ref=f10e209] [cursor=pointer]:
+                - /url: "?"
+        - table [ref=f10e211]:
+          - rowgroup [ref=f10e212]:
+            - row [ref=f10e213]:
+              - columnheader [ref=f10e214]:
+                - link "Reference" [ref=f10e215] [cursor=pointer]:
+                  - /url: "?period=all&sort=reference&direction=asc"
+                  - text: Reference
+                  - generic [aria-hidden] [ref=f10e216]: ⇅
+              - columnheader [ref=f10e217]:
+                - link "Date" [ref=f10e218] [cursor=pointer]:
+                  - /url: "?period=all&sort=date&direction=asc"
+                  - text: Date
+                  - generic [aria-hidden] [ref=f10e219]: ▼
+              - columnheader [ref=f10e220]:
+                - link "Supplier" [ref=f10e221] [cursor=pointer]:
+                  - /url: "?period=all&sort=supplier&direction=asc"
+                  - text: Supplier
+                  - generic [aria-hidden] [ref=f10e222]: ⇅
+              - columnheader "Invoice" [ref=f10e223]
+              - columnheader "Lines" [ref=f10e224]
+              - columnheader [ref=f10e225]:
+                - link "Total" [ref=f10e226] [cursor=pointer]:
+                  - /url: "?period=all&sort=amount&direction=desc"
+                  - text: Total
+                  - generic [aria-hidden] [ref=f10e227]: ⇅
+              - columnheader [ref=f10e228]:
+                - link "Owing" [ref=f10e229] [cursor=pointer]:
+                  - /url: "?period=all&sort=outstanding&direction=desc"
+                  - text: Owing
+                  - generic [aria-hidden] [ref=f10e230]: ⇅
+              - columnheader "Status" [ref=f10e231]
+          - rowgroup [ref=f10e232]:
+            - row [ref=f10e233]:
+              - cell [ref=f10e234]:
+                - link "PUR-00004" [ref=f10e235] [cursor=pointer]:
+                  - /url: /purchases/4
+              - cell "28 Oct 2026" [ref=f10e236]
+              - cell [ref=f10e237]:
+                - link "Ghacem Depot, Tema" [ref=f10e238] [cursor=pointer]:
+                  - /url: /suppliers/1
+              - cell "GH-4620" [ref=f10e239]
+              - cell "1" [ref=f10e240]
+              - cell "53,400.00" [ref=f10e241]
+              - cell "23,400.00" [ref=f10e242]
+              - cell "Part paid" [ref=f10e243]
+            - row [ref=f10e245]:
+              - cell [ref=f10e246]:
+                - link "PUR-00003" [ref=f10e247] [cursor=pointer]:
+                  - /url: /purchases/3
+              - cell "20 Oct 2026" [ref=f10e248]
+              - cell [ref=f10e249]:
+                - link "Amasaman Pipes & Sheets" [ref=f10e250] [cursor=pointer]:
+                  - /url: /suppliers/3
+              - cell "APS-1188" [ref=f10e251]
+              - cell "3" [ref=f10e252]
+              - cell "28,150.00" [ref=f10e253]
+              - cell "28,150.00" [ref=f10e254]
+              - cell "Unpaid" [ref=f10e255]
+            - row [ref=f10e257]:
+              - cell [ref=f10e258]:
+                - link "PUR-00002" [ref=f10e259] [cursor=pointer]:
+                  - /url: /purchases/2
+              - cell "21 Sept 2026" [ref=f10e260]
+              - cell [ref=f10e261]:
+                - link "Tema Steel Works" [ref=f10e262] [cursor=pointer]:
+                  - /url: /suppliers/2
+              - cell "TSW-90233" [ref=f10e263]
+              - cell "2" [ref=f10e264]
+              - cell "34,040.00" [ref=f10e265]
+              - cell "8,040.00" [ref=f10e266]
+              - cell "Part paid" [ref=f10e267]
+            - row [ref=f10e269]:
+              - cell [ref=f10e270]:
+                - link "PUR-00001" [ref=f10e271] [cursor=pointer]:
+                  - /url: /purchases/1
+              - cell "24 Aug 2026" [ref=f10e272]
+              - cell [ref=f10e273]:
+                - link "Ghacem Depot, Tema" [ref=f10e274] [cursor=pointer]:
+                  - /url: /suppliers/1
+              - cell "GH-4471" [ref=f10e275]
+              - cell "1" [ref=f10e276]
+              - cell "50,400.00" [ref=f10e277]
+              - cell "—" [ref=f10e278]
+              - cell "Paid" [ref=f10e279]
+        - navigation "Pagination" [ref=f10e281]:
+          - paragraph [ref=f10e282]: Showing 1–4 of 4 purchases
+        - paragraph [ref=f10e283]: Every figure above the table is calculated from the deliveries this filter selects, and the CSV downloads the same set.

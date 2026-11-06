@@ -1,0 +1,185 @@
+- generic [ref=f3e2]:
+  - complementary [ref=f3e3]:
+    - link "NunaBooks dashboard" [ref=f3e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f3e6]:
+        - paragraph [ref=f3e7]: NunaBooks
+        - paragraph [ref=f3e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f3e10]:
+      - group [ref=f3e11]:
+        - generic "Daily" [ref=f3e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e14]: ›
+        - list [ref=f3e15]:
+          - listitem [ref=f3e16]:
+            - link "Dashboard" [ref=f3e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f3e18]: space_dashboard
+          - listitem [ref=f3e20]:
+            - link "Sales" [ref=f3e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f3e22]: shopping_cart
+          - listitem [ref=f3e24]:
+            - link "Quotations" [ref=f3e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f3e26]: request_quote
+          - listitem [ref=f3e28]:
+            - link "Purchases" [ref=f3e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f3e30]: receipt_long
+          - listitem [ref=f3e32]:
+            - link "Expenses" [ref=f3e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f3e34]: payments
+      - group [ref=f3e36]:
+        - generic "Stock" [ref=f3e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e39]: ›
+        - list [ref=f3e40]:
+          - listitem [ref=f3e41]:
+            - link "Products" [ref=f3e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f3e43]: inventory_2
+          - listitem [ref=f3e45]:
+            - link "Inventory" [ref=f3e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f3e47]: warehouse
+      - group [ref=f3e49]:
+        - generic "People" [ref=f3e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e52]: ›
+        - list [ref=f3e53]:
+          - listitem [ref=f3e54]:
+            - link "Customers" [ref=f3e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f3e56]: group
+          - listitem [ref=f3e58]:
+            - link "Suppliers" [ref=f3e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f3e60]: local_shipping
+      - group [ref=f3e62]:
+        - generic "Money" [ref=f3e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e65]: ›
+        - list [ref=f3e66]:
+          - listitem [ref=f3e67]:
+            - link "Accounts" [ref=f3e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f3e69]: account_balance
+          - listitem [ref=f3e71]:
+            - link "Reconciliation" [ref=f3e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f3e73]: balance
+          - listitem [ref=f3e75]:
+            - link "Accounting" [ref=f3e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f3e77]: analytics
+          - listitem [ref=f3e79]:
+            - link "Reports" [ref=f3e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f3e81]: analytics
+      - group [ref=f3e83]:
+        - generic "Admin" [ref=f3e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e86]: ›
+        - list [ref=f3e87]:
+          - listitem [ref=f3e88]:
+            - link "Users" [ref=f3e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f3e90]: group
+          - listitem [ref=f3e92]:
+            - link "Settings" [ref=f3e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f3e94]: settings
+      - link "Support" [ref=f3e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f3e97]: help
+    - generic [ref=f3e99]:
+      - generic [ref=f3e100]:
+        - generic [ref=f3e101]:
+          - paragraph [ref=f3e102]: Demo Owner
+          - paragraph [ref=f3e103]: owner
+        - link "Change my password" [ref=f3e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f3e105]: lock_reset
+      - generic [ref=f3e106]:
+        - button "Switch user" [ref=f3e108]
+        - button "Sign out" [ref=f3e110]
+  - generic [ref=f3e111]:
+    - banner [ref=f3e112]:
+      - search [ref=f3e113]:
+        - generic [ref=f3e114]: Search
+        - generic [ref=f3e115]:
+          - generic [aria-hidden] [ref=f3e116]: search
+          - searchbox "Search" [ref=f3e117]
+      - generic [ref=f3e118]:
+        - switch "Dark mode" [ref=f3e121]
+        - group [ref=f3e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f3e124] [cursor=pointer]':
+            - generic [ref=f3e125]:
+              - generic [aria-hidden] [ref=f3e126]: notifications
+              - generic [aria-hidden] [ref=f3e127]: "2"
+        - generic [ref=f3e128]:
+          - generic [aria-hidden] [ref=f3e129]: ST
+          - paragraph [ref=f3e130]: Structural Supplies
+    - main [ref=f3e131]:
+      - generic [ref=f3e133]:
+        - generic [ref=f3e134]:
+          - generic [ref=f3e135]:
+            - heading "New sale" [level=1] [ref=f3e136]
+            - paragraph [ref=f3e137]: Search or scan, take payment, done.
+          - link "All sales" [ref=f3e139] [cursor=pointer]:
+            - /url: /sales
+        - generic [ref=f3e140]:
+          - generic [ref=f3e141]:
+            - generic [ref=f3e142]:
+              - generic [ref=f3e143]: Find a product
+              - textbox "Find a product" [active] [ref=f3e144]:
+                - /placeholder: Type a name, or scan a barcode
+            - generic [ref=f3e145]:
+              - heading "Cart" [level=2] [ref=f3e147]
+              - paragraph [ref=f3e148]: Search above to add the first item.
+          - generic [ref=f3e150]:
+            - generic [ref=f3e151]:
+              - generic [ref=f3e152]:
+                - generic [ref=f3e153]:
+                  - term [ref=f3e154]: Subtotal
+                  - definition [ref=f3e155]: "0.00"
+                - generic [ref=f3e156]:
+                  - term [ref=f3e157]: Total
+                  - definition [ref=f3e158]: GHS 0.00
+              - generic [ref=f3e159]:
+                - generic [ref=f3e160]: Discount on the whole sale
+                - textbox "Discount on the whole sale" [ref=f3e161]:
+                  - /placeholder: "0.00"
+            - generic [ref=f3e162]:
+              - heading "Payment" [level=2] [ref=f3e163]
+              - generic [ref=f3e164]:
+                - generic [ref=f3e165]:
+                  - generic [ref=f3e166]: Method
+                  - combobox "Method" [ref=f3e167]:
+                    - option "Cash" [selected]
+                    - option "MTN MoMo"
+                    - option "Bank Account"
+                - generic [ref=f3e168]:
+                  - generic [ref=f3e169]: Amount received
+                  - generic [ref=f3e170]:
+                    - textbox "Amount received" [ref=f3e171]:
+                      - /placeholder: "0.00"
+                    - button "Exact" [disabled] [ref=f3e172]
+                - button "+ Split across a second method" [ref=f3e173]
+                - generic [ref=f3e174]:
+                  - generic [ref=f3e175]: Reference (optional)
+                  - textbox "Reference (optional)" [ref=f3e176]:
+                    - /placeholder: ""
+              - generic [ref=f3e178]:
+                - term [ref=f3e179]: Received
+                - definition [ref=f3e180]: "0.00"
+            - generic [ref=f3e181]:
+              - generic [ref=f3e182]:
+                - generic [ref=f3e183]: Sale date
+                - textbox "Sale date" [ref=f3e185]
+              - generic [ref=f3e186]: Customer
+              - combobox "Customer" [ref=f3e187]:
+                - option "Walk-in customer" [selected]
+                - option "Adom Construction Ltd — owes 22,030.00"
+                - option "Kofi Owusu"
+                - option "Mensah & Sons Builders — owes 8,528.00"
+              - generic [ref=f3e188]: Note (optional)
+              - textbox "Note (optional)" [ref=f3e189]
+            - button "Complete sale — GHS 0.00" [disabled] [ref=f3e190]

@@ -293,6 +293,58 @@ final class LedgerService
         return self::age($rows, PurchaseService::getOutstandingByPurchase(['asAt' => $asAt]), 'supplier_id', $asAt, useDueDate: false);
     }
 
+    /**
+     * The ageing rows one party and a status keep, in order: the old pages
+     * narrowed the built report this way (overdue = anything over 90 days).
+     */
+    public static function narrowAgeing(array $rows, ?int $partyId, ?string $status): array
+    {
+        return array_values(array_filter($rows, fn (array $r): bool => ($partyId === null || $r['partyId'] === $partyId)
+            && ! ($status === 'overdue' && $r['over90'] <= 0)
+            && ! ($status === 'current' && $r['over90'] > 0)));
+    }
+
+    /**
+     * Bucket totals over the ageing rows given (the page passes the rows it
+     * shows, or the whole report), as the old receivables/payables pages
+     * summed them.
+     *
+     * @param  list<array{current: int, days1to30: int, days31to60: int, days61to90: int, over90: int, total: int}>  $rows
+     * @return array{current: int, days1to30: int, days31to60: int, days61to90: int, over90: int, total: int}
+     */
+    public static function getAgeingTotals(array $rows): array
+    {
+        $keys = ['current', 'days1to30', 'days31to60', 'days61to90', 'over90', 'total'];
+
+        return array_combine($keys, array_map(fn (string $key): int => Money::sum(array_column($rows, $key)), $keys));
+    }
+
+    /**
+     * The old trial-balance page: raw (gross) debit and credit totals per
+     * leaf account with movement, headings excluded so nothing counts twice,
+     * and the grand totals of those rows.
+     *
+     * @param  array{from?: ?string, to?: ?string}  $range
+     * @return array{rows: list<array<string, mixed>>, totalDebit: int, totalCredit: int, difference: int, balanced: bool}
+     */
+    public static function getGrossTrialBalance(array $range = []): array
+    {
+        $rows = array_values(array_filter(
+            self::getChartOfAccounts($range),
+            fn (array $a): bool => ! $a['isHeader'] && ($a['totalDebit'] > 0 || $a['totalCredit'] > 0),
+        ));
+        $totalDebit = Money::sum(array_column($rows, 'totalDebit'));
+        $totalCredit = Money::sum(array_column($rows, 'totalCredit'));
+
+        return [
+            'rows' => $rows,
+            'totalDebit' => $totalDebit,
+            'totalCredit' => $totalCredit,
+            'difference' => Money::subtract($totalDebit, $totalCredit),
+            'balanced' => $totalDebit === $totalCredit,
+        ];
+    }
+
     private static function age(iterable $rows, array $outstanding, string $partyColumn, string $asAt, bool $useDueDate): array
     {
         $byParty = [];

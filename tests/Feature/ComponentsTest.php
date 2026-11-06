@@ -11,6 +11,8 @@ declare(strict_types=1);
 use App\Services\SaleService;
 use App\Support\Filters\ListFilters;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\MessageBag;
+use Illuminate\Support\ViewErrorBag;
 use Illuminate\View\ViewException;
 
 function salesList(array $params): array
@@ -59,4 +61,19 @@ it('fills the period from the resolved range, and carries what it does not own',
 it('links the CSV button to the shared export route with the page dropped', function () {
     $html = Blade::render('<x-csv-button list="sales" :query="[\'q\' => \'rice\', \'page\' => \'4\']" />');
     expect($html)->toContain('href="/export/list/sales?q=rice"');
+});
+
+it('opens a confirm dialog again only for its own errors, not another form\'s on the page', function () {
+    $render = function (array $messages, string $extra = ''): string {
+        view()->share('errors', (new ViewErrorBag)->put('default', new MessageBag($messages)));
+
+        return Blade::render('<x-confirm-dialog title="Void this sale" description="d" trigger="Void…" '.$extra.'>x</x-confirm-dialog>');
+    };
+
+    // On the sale page a return-form error used to open the void dialog.
+    expect($render(['returnForm' => 'Enter a quantity for at least one item.']))->toContain('confirming: false')
+        ->and($render([]))->toContain('confirming: false')
+        ->and($render(['reason' => 'Give a reason for voiding this sale.']))->toContain('confirming: true')
+        ->and($render(['form' => 'That sale is already void.']))->toContain('confirming: true')
+        ->and($render(['note' => 'x'], ':keys="[\'note\']"'))->toContain('confirming: true');
 });

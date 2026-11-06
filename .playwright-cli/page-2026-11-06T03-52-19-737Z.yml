@@ -1,0 +1,220 @@
+- generic [ref=f13e2]:
+  - complementary [ref=f13e3]:
+    - link "NunaBooks dashboard" [ref=f13e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f13e6]:
+        - paragraph [ref=f13e7]: NunaBooks
+        - paragraph [ref=f13e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f13e10]:
+      - group [ref=f13e11]:
+        - generic "Daily" [ref=f13e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e14]: ›
+        - list [ref=f13e15]:
+          - listitem [ref=f13e16]:
+            - link "Dashboard" [ref=f13e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f13e18]: space_dashboard
+          - listitem [ref=f13e20]:
+            - link "Sales" [ref=f13e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f13e22]: shopping_cart
+          - listitem [ref=f13e24]:
+            - link "Quotations" [ref=f13e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f13e26]: request_quote
+          - listitem [ref=f13e28]:
+            - link "Purchases" [ref=f13e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f13e30]: receipt_long
+          - listitem [ref=f13e32]:
+            - link "Expenses" [ref=f13e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f13e34]: payments
+      - group [ref=f13e36]:
+        - generic "Stock" [ref=f13e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e39]: ›
+        - list [ref=f13e40]:
+          - listitem [ref=f13e41]:
+            - link "Products" [ref=f13e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f13e43]: inventory_2
+          - listitem [ref=f13e45]:
+            - link "Inventory" [ref=f13e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f13e47]: warehouse
+      - group [ref=f13e49]:
+        - generic "People" [ref=f13e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e52]: ›
+        - list [ref=f13e53]:
+          - listitem [ref=f13e54]:
+            - link "Customers" [ref=f13e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f13e56]: group
+          - listitem [ref=f13e58]:
+            - link "Suppliers" [ref=f13e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f13e60]: local_shipping
+      - group [ref=f13e62]:
+        - generic "Money" [ref=f13e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e65]: ›
+        - list [ref=f13e66]:
+          - listitem [ref=f13e67]:
+            - link "Accounts" [ref=f13e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f13e69]: account_balance
+          - listitem [ref=f13e71]:
+            - link "Reconciliation" [ref=f13e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f13e73]: balance
+          - listitem [ref=f13e75]:
+            - link "Accounting" [ref=f13e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f13e77]: analytics
+          - listitem [ref=f13e79]:
+            - link "Reports" [ref=f13e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f13e81]: analytics
+      - group [ref=f13e83]:
+        - generic "Admin" [ref=f13e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e86]: ›
+        - list [ref=f13e87]:
+          - listitem [ref=f13e88]:
+            - link "Users" [ref=f13e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f13e90]: group
+          - listitem [ref=f13e92]:
+            - link "Settings" [ref=f13e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f13e94]: settings
+      - link "Support" [ref=f13e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f13e97]: help
+    - generic [ref=f13e99]:
+      - generic [ref=f13e100]:
+        - generic [ref=f13e101]:
+          - paragraph [ref=f13e102]: Demo Owner
+          - paragraph [ref=f13e103]: owner
+        - link "Change my password" [ref=f13e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f13e105]: lock_reset
+      - generic [ref=f13e106]:
+        - button "Switch user" [ref=f13e108]
+        - button "Sign out" [ref=f13e110]
+  - generic [ref=f13e111]:
+    - banner [ref=f13e112]:
+      - search [ref=f13e113]:
+        - generic [ref=f13e114]: Search
+        - generic [ref=f13e115]:
+          - generic [aria-hidden] [ref=f13e116]: search
+          - searchbox "Search" [ref=f13e117]
+      - generic [ref=f13e118]:
+        - switch "Dark mode" [ref=f13e121]
+        - group [ref=f13e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f13e124] [cursor=pointer]':
+            - generic [ref=f13e125]:
+              - generic [aria-hidden] [ref=f13e126]: notifications
+              - generic [aria-hidden] [ref=f13e127]: "2"
+        - generic [ref=f13e128]:
+          - generic [aria-hidden] [ref=f13e129]: ST
+          - paragraph [ref=f13e130]: Structural Supplies
+    - main [ref=f13e131]:
+      - generic [ref=f13e133]:
+        - generic [ref=f13e134]:
+          - generic [ref=f13e135]:
+            - heading "Suppliers" [level=1] [ref=f13e136]
+            - paragraph [ref=f13e137]: Who you buy from, and what you owe them.
+          - generic [ref=f13e138]:
+            - link "Download CSV" [ref=f13e139] [cursor=pointer]:
+              - /url: /export/list/suppliers
+            - link "Add supplier" [ref=f13e140] [cursor=pointer]:
+              - /url: /suppliers/new
+        - generic [ref=f13e141]:
+          - generic [ref=f13e142]:
+            - generic [ref=f13e143]:
+              - paragraph [ref=f13e144]: Suppliers
+              - generic [aria-hidden] [ref=f13e146]: local_shipping
+            - paragraph [ref=f13e147]: "3"
+          - generic [ref=f13e148]:
+            - generic [ref=f13e149]:
+              - paragraph [ref=f13e150]: Total you owe
+              - generic [aria-hidden] [ref=f13e152]: assignment
+            - paragraph [ref=f13e153]: GHS 59,590.00
+            - paragraph [ref=f13e154]: Accounts payable
+          - generic [ref=f13e155]:
+            - generic [ref=f13e156]:
+              - paragraph [ref=f13e157]: Suppliers owed
+              - generic [aria-hidden] [ref=f13e159]: assignment
+            - paragraph [ref=f13e160]: "3"
+        - generic "Quick filters" [ref=f13e161]:
+          - link "Suppliers we owe" [ref=f13e162] [cursor=pointer]:
+            - /url: "?balance=owing"
+          - link "Nothing owing" [ref=f13e163] [cursor=pointer]:
+            - /url: "?balance=zero"
+          - link "Archived" [ref=f13e164] [cursor=pointer]:
+            - /url: "?archived=archived"
+        - region "Filters" [ref=f13e165]:
+          - generic [ref=f13e166]:
+            - generic [ref=f13e167]:
+              - text: Search
+              - searchbox "Search" [ref=f13e168]
+            - generic [ref=f13e169]:
+              - text: Balance
+              - combobox "Balance" [ref=f13e170]:
+                - option "Any balance" [selected]
+                - option "We owe them"
+                - option "Nothing owing"
+                - option "They owe us"
+            - generic [ref=f13e171]:
+              - text: Status
+              - combobox "Status" [ref=f13e172]:
+                - option "Active only" [selected]
+                - option "Active"
+                - option "Archived"
+            - generic [ref=f13e173]:
+              - button "Apply" [ref=f13e174]
+              - link "Clear all" [ref=f13e175] [cursor=pointer]:
+                - /url: "?"
+        - table [ref=f13e177]:
+          - rowgroup [ref=f13e178]:
+            - row [ref=f13e179]:
+              - columnheader [ref=f13e180]:
+                - link "Supplier" [ref=f13e181] [cursor=pointer]:
+                  - /url: "?sort=name&direction=desc"
+                  - text: Supplier
+                  - generic [aria-hidden] [ref=f13e182]: ▲
+              - columnheader "Contact" [ref=f13e183]
+              - columnheader "Phone" [ref=f13e184]
+              - columnheader [ref=f13e185]:
+                - link "You owe" [ref=f13e186] [cursor=pointer]:
+                  - /url: "?sort=balance&direction=desc"
+                  - text: You owe
+                  - generic [aria-hidden] [ref=f13e187]: ⇅
+              - columnheader "Status" [ref=f13e188]
+          - rowgroup [ref=f13e189]:
+            - row [ref=f13e190]:
+              - cell [ref=f13e191]:
+                - link "Amasaman Pipes & Sheets" [ref=f13e192] [cursor=pointer]:
+                  - /url: /suppliers/3
+              - cell "Selorm" [ref=f13e193]
+              - cell "027 909 1234" [ref=f13e194]
+              - cell "28,150.00" [ref=f13e195]
+              - cell "Owed" [ref=f13e196]
+            - row [ref=f13e198]:
+              - cell [ref=f13e199]:
+                - link "Ghacem Depot, Tema" [ref=f13e200] [cursor=pointer]:
+                  - /url: /suppliers/1
+              - cell "Mr Adjei" [ref=f13e201]
+              - cell "030 222 1100" [ref=f13e202]
+              - cell "23,400.00" [ref=f13e203]
+              - cell "Owed" [ref=f13e204]
+            - row [ref=f13e206]:
+              - cell [ref=f13e207]:
+                - link "Tema Steel Works" [ref=f13e208] [cursor=pointer]:
+                  - /url: /suppliers/2
+              - cell "Hajia Fati" [ref=f13e209]
+              - cell "024 555 6677" [ref=f13e210]
+              - cell "8,040.00" [ref=f13e211]
+              - cell "Owed" [ref=f13e212]
+        - navigation "Pagination" [ref=f13e214]:
+          - paragraph [ref=f13e215]: Showing 1–3 of 3 suppliers
+        - paragraph [ref=f13e216]: What you owe is calculated from the accounts-payable entries tagged to each supplier, so this total always equals the payables figure on the balance sheet — and so does the “Suppliers we owe” filter.

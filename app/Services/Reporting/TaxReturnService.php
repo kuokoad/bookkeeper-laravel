@@ -49,7 +49,8 @@ final class TaxReturnService
             $byCode[$code][$key] = Money::add($byCode[$code][$key], (int) $row->amount);
         }
 
-        $components = array_values(array_map(fn (array $c): array => [...$c, 'netMinor' => Money::subtract($c['outputMinor'], $c['recoverableInputMinor'])], $byCode));
+        // paidOnPurchasesMinor: reclaimable plus not, the "paid on purchases" column the old page added up itself.
+        $components = array_values(array_map(fn (array $c): array => [...$c, 'netMinor' => Money::subtract($c['outputMinor'], $c['recoverableInputMinor']), 'paidOnPurchasesMinor' => Money::add($c['recoverableInputMinor'], $c['nonRecoverableInputMinor'])], $byCode));
         // Old: a.code.localeCompare(b.code) (tax-return.service.ts:145).
         usort($components, fn (array $a, array $b): int => JsCompat::compareCodes($a['code'], $b['code']));
 
@@ -59,14 +60,19 @@ final class TaxReturnService
 
         $totalOutput = Money::sum(array_column($components, 'outputMinor'));
         $totalRecoverableInput = Money::sum(array_column($components, 'recoverableInputMinor'));
+        $totalNonRecoverableInput = Money::sum(array_column($components, 'nonRecoverableInputMinor'));
+        $netPayable = Money::subtract($totalOutput, $totalRecoverableInput);
 
         return [
             'period' => $period,
             'components' => $components,
             'totalOutput' => $totalOutput,
             'totalRecoverableInput' => $totalRecoverableInput,
-            'totalNonRecoverableInput' => Money::sum(array_column($components, 'nonRecoverableInputMinor')),
-            'netPayable' => Money::subtract($totalOutput, $totalRecoverableInput),
+            'totalNonRecoverableInput' => $totalNonRecoverableInput,
+            'totalPaidOnPurchases' => Money::add($totalRecoverableInput, $totalNonRecoverableInput),
+            'netPayable' => $netPayable,
+            // The headline shows the size; its label says which way it goes.
+            'netUnsigned' => Money::absolute($netPayable),
             'taxableSalesMinor' => (int) $sales->v,
             'taxablePurchasesMinor' => (int) $purchases->v,
             'saleCount' => (int) $sales->n,

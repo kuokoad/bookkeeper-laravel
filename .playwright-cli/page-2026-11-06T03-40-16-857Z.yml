@@ -1,0 +1,212 @@
+- generic [ref=f15e2]:
+  - complementary [ref=f15e3]:
+    - link "NunaBooks dashboard" [ref=f15e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f15e6]:
+        - paragraph [ref=f15e7]: NunaBooks
+        - paragraph [ref=f15e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f15e10]:
+      - group [ref=f15e11]:
+        - generic "Daily" [ref=f15e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e14]: ›
+        - list [ref=f15e15]:
+          - listitem [ref=f15e16]:
+            - link "Dashboard" [ref=f15e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f15e18]: space_dashboard
+          - listitem [ref=f15e20]:
+            - link "Sales" [ref=f15e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f15e22]: shopping_cart
+          - listitem [ref=f15e24]:
+            - link "Quotations" [ref=f15e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f15e26]: request_quote
+          - listitem [ref=f15e28]:
+            - link "Purchases" [ref=f15e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f15e30]: receipt_long
+          - listitem [ref=f15e32]:
+            - link "Expenses" [ref=f15e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f15e34]: payments
+      - group [ref=f15e36]:
+        - generic "Stock" [ref=f15e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e39]: ›
+        - list [ref=f15e40]:
+          - listitem [ref=f15e41]:
+            - link "Products" [ref=f15e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f15e43]: inventory_2
+          - listitem [ref=f15e45]:
+            - link "Inventory" [ref=f15e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f15e47]: warehouse
+      - group [ref=f15e49]:
+        - generic "People" [ref=f15e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e52]: ›
+        - list [ref=f15e53]:
+          - listitem [ref=f15e54]:
+            - link "Customers" [ref=f15e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f15e56]: group
+          - listitem [ref=f15e58]:
+            - link "Suppliers" [ref=f15e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f15e60]: local_shipping
+      - group [ref=f15e62]:
+        - generic "Money" [ref=f15e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e65]: ›
+        - list [ref=f15e66]:
+          - listitem [ref=f15e67]:
+            - link "Accounts" [ref=f15e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f15e69]: account_balance
+          - listitem [ref=f15e71]:
+            - link "Reconciliation" [ref=f15e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f15e73]: balance
+          - listitem [ref=f15e75]:
+            - link "Accounting" [ref=f15e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f15e77]: analytics
+          - listitem [ref=f15e79]:
+            - link "Reports" [ref=f15e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f15e81]: analytics
+      - group [ref=f15e83]:
+        - generic "Admin" [ref=f15e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f15e86]: ›
+        - list [ref=f15e87]:
+          - listitem [ref=f15e88]:
+            - link "Users" [ref=f15e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f15e90]: group
+          - listitem [ref=f15e92]:
+            - link "Settings" [ref=f15e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f15e94]: settings
+      - link "Support" [ref=f15e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f15e97]: help
+    - generic [ref=f15e99]:
+      - generic [ref=f15e100]:
+        - generic [ref=f15e101]:
+          - paragraph [ref=f15e102]: Demo Owner
+          - paragraph [ref=f15e103]: owner
+        - link "Change my password" [ref=f15e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f15e105]: lock_reset
+      - generic [ref=f15e106]:
+        - button "Switch user" [ref=f15e108]
+        - button "Sign out" [ref=f15e110]
+  - generic [ref=f15e111]:
+    - banner [ref=f15e112]:
+      - search [ref=f15e113]:
+        - generic [ref=f15e114]: Search
+        - generic [ref=f15e115]:
+          - generic [aria-hidden] [ref=f15e116]: search
+          - searchbox "Search" [ref=f15e117]
+      - generic [ref=f15e118]:
+        - switch "Dark mode" [ref=f15e121]
+        - group [ref=f15e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f15e124] [cursor=pointer]':
+            - generic [ref=f15e125]:
+              - generic [aria-hidden] [ref=f15e126]: notifications
+              - generic [aria-hidden] [ref=f15e127]: "2"
+        - generic [ref=f15e128]:
+          - generic [aria-hidden] [ref=f15e129]: ST
+          - paragraph [ref=f15e130]: Structural Supplies
+    - main [ref=f15e131]:
+      - generic [ref=f15e133]:
+        - generic [ref=f15e134]:
+          - generic [ref=f15e135]:
+            - heading "Balance sheet" [level=1] [ref=f15e136]
+            - paragraph [ref=f15e137]: As at 06 Nov 2026
+          - generic [ref=f15e138]:
+            - link "All reports" [ref=f15e139] [cursor=pointer]:
+              - /url: /reports
+            - link "Download CSV" [ref=f15e140] [cursor=pointer]:
+              - /url: /export/report/balance-sheet?asAt=2026-11-06
+            - button "Print" [ref=f15e141]
+        - region "Filters" [ref=f15e142]:
+          - generic [ref=f15e143]:
+            - generic [ref=f15e144]:
+              - text: As at
+              - textbox "As at" [ref=f15e146]: 2026-11-06
+            - generic [ref=f15e147]:
+              - button "Apply" [ref=f15e148]
+              - link "Clear all" [ref=f15e149] [cursor=pointer]:
+                - /url: "?"
+        - generic [ref=f15e150]:
+          - generic [ref=f15e151]:
+            - generic [ref=f15e152]:
+              - paragraph [ref=f15e153]: What you own
+              - generic [aria-hidden] [ref=f15e155]: account_balance_wallet
+            - paragraph [ref=f15e156]: GHS 285,558.38
+          - generic [ref=f15e157]:
+            - generic [ref=f15e158]:
+              - paragraph [ref=f15e159]: What you owe
+              - generic [aria-hidden] [ref=f15e161]: assignment
+            - paragraph [ref=f15e162]: GHS 59,590.00
+          - generic [ref=f15e163]:
+            - generic [ref=f15e164]:
+              - paragraph [ref=f15e165]: Business worth
+              - generic [aria-hidden] [ref=f15e167]: balance
+            - paragraph [ref=f15e168]: GHS 225,968.38
+        - generic [ref=f15e169]: Structural Supplies — Balance sheet as at 06 Nov 2026
+        - table [ref=f15e171]:
+          - rowgroup [ref=f15e172]:
+            - row [ref=f15e173]:
+              - columnheader "Item" [ref=f15e174]
+              - columnheader "Amount" [ref=f15e175]
+          - rowgroup [ref=f15e176]:
+            - row [ref=f15e177]:
+              - cell "What the business owns(Assets)" [ref=f15e178]
+              - cell [ref=f15e179]
+            - row [ref=f15e180]:
+              - cell "Cash on Hand" [ref=f15e181]
+              - cell "19,094.00" [ref=f15e182]
+            - row [ref=f15e183]:
+              - cell "MTN Mobile Money" [ref=f15e184]
+              - cell "3,864.00" [ref=f15e185]
+            - row [ref=f15e186]:
+              - cell "Bank Account" [ref=f15e187]
+              - cell "12,712.00" [ref=f15e188]
+            - row [ref=f15e189]:
+              - cell "Money customers owe you" [ref=f15e190]
+              - cell "30,558.00" [ref=f15e191]
+            - row [ref=f15e192]:
+              - cell "Stock on the shelf" [ref=f15e193]
+              - cell "219,330.38" [ref=f15e194]
+            - row [ref=f15e195]:
+              - cell "Total assets" [ref=f15e196]
+              - cell "285,558.38" [ref=f15e197]
+            - row [ref=f15e198]:
+              - cell "What the business owes(Liabilities)" [ref=f15e199]
+              - cell [ref=f15e200]
+            - row [ref=f15e201]:
+              - cell "Money you owe suppliers" [ref=f15e202]
+              - cell "59,590.00" [ref=f15e203]
+            - row [ref=f15e204]:
+              - cell "Total liabilities" [ref=f15e205]
+              - cell "59,590.00" [ref=f15e206]
+            - row [ref=f15e207]:
+              - cell "Your stake in the business(Equity)" [ref=f15e208]
+              - cell [ref=f15e209]
+            - row [ref=f15e210]:
+              - cell "Money you put in" [ref=f15e211]
+              - cell "90,000.00" [ref=f15e212]
+            - row [ref=f15e213]:
+              - cell "Opening balances" [ref=f15e214]
+              - cell "138,910.00" [ref=f15e215]
+            - row [ref=f15e216]:
+              - cell "Profit kept in the business" [ref=f15e217]
+              - cell "-2,941.62" [ref=f15e218]
+            - row [ref=f15e219]:
+              - cell "Total your stake" [ref=f15e220]
+              - cell "225,968.38" [ref=f15e221]
+            - row [ref=f15e222]:
+              - cell "Liabilities + your stake" [ref=f15e223]
+              - cell "285,558.38" [ref=f15e224]
+        - paragraph [ref=f15e225]: What the business owns exactly equals what it owes plus your stake in it. That is the check that the books are sound. Profit is inside your stake whether or not the year has been closed, so this statement is correct either way. Closing the year moves it into Retained Earnings and locks the period against later entries; it does not change what the business is worth.

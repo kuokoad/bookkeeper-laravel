@@ -328,6 +328,41 @@ final class OperationsService
             ->get()->map(fn (object $r): array => ['productId' => (int) $r->product_id, 'productName' => (string) $r->name, 'unit' => (string) $r->unit, 'qtyBought' => (int) $r->qty, 'total' => (int) $r->total])->all();
     }
 
+    /**
+     * The sales report's headline figures, summed over its day rows (each
+     * with revenue, cost, profit and saleCount: getSalesByDay or
+     * getSalesLinesByDay mapped to those names) and its payment-method rows,
+     * as the old page summed them. The average is per sale; with no sales it
+     * is the total (zero, or a day of returns only).
+     *
+     * @return array{totalSales: int, totalCost: int, totalProfit: int, saleCount: int, averageSale: int, totalTaken: int}
+     */
+    public static function getSalesReportTotals(array $days, array $byMethod = []): array
+    {
+        $totalSales = Money::sum(array_column($days, 'revenue'));
+        $saleCount = array_sum(array_column($days, 'saleCount'));
+
+        return [
+            'totalSales' => $totalSales,
+            'totalCost' => Money::sum(array_column($days, 'cost')),
+            'totalProfit' => Money::sum(array_column($days, 'profit')),
+            'saleCount' => $saleCount,
+            'averageSale' => $saleCount === 0 ? $totalSales : Money::mulDiv($totalSales, 1, $saleCount),
+            'totalTaken' => Money::sum(array_column($byMethod, 'received')),
+        ];
+    }
+
+    /**
+     * The purchase report's total and count, over its day rows.
+     *
+     * @param  list<array{purchaseCount: int, total: int}>  $byDay
+     * @return array{total: int, count: int}
+     */
+    public static function getPurchasesReportTotals(array $byDay): array
+    {
+        return ['total' => Money::sum(array_column($byDay, 'total')), 'count' => array_sum(array_column($byDay, 'purchaseCount'))];
+    }
+
     /** @return list<array{businessDate: string, purchaseCount: int, total: int}> */
     public static function getPurchasesByDay(array $query): array
     {

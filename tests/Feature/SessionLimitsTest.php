@@ -13,6 +13,7 @@ use App\Auth\Permissions;
 use App\Auth\Sessions;
 use App\Enums\PermissionModule;
 use App\Enums\UserRole;
+use App\Livewire\Inventory\Batch;
 use App\Models\User;
 use App\Services\Actor;
 use App\Services\AuthService;
@@ -127,4 +128,13 @@ describe('the permission gate', function () {
         DB::table('user_permissions')->insert(['user_id' => $this->staffId, 'module' => 'reports', 'can_view' => true]);
         expect(Gate::forUser($user)->allows('reports.view'))->toBeTrue();
     });
+});
+
+it('still answers a request with a redirect after a Livewire page whose mount aborted', function () {
+    // Livewire's own Redirector stayed bound after the aborted mount, and this middleware returned it: a TypeError, a 500.
+    $id = $this->ownerId;
+    Livewire\Livewire::actingAs(User::find($id))->test(Batch::class, ['id' => '999999'])->assertNotFound();
+
+    $this->get('/inventory/batches/999999')->assertRedirect('/login');
+    signedIn($id)->get('/inventory/batches/999999')->assertNotFound();
 });

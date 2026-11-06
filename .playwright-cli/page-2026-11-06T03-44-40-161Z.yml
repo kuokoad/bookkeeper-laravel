@@ -1,0 +1,220 @@
+- generic [ref=f4e2]:
+  - complementary [ref=f4e3]:
+    - link "NunaBooks dashboard" [ref=f4e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f4e6]:
+        - paragraph [ref=f4e7]: NunaBooks
+        - paragraph [ref=f4e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f4e10]:
+      - group [ref=f4e11]:
+        - generic "Daily" [ref=f4e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e14]: ›
+        - list [ref=f4e15]:
+          - listitem [ref=f4e16]:
+            - link "Dashboard" [ref=f4e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f4e18]: space_dashboard
+          - listitem [ref=f4e20]:
+            - link "Sales" [ref=f4e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f4e22]: shopping_cart
+          - listitem [ref=f4e24]:
+            - link "Quotations" [ref=f4e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f4e26]: request_quote
+          - listitem [ref=f4e28]:
+            - link "Purchases" [ref=f4e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f4e30]: receipt_long
+          - listitem [ref=f4e32]:
+            - link "Expenses" [ref=f4e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f4e34]: payments
+      - group [ref=f4e36]:
+        - generic "Stock" [ref=f4e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e39]: ›
+        - list [ref=f4e40]:
+          - listitem [ref=f4e41]:
+            - link "Products" [ref=f4e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f4e43]: inventory_2
+          - listitem [ref=f4e45]:
+            - link "Inventory" [ref=f4e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f4e47]: warehouse
+      - group [ref=f4e49]:
+        - generic "People" [ref=f4e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e52]: ›
+        - list [ref=f4e53]:
+          - listitem [ref=f4e54]:
+            - link "Customers" [ref=f4e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f4e56]: group
+          - listitem [ref=f4e58]:
+            - link "Suppliers" [ref=f4e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f4e60]: local_shipping
+      - group [ref=f4e62]:
+        - generic "Money" [ref=f4e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e65]: ›
+        - list [ref=f4e66]:
+          - listitem [ref=f4e67]:
+            - link "Accounts" [ref=f4e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f4e69]: account_balance
+          - listitem [ref=f4e71]:
+            - link "Reconciliation" [ref=f4e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f4e73]: balance
+          - listitem [ref=f4e75]:
+            - link "Accounting" [ref=f4e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f4e77]: analytics
+          - listitem [ref=f4e79]:
+            - link "Reports" [ref=f4e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f4e81]: analytics
+      - group [ref=f4e83]:
+        - generic "Admin" [ref=f4e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e86]: ›
+        - list [ref=f4e87]:
+          - listitem [ref=f4e88]:
+            - link "Users" [ref=f4e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f4e90]: group
+          - listitem [ref=f4e92]:
+            - link "Settings" [ref=f4e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f4e94]: settings
+      - link "Support" [ref=f4e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f4e97]: help
+    - generic [ref=f4e99]:
+      - generic [ref=f4e100]:
+        - generic [ref=f4e101]:
+          - paragraph [ref=f4e102]: Demo Owner
+          - paragraph [ref=f4e103]: owner
+        - link "Change my password" [ref=f4e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f4e105]: lock_reset
+      - generic [ref=f4e106]:
+        - button "Switch user" [ref=f4e108]
+        - button "Sign out" [ref=f4e110]
+  - generic [ref=f4e111]:
+    - banner [ref=f4e112]:
+      - search [ref=f4e113]:
+        - generic [ref=f4e114]: Search
+        - generic [ref=f4e115]:
+          - generic [aria-hidden] [ref=f4e116]: search
+          - searchbox "Search" [ref=f4e117]
+      - generic [ref=f4e118]:
+        - switch "Dark mode" [ref=f4e121]
+        - group [ref=f4e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f4e124] [cursor=pointer]':
+            - generic [ref=f4e125]:
+              - generic [aria-hidden] [ref=f4e126]: notifications
+              - generic [aria-hidden] [ref=f4e127]: "2"
+        - generic [ref=f4e128]:
+          - generic [aria-hidden] [ref=f4e129]: ST
+          - paragraph [ref=f4e130]: Structural Supplies
+    - main [ref=f4e131]:
+      - generic [ref=f4e133]:
+        - generic [ref=f4e134]:
+          - generic [ref=f4e135]:
+            - heading "Customers" [level=1] [ref=f4e136]
+            - paragraph [ref=f4e137]: Who buys from you, and who owes you money.
+          - generic [ref=f4e138]:
+            - link "Download CSV" [ref=f4e139] [cursor=pointer]:
+              - /url: /export/list/customers
+            - link "Add customer" [ref=f4e140] [cursor=pointer]:
+              - /url: /customers/new
+        - generic [ref=f4e141]:
+          - generic [ref=f4e142]:
+            - generic [ref=f4e143]:
+              - paragraph [ref=f4e144]: Customers
+              - generic [aria-hidden] [ref=f4e146]: group
+            - paragraph [ref=f4e147]: "3"
+          - generic [ref=f4e148]:
+            - generic [ref=f4e149]:
+              - paragraph [ref=f4e150]: Total owed to you
+              - generic [aria-hidden] [ref=f4e152]: assignment
+            - paragraph [ref=f4e153]: GHS 30,558.00
+            - paragraph [ref=f4e154]: Accounts receivable
+          - generic [ref=f4e155]:
+            - generic [ref=f4e156]:
+              - paragraph [ref=f4e157]: Customers owing
+              - generic [aria-hidden] [ref=f4e159]: assignment
+            - paragraph [ref=f4e160]: "2"
+        - generic "Quick filters" [ref=f4e161]:
+          - link "Customers who owe" [ref=f4e162] [cursor=pointer]:
+            - /url: "?balance=owing"
+          - link "Nothing owing" [ref=f4e163] [cursor=pointer]:
+            - /url: "?balance=zero"
+          - link "Archived" [ref=f4e164] [cursor=pointer]:
+            - /url: "?archived=archived"
+        - region "Filters" [ref=f4e165]:
+          - generic [ref=f4e166]:
+            - generic [ref=f4e167]:
+              - text: Search
+              - searchbox "Search" [ref=f4e168]
+            - generic [ref=f4e169]:
+              - text: Balance
+              - combobox "Balance" [ref=f4e170]:
+                - option "Any balance" [selected]
+                - option "Owes money"
+                - option "Nothing owing"
+                - option "In credit"
+            - generic [ref=f4e171]:
+              - text: Status
+              - combobox "Status" [ref=f4e172]:
+                - option "Active only" [selected]
+                - option "Active"
+                - option "Archived"
+            - generic [ref=f4e173]:
+              - button "Apply" [ref=f4e174]
+              - link "Clear all" [ref=f4e175] [cursor=pointer]:
+                - /url: "?"
+        - table [ref=f4e177]:
+          - rowgroup [ref=f4e178]:
+            - row [ref=f4e179]:
+              - columnheader [ref=f4e180]:
+                - link "Customer" [ref=f4e181] [cursor=pointer]:
+                  - /url: "?sort=name&direction=desc"
+                  - text: Customer
+                  - generic [aria-hidden] [ref=f4e182]: ▲
+              - columnheader "Phone" [ref=f4e183]
+              - columnheader [ref=f4e184]:
+                - link "Owes" [ref=f4e185] [cursor=pointer]:
+                  - /url: "?sort=balance&direction=desc"
+                  - text: Owes
+                  - generic [aria-hidden] [ref=f4e186]: ⇅
+              - columnheader "Credit limit" [ref=f4e187]
+              - columnheader "Status" [ref=f4e188]
+          - rowgroup [ref=f4e189]:
+            - row [ref=f4e190]:
+              - cell [ref=f4e191]:
+                - link "Adom Construction Ltd" [ref=f4e192] [cursor=pointer]:
+                  - /url: /customers/1
+              - cell "024 111 2233" [ref=f4e193]
+              - cell "22,030.00" [ref=f4e194]
+              - cell "60,000.00" [ref=f4e195]
+              - cell "Owing" [ref=f4e196]
+            - row [ref=f4e198]:
+              - cell [ref=f4e199]:
+                - link "Kofi Owusu" [ref=f4e200] [cursor=pointer]:
+                  - /url: /customers/3
+              - cell "027 777 8899" [ref=f4e201]
+              - cell "—" [ref=f4e202]
+              - cell "No limit" [ref=f4e203]
+              - cell "Clear" [ref=f4e204]
+            - row [ref=f4e206]:
+              - cell [ref=f4e207]:
+                - link "Mensah & Sons Builders" [ref=f4e208] [cursor=pointer]:
+                  - /url: /customers/2
+              - cell "020 444 5566" [ref=f4e209]
+              - cell "8,528.00" [ref=f4e210]
+              - cell "25,000.00" [ref=f4e211]
+              - cell "Owing" [ref=f4e212]
+        - navigation "Pagination" [ref=f4e214]:
+          - paragraph [ref=f4e215]: Showing 1–3 of 3 customers
+        - paragraph [ref=f4e216]: What a customer owes is calculated from the accounts-receivable entries tagged to them, so this total always equals the receivables figure on the balance sheet — and so does the “Customers who owe” filter.

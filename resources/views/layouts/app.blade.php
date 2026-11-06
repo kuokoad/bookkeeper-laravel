@@ -84,14 +84,95 @@
         <header class="no-print sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-line bg-surface-raised px-4 py-2.5 lg:px-6">
             <p class="truncate text-sm font-medium text-content lg:hidden">{{ $shell['shopName'] }}</p>
 
-            {{-- A plain GET form: search works before any JavaScript arrives. --}}
-            <form method="GET" action="/search" role="search" class="hidden max-w-md flex-1 lg:block">
-                <label for="top-search" class="sr-only">Search</label>
+            {{-- A plain GET form: search works before any JavaScript arrives. On top of it, the old
+                 search-box.tsx: results as you type from /search/suggest (debounced, the request in
+                 flight aborted), Enter takes the first hit, "See all results" goes to /search?q=. --}}
+            <form method="GET" action="/search" role="search" class="relative hidden max-w-md flex-1 lg:block"
+                  x-data="{
+                      term: @js(request()->is('search') ? (string) request()->query('q', '') : ''),
+                      results: null, open: false, active: -1, timer: null, controller: null,
+                      get query() { return this.term.trim() },
+                      get fresh() { return this.results !== null && this.results.query === this.query ? this.results : null },
+                      get hits() { return this.fresh ? this.fresh.groups.flatMap(g => g.hits) : [] },
+                      get showing() { return this.open && this.query.length >= 2 && this.fresh !== null },
+                      fetchSoon() {
+                          clearTimeout(this.timer);
+                          if (this.controller) this.controller.abort();
+                          if (this.query.length < 2) return;
+                          const q = this.query;
+                          this.controller = new AbortController();
+                          const signal = this.controller.signal;
+                          this.timer = setTimeout(() => {
+                              fetch('/search/suggest?q=' + encodeURIComponent(q), { signal, headers: { Accept: 'application/json' } })
+                                  .then(r => r.ok ? r.json() : null)
+                                  .then(data => { this.results = data; this.active = -1 })
+                                  .catch(() => {});
+                          }, 180);
+                      },
+                      go(hit) { this.open = false; this.term = ''; window.location.href = hit.href },
+                      seeAll() { this.open = false; window.location.href = '/search?q=' + encodeURIComponent(this.query) },
+                      move(step) {
+                          if (this.hits.length === 0) return;
+                          this.open = true;
+                          const next = this.active + step;
+                          this.active = next < 0 ? this.hits.length - 1 : (next >= this.hits.length ? 0 : next);
+                      },
+                      enter(event) {
+                          const chosen = this.active >= 0 ? this.hits[this.active] : this.hits[0];
+                          if (! chosen) return;
+                          event.preventDefault();
+                          this.go(chosen);
+                      },
+                  }"
+                  x-on:focusout="if (! $el.contains($event.relatedTarget)) open = false">
+                <label for="top-search" class="sr-only">Search products, customers, suppliers and receipts</label>
                 <div class="flex h-10 items-center gap-2 rounded-lg border border-line bg-surface-sunken px-3">
                     <x-icon name="search" class="h-[18px] w-[18px] text-content-subtle" />
                     <input id="top-search" name="q" type="search" value="{{ request()->is('search') ? request()->query('q') : '' }}"
+                           x-model="term" x-on:input="open = true; fetchSoon()" x-on:focus="open = true"
+                           x-on:keydown.escape="open = false" x-on:keydown.arrow-down.prevent="move(1)" x-on:keydown.arrow-up.prevent="move(-1)"
+                           x-on:keydown.enter="enter($event)"
+                           role="combobox" aria-controls="top-search-list" x-bind:aria-expanded="showing && hits.length > 0"
+                           x-bind:aria-activedescendant="active >= 0 ? 'top-search-' + active : null"
                            placeholder="Search products, customers, receipts…" autocomplete="off"
                            class="h-full min-w-0 flex-1 bg-transparent text-sm text-content placeholder:text-content-subtle focus:outline-none">
+                </div>
+
+                <div x-show="showing" x-cloak class="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-line bg-surface-raised shadow-lg">
+                    <template x-if="hits.length === 0">
+                        <p class="px-3 py-3 text-sm text-content-muted">Nothing matches “<span x-text="query"></span>”.</p>
+                    </template>
+                    <template x-if="hits.length > 0">
+                        <div>
+                            <ul id="top-search-list" role="listbox" aria-label="Search results" class="max-h-80 overflow-y-auto">
+                                <template x-for="group in fresh.groups" x-bind:key="group.label">
+                                    <li>
+                                        <p class="border-b border-line bg-surface-sunken px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-content-subtle" x-text="group.label"></p>
+                                        <ul>
+                                            <template x-for="hit in group.hits" x-bind:key="hit.kind + '-' + hit.id">
+                                                <li>
+                                                    <button type="button" role="option" x-bind:id="'top-search-' + hits.indexOf(hit)"
+                                                            x-bind:aria-selected="hits.indexOf(hit) === active"
+                                                            x-on:mouseenter="active = hits.indexOf(hit)" x-on:click="go(hit)"
+                                                            x-bind:class="hits.indexOf(hit) === active ? 'bg-surface-sunken' : ''"
+                                                            class="flex w-full items-start justify-between gap-3 px-3 py-2 text-left">
+                                                        <span class="min-w-0">
+                                                            <span class="block truncate text-sm font-medium text-content" x-text="hit.title"></span>
+                                                            <span class="block truncate text-xs text-content-subtle" x-text="hit.detail"></span>
+                                                        </span>
+                                                    </button>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </li>
+                                </template>
+                            </ul>
+                            <button type="button" x-on:click="seeAll()"
+                                    class="block w-full border-t border-line px-3 py-2 text-left text-xs font-medium text-accent hover:bg-surface-sunken">
+                                See all results for “<span x-text="query"></span>”<span x-show="fresh.truncated"> — more than shown here</span>
+                            </button>
+                        </div>
+                    </template>
                 </div>
             </form>
 

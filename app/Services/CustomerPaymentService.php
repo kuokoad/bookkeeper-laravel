@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -255,5 +256,36 @@ final class CustomerPaymentService
             ->filter(fn (array $row): bool => $row['outstandingMinor'] > 0)
             ->values()
             ->all();
+    }
+
+    /**
+     * A customer's statement as at a day: the open sales of getOpenSales
+     * dated on or before it, oldest first, each with its document number
+     * (the invoice number, else the receipt) and due date, in one read. The
+     * total is getCustomerBalance, the ledger's figure, not a sum of the
+     * rows; `agrees` says whether the rows add up to it.
+     *
+     * @return array{rows: list<array{id: int, document: string, businessDate: string, dueDate: ?string, overdueBy: int, outstanding: int}>, balance: int, rowsTotal: int, agrees: bool}
+     */
+    public static function getCustomerStatement(int $customerId, string $asAt): array
+    {
+        $outstanding = SaleService::getOutstandingBySale(['customerId' => $customerId]);
+        $rows = DB::table('sales')->where('sales.customer_id', $customerId)->where('sales.status', 'POSTED')
+            ->where('sales.business_date', '<=', $asAt)
+            ->orderBy('sales.business_date')->orderBy('sales.id')
+            ->get(['sales.id', 'sales.receipt_no', 'sales.invoice_no', 'sales.business_date', 'sales.due_date'])
+            ->filter(fn (object $r): bool => ($outstanding[(int) $r->id] ?? 0) > 0)
+            ->map(fn (object $r): array => [
+                'id' => (int) $r->id,
+                'document' => (string) ($r->invoice_no ?? $r->receipt_no),
+                'businessDate' => (string) $r->business_date,
+                'dueDate' => $r->due_date === null ? null : (string) $r->due_date,
+                'overdueBy' => $r->due_date ? BusinessDate::daysOverdue((string) $r->due_date, $asAt) : 0,
+                'outstanding' => $outstanding[(int) $r->id],
+            ])->values()->all();
+        $balance = CustomerService::getCustomerBalance($customerId);
+        $rowsTotal = Money::sum(array_column($rows, 'outstanding'));
+
+        return ['rows' => $rows, 'balance' => $balance, 'rowsTotal' => $rowsTotal, 'agrees' => $rowsTotal === $balance];
     }
 }

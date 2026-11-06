@@ -1,0 +1,488 @@
+- generic [ref=f21e2]:
+  - complementary [ref=f21e3]:
+    - link "NunaBooks dashboard" [ref=f21e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f21e6]:
+        - paragraph [ref=f21e7]: NunaBooks
+        - paragraph [ref=f21e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f21e10]:
+      - group [ref=f21e11]:
+        - generic "Daily" [ref=f21e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f21e14]: ›
+        - list [ref=f21e15]:
+          - listitem [ref=f21e16]:
+            - link "Dashboard" [ref=f21e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f21e18]: space_dashboard
+          - listitem [ref=f21e20]:
+            - link "Sales" [ref=f21e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f21e22]: shopping_cart
+          - listitem [ref=f21e24]:
+            - link "Quotations" [ref=f21e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f21e26]: request_quote
+          - listitem [ref=f21e28]:
+            - link "Purchases" [ref=f21e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f21e30]: receipt_long
+          - listitem [ref=f21e32]:
+            - link "Expenses" [ref=f21e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f21e34]: payments
+      - group [ref=f21e36]:
+        - generic "Stock" [ref=f21e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f21e39]: ›
+        - list [ref=f21e40]:
+          - listitem [ref=f21e41]:
+            - link "Products" [ref=f21e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f21e43]: inventory_2
+          - listitem [ref=f21e45]:
+            - link "Inventory" [ref=f21e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f21e47]: warehouse
+      - group [ref=f21e49]:
+        - generic "People" [ref=f21e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f21e52]: ›
+        - list [ref=f21e53]:
+          - listitem [ref=f21e54]:
+            - link "Customers" [ref=f21e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f21e56]: group
+          - listitem [ref=f21e58]:
+            - link "Suppliers" [ref=f21e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f21e60]: local_shipping
+      - group [ref=f21e62]:
+        - generic "Money" [ref=f21e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f21e65]: ›
+        - list [ref=f21e66]:
+          - listitem [ref=f21e67]:
+            - link "Accounts" [ref=f21e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f21e69]: account_balance
+          - listitem [ref=f21e71]:
+            - link "Reconciliation" [ref=f21e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f21e73]: balance
+          - listitem [ref=f21e75]:
+            - link "Accounting" [ref=f21e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f21e77]: analytics
+          - listitem [ref=f21e79]:
+            - link "Reports" [ref=f21e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f21e81]: analytics
+      - group [ref=f21e83]:
+        - generic "Admin" [ref=f21e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f21e86]: ›
+        - list [ref=f21e87]:
+          - listitem [ref=f21e88]:
+            - link "Users" [ref=f21e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f21e90]: group
+          - listitem [ref=f21e92]:
+            - link "Settings" [ref=f21e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f21e94]: settings
+      - link "Support" [ref=f21e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f21e97]: help
+    - generic [ref=f21e99]:
+      - generic [ref=f21e100]:
+        - generic [ref=f21e101]:
+          - paragraph [ref=f21e102]: Demo Owner
+          - paragraph [ref=f21e103]: owner
+        - link "Change my password" [ref=f21e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f21e105]: lock_reset
+      - generic [ref=f21e106]:
+        - button "Switch user" [ref=f21e108]
+        - button "Sign out" [ref=f21e110]
+  - generic [ref=f21e111]:
+    - banner [ref=f21e112]:
+      - search [ref=f21e113]:
+        - generic [ref=f21e114]: Search
+        - generic [ref=f21e115]:
+          - generic [aria-hidden] [ref=f21e116]: search
+          - searchbox "Search" [ref=f21e117]
+      - generic [ref=f21e118]:
+        - switch "Dark mode" [ref=f21e121]
+        - group [ref=f21e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f21e124] [cursor=pointer]':
+            - generic [ref=f21e125]:
+              - generic [aria-hidden] [ref=f21e126]: notifications
+              - generic [aria-hidden] [ref=f21e127]: "2"
+        - generic [ref=f21e128]:
+          - generic [aria-hidden] [ref=f21e129]: ST
+          - paragraph [ref=f21e130]: Structural Supplies
+    - main [ref=f21e131]:
+      - generic [ref=f21e133]:
+        - generic [ref=f21e134]:
+          - generic [ref=f21e135]:
+            - generic [ref=f21e136]:
+              - heading "Year-end pack" [level=1] [ref=f21e137]
+              - paragraph [ref=f21e138]: The statements your accountant needs, for one financial year.
+            - generic [ref=f21e139]:
+              - link "Download CSV" [ref=f21e140] [cursor=pointer]:
+                - /url: /export/report/year-end?year=2026
+              - link "All reports" [ref=f21e141] [cursor=pointer]:
+                - /url: /reports
+              - button "Print" [ref=f21e142]
+          - alert [ref=f21e143]:
+            - paragraph [ref=f21e144]: This year has not finished
+            - generic [ref=f21e145]: These are draft figures up to today, not final accounts. The year ends 31 Dec 2026.
+        - generic [ref=f21e146]:
+          - heading "Structural Supplies" [level=1] [ref=f21e147]
+          - paragraph [ref=f21e148]: Plot 12, Spintex Road, Accra
+          - paragraph [ref=f21e149]: +233 24 000 0000
+          - paragraph [ref=f21e150]: Financial statements for the year 2026
+          - paragraph [ref=f21e151]: 01 Jan 2026 to 31 Dec 2026 · all figures in GHS
+          - paragraph [ref=f21e152]: Prepared 06 Nov 2026 from 32 journal entries dated in the year · PROVISIONAL, the year has not finished
+        - generic [ref=f21e153]:
+          - heading "Profit and Loss" [level=2] [ref=f21e154]
+          - paragraph [ref=f21e155]: For the year ended 31 Dec 2026
+          - table [ref=f21e156]:
+            - rowgroup [ref=f21e157]:
+              - row [ref=f21e158]:
+                - columnheader [ref=f21e159]
+                - columnheader "2026" [ref=f21e160]
+                - columnheader "2025" [ref=f21e161]
+            - rowgroup [ref=f21e162]:
+              - row [ref=f21e163]:
+                - cell "Sales" [ref=f21e164]
+                - cell "GHS 98,553.50" [ref=f21e165]
+                - cell "GHS 0.00" [ref=f21e166]
+              - row [ref=f21e167]:
+                - cell "Net sales" [ref=f21e168]
+                - cell "GHS 98,553.50" [ref=f21e169]
+                - cell "GHS 0.00" [ref=f21e170]
+              - row [ref=f21e171]:
+                - cell "Cost of goods sold" [ref=f21e172]
+                - cell "GHS (85,569.62)" [ref=f21e173]
+                - cell "GHS 0.00" [ref=f21e174]
+              - row [ref=f21e175]:
+                - cell "Gross profit" [ref=f21e176]
+                - cell "GHS 12,983.88" [ref=f21e177]
+                - cell "GHS 0.00" [ref=f21e178]
+              - row [ref=f21e179]:
+                - cell "Other income" [ref=f21e180]
+                - cell "GHS 450.00" [ref=f21e181]
+                - cell "GHS 0.00" [ref=f21e182]
+              - row [ref=f21e183]:
+                - cell "Cash Over / Short" [ref=f21e184]
+                - cell "GHS (3.50)" [ref=f21e185]
+                - cell "GHS 0.00" [ref=f21e186]
+              - row [ref=f21e187]:
+                - cell "Rent" [ref=f21e188]
+                - cell "GHS (7,200.00)" [ref=f21e189]
+                - cell "GHS 0.00" [ref=f21e190]
+              - row [ref=f21e191]:
+                - cell "Electricity" [ref=f21e192]
+                - cell "GHS (380.00)" [ref=f21e193]
+                - cell "GHS 0.00" [ref=f21e194]
+              - row [ref=f21e195]:
+                - cell "Internet & Airtime" [ref=f21e196]
+                - cell "GHS (60.00)" [ref=f21e197]
+                - cell "GHS 0.00" [ref=f21e198]
+              - row [ref=f21e199]:
+                - cell "Transport" [ref=f21e200]
+                - cell "GHS (2,290.00)" [ref=f21e201]
+                - cell "GHS 0.00" [ref=f21e202]
+              - row [ref=f21e203]:
+                - cell "Staff Wages" [ref=f21e204]
+                - cell "GHS (6,400.00)" [ref=f21e205]
+                - cell "GHS 0.00" [ref=f21e206]
+              - row [ref=f21e207]:
+                - cell "MoMo Charges" [ref=f21e208]
+                - cell "GHS (42.00)" [ref=f21e209]
+                - cell "GHS 0.00" [ref=f21e210]
+              - row [ref=f21e211]:
+                - cell "Total expenses" [ref=f21e212]
+                - cell "GHS (16,375.50)" [ref=f21e213]
+                - cell "GHS 0.00" [ref=f21e214]
+              - row [ref=f21e215]:
+                - cell "Net profit for the year" [ref=f21e216]
+                - cell "GHS (2,941.62)" [ref=f21e217]
+                - cell "GHS 0.00" [ref=f21e218]
+        - generic [ref=f21e219]:
+          - heading "Balance Sheet" [level=2] [ref=f21e220]
+          - paragraph [ref=f21e221]: As at 31 Dec 2026
+          - table [ref=f21e222]:
+            - rowgroup [ref=f21e223]:
+              - row [ref=f21e224]:
+                - columnheader [ref=f21e225]
+                - columnheader "2026" [ref=f21e226]
+                - columnheader "2025" [ref=f21e227]
+            - rowgroup [ref=f21e228]:
+              - row [ref=f21e229]:
+                - cell "Cash, mobile money and bank" [ref=f21e230]
+                - cell "GHS 35,670.00" [ref=f21e231]
+                - cell "GHS 0.00" [ref=f21e232]
+              - row [ref=f21e233]:
+                - cell "Owed by customers" [ref=f21e234]
+                - cell "GHS 30,558.00" [ref=f21e235]
+                - cell "GHS 0.00" [ref=f21e236]
+              - row [ref=f21e237]:
+                - cell "Stock on hand" [ref=f21e238]
+                - cell "GHS 219,330.38" [ref=f21e239]
+                - cell "GHS 0.00" [ref=f21e240]
+              - row [ref=f21e241]:
+                - cell "Total assets" [ref=f21e242]
+                - cell "GHS 285,558.38" [ref=f21e243]
+                - cell "GHS 0.00" [ref=f21e244]
+              - row [ref=f21e245]:
+                - cell "Owed to suppliers" [ref=f21e246]
+                - cell "GHS 59,590.00" [ref=f21e247]
+                - cell "GHS 0.00" [ref=f21e248]
+              - row [ref=f21e249]:
+                - cell "Total liabilities" [ref=f21e250]
+                - cell "GHS 59,590.00" [ref=f21e251]
+                - cell "GHS 0.00" [ref=f21e252]
+              - row [ref=f21e253]:
+                - cell "Owner's stake" [ref=f21e254]
+                - cell "GHS 225,968.38" [ref=f21e255]
+                - cell "GHS 0.00" [ref=f21e256]
+              - row [ref=f21e257]:
+                - cell "Total liabilities and owner's stake" [ref=f21e258]
+                - cell "GHS 285,558.38" [ref=f21e259]
+                - cell "GHS 0.00" [ref=f21e260]
+        - generic [ref=f21e261]:
+          - heading "Movement in the Owner's Stake" [level=2] [ref=f21e262]
+          - paragraph [ref=f21e263]: What the year did to the owner's capital
+          - table [ref=f21e264]:
+            - rowgroup [ref=f21e265]:
+              - row [ref=f21e266]:
+                - columnheader [ref=f21e267]
+                - columnheader "2026" [ref=f21e268]
+            - rowgroup [ref=f21e269]:
+              - row [ref=f21e270]:
+                - cell "Balance at 31 Dec 2025" [ref=f21e271]
+                - cell "GHS 0.00" [ref=f21e272]
+              - row [ref=f21e273]:
+                - cell "Capital introduced" [ref=f21e274]
+                - cell "GHS 90,000.00" [ref=f21e275]
+              - row [ref=f21e276]:
+                - cell "Drawings" [ref=f21e277]
+                - cell "GHS 0.00" [ref=f21e278]
+              - row [ref=f21e279]:
+                - cell "Opening balances brought in" [ref=f21e280]
+                - cell "GHS 138,910.00" [ref=f21e281]
+              - row [ref=f21e282]:
+                - cell "Profit for the year" [ref=f21e283]
+                - cell "GHS (2,941.62)" [ref=f21e284]
+              - row [ref=f21e285]:
+                - cell "Balance at 31 Dec 2026" [ref=f21e286]
+                - cell "GHS 225,968.38" [ref=f21e287]
+        - generic [ref=f21e288]:
+          - heading "Cash Flow" [level=2] [ref=f21e289]
+          - paragraph [ref=f21e290]: Money in and out over the year ended 31 Dec 2026
+          - table [ref=f21e291]:
+            - rowgroup [ref=f21e292]:
+              - row [ref=f21e293]:
+                - columnheader [ref=f21e294]
+                - columnheader "In" [ref=f21e295]
+                - columnheader "Out" [ref=f21e296]
+            - rowgroup [ref=f21e297]:
+              - row [ref=f21e298]:
+                - cell "Balance at 31 Dec 2025" [ref=f21e299]
+                - cell "GHS 0.00" [ref=f21e300]
+                - cell [ref=f21e301]
+              - row [ref=f21e302]:
+                - cell "Owner put money in" [ref=f21e303]
+                - cell "GHS 90,000.00" [ref=f21e304]
+                - cell [ref=f21e305]
+              - row [ref=f21e306]:
+                - cell "Money taken on sales" [ref=f21e307]
+                - cell "GHS 47,995.50" [ref=f21e308]
+                - cell [ref=f21e309]
+              - row [ref=f21e310]:
+                - cell "Customer debt payments" [ref=f21e311]
+                - cell "GHS 20,000.00" [ref=f21e312]
+                - cell [ref=f21e313]
+              - row [ref=f21e314]:
+                - cell "Other income" [ref=f21e315]
+                - cell "GHS 450.00" [ref=f21e316]
+                - cell [ref=f21e317]
+              - row [ref=f21e318]:
+                - cell "Cash count differences" [ref=f21e319]
+                - cell [ref=f21e320]
+                - cell "GHS 3.50" [ref=f21e321]
+              - row [ref=f21e322]:
+                - cell "Paid suppliers" [ref=f21e323]
+                - cell [ref=f21e324]
+                - cell "GHS 6,000.00" [ref=f21e325]
+              - row [ref=f21e326]:
+                - cell "Running costs" [ref=f21e327]
+                - cell [ref=f21e328]
+                - cell "GHS 16,372.00" [ref=f21e329]
+              - row [ref=f21e330]:
+                - cell "Paid for stock" [ref=f21e331]
+                - cell [ref=f21e332]
+                - cell "GHS 100,400.00" [ref=f21e333]
+              - row [ref=f21e334]:
+                - cell "Total" [ref=f21e335]
+                - cell "GHS 158,445.50" [ref=f21e336]
+                - cell "GHS 122,775.50" [ref=f21e337]
+              - row [ref=f21e338]:
+                - cell "Balance at 31 Dec 2026" [ref=f21e339]
+                - cell "GHS 35,670.00" [ref=f21e340]
+                - cell [ref=f21e341]
+        - generic [ref=f21e342]:
+          - heading "Owed by Customers" [level=2] [ref=f21e343]
+          - paragraph [ref=f21e344]: Outstanding at 06 Nov 2026, by how long it has been owed
+          - table [ref=f21e345]:
+            - rowgroup [ref=f21e346]:
+              - row [ref=f21e347]:
+                - columnheader "Customer" [ref=f21e348]
+                - columnheader "Over 90 days" [ref=f21e349]
+                - columnheader "Total" [ref=f21e350]
+            - rowgroup [ref=f21e351]:
+              - row [ref=f21e352]:
+                - cell "Adom Construction Ltd" [ref=f21e353]
+                - cell [ref=f21e354]
+                - cell "GHS 22,030.00" [ref=f21e355]
+              - row [ref=f21e356]:
+                - cell "Mensah & Sons Builders" [ref=f21e357]
+                - cell [ref=f21e358]
+                - cell "GHS 8,528.00" [ref=f21e359]
+              - row [ref=f21e360]:
+                - cell "Total owed to the shop" [ref=f21e361]
+                - cell [ref=f21e362]
+                - cell "GHS 30,558.00" [ref=f21e363]
+        - generic [ref=f21e364]:
+          - heading "Owed to Suppliers" [level=2] [ref=f21e365]
+          - paragraph [ref=f21e366]: Outstanding at 06 Nov 2026, by how long it has been owed
+          - table [ref=f21e367]:
+            - rowgroup [ref=f21e368]:
+              - row [ref=f21e369]:
+                - columnheader "Supplier" [ref=f21e370]
+                - columnheader "Over 90 days" [ref=f21e371]
+                - columnheader "Total" [ref=f21e372]
+            - rowgroup [ref=f21e373]:
+              - row [ref=f21e374]:
+                - cell "Amasaman Pipes & Sheets" [ref=f21e375]
+                - cell [ref=f21e376]
+                - cell "GHS 28,150.00" [ref=f21e377]
+              - row [ref=f21e378]:
+                - cell "Ghacem Depot, Tema" [ref=f21e379]
+                - cell [ref=f21e380]
+                - cell "GHS 23,400.00" [ref=f21e381]
+              - row [ref=f21e382]:
+                - cell "Tema Steel Works" [ref=f21e383]
+                - cell [ref=f21e384]
+                - cell "GHS 8,040.00" [ref=f21e385]
+              - row [ref=f21e386]:
+                - cell "Total owed by the shop" [ref=f21e387]
+                - cell [ref=f21e388]
+                - cell "GHS 59,590.00" [ref=f21e389]
+        - generic [ref=f21e390]:
+          - heading "Trial Balance" [level=2] [ref=f21e391]
+          - paragraph [ref=f21e392]: As at 31 Dec 2026
+          - table [ref=f21e393]:
+            - rowgroup [ref=f21e394]:
+              - row [ref=f21e395]:
+                - columnheader "Account" [ref=f21e396]
+                - columnheader "Debit" [ref=f21e397]
+                - columnheader "Credit" [ref=f21e398]
+            - rowgroup [ref=f21e399]:
+              - row [ref=f21e400]:
+                - cell "1001 Cash on Hand" [ref=f21e401]
+                - cell "GHS 19,094.00" [ref=f21e402]
+                - cell [ref=f21e403]
+              - row [ref=f21e404]:
+                - cell "1011 MTN Mobile Money" [ref=f21e405]
+                - cell "GHS 3,864.00" [ref=f21e406]
+                - cell [ref=f21e407]
+              - row [ref=f21e408]:
+                - cell "1021 Bank Account" [ref=f21e409]
+                - cell "GHS 12,712.00" [ref=f21e410]
+                - cell [ref=f21e411]
+              - row [ref=f21e412]:
+                - cell "1100 Accounts Receivable" [ref=f21e413]
+                - cell "GHS 30,558.00" [ref=f21e414]
+                - cell [ref=f21e415]
+              - row [ref=f21e416]:
+                - cell "1200 Inventory" [ref=f21e417]
+                - cell "GHS 219,330.38" [ref=f21e418]
+                - cell [ref=f21e419]
+              - row [ref=f21e420]:
+                - cell "2000 Accounts Payable" [ref=f21e421]
+                - cell [ref=f21e422]
+                - cell "GHS 59,590.00" [ref=f21e423]
+              - row [ref=f21e424]:
+                - cell "3000 Owner's Capital" [ref=f21e425]
+                - cell [ref=f21e426]
+                - cell "GHS 90,000.00" [ref=f21e427]
+              - row [ref=f21e428]:
+                - cell "3900 Opening Balance Equity" [ref=f21e429]
+                - cell [ref=f21e430]
+                - cell "GHS 138,910.00" [ref=f21e431]
+              - row [ref=f21e432]:
+                - cell "4000 Sales Revenue" [ref=f21e433]
+                - cell [ref=f21e434]
+                - cell "GHS 98,553.50" [ref=f21e435]
+              - row [ref=f21e436]:
+                - cell "4210 Commission" [ref=f21e437]
+                - cell [ref=f21e438]
+                - cell "GHS 150.00" [ref=f21e439]
+              - row [ref=f21e440]:
+                - cell "4220 Service Income" [ref=f21e441]
+                - cell [ref=f21e442]
+                - cell "GHS 300.00" [ref=f21e443]
+              - row [ref=f21e444]:
+                - cell "5000 Cost of Goods Sold" [ref=f21e445]
+                - cell "GHS 85,569.62" [ref=f21e446]
+                - cell [ref=f21e447]
+              - row [ref=f21e448]:
+                - cell "5910 Cash Over / Short" [ref=f21e449]
+                - cell "GHS 3.50" [ref=f21e450]
+                - cell [ref=f21e451]
+              - row [ref=f21e452]:
+                - cell "6010 Rent" [ref=f21e453]
+                - cell "GHS 7,200.00" [ref=f21e454]
+                - cell [ref=f21e455]
+              - row [ref=f21e456]:
+                - cell "6020 Electricity" [ref=f21e457]
+                - cell "GHS 380.00" [ref=f21e458]
+                - cell [ref=f21e459]
+              - row [ref=f21e460]:
+                - cell "6040 Internet & Airtime" [ref=f21e461]
+                - cell "GHS 60.00" [ref=f21e462]
+                - cell [ref=f21e463]
+              - row [ref=f21e464]:
+                - cell "6050 Transport" [ref=f21e465]
+                - cell "GHS 2,290.00" [ref=f21e466]
+                - cell [ref=f21e467]
+              - row [ref=f21e468]:
+                - cell "6060 Staff Wages" [ref=f21e469]
+                - cell "GHS 6,400.00" [ref=f21e470]
+                - cell [ref=f21e471]
+              - row [ref=f21e472]:
+                - cell "6100 MoMo Charges" [ref=f21e473]
+                - cell "GHS 42.00" [ref=f21e474]
+                - cell [ref=f21e475]
+              - row [ref=f21e476]:
+                - cell "Total" [ref=f21e477]
+                - cell "GHS 387,503.50" [ref=f21e478]
+                - cell "GHS 387,503.50" [ref=f21e479]
+        - generic [ref=f21e480]:
+          - heading "Notes to the statements" [level=2] [ref=f21e481]
+          - list [ref=f21e482]:
+            - listitem [ref=f21e483]: Basis of preparation. These statements are prepared from a double-entry ledger. Every transaction is recorded as balanced debits and credits, and no balance is stored — each figure above is computed from the underlying journal lines, which can be inspected for any amount shown.
+            - listitem [ref=f21e484]: Stock. Valued at weighted average cost. Cost of goods sold is the cost recorded at the time of each sale, not a recalculation at the year end.
+            - listitem [ref=f21e485]: Credit sales and purchases. Recorded when the sale or purchase happens, not when the money moves. Amounts still outstanding appear as owed by customers and owed to suppliers.
+            - listitem [ref=f21e486]: No closing entries. Revenue and expense accounts are not zeroed at the year end. All-time profit is carried within the owner's stake, which is why the Trial Balance above shows cumulative figures while the Profit and Loss covers this year only. The Movement in the Owner's Stake reconciles the two.
+            - listitem [ref=f21e487]: Corrections. Nothing already recorded is edited or deleted. A correction is posted as a dated reversing entry, so the original and its reversal both remain visible.
+        - generic [ref=f21e488]:
+          - heading "Checks performed" [level=2] [ref=f21e489]
+          - list [ref=f21e490]:
+            - listitem [ref=f21e491]: Trial balance balances — debits GHS 387,503.50, credits GHS 387,503.50
+            - listitem [ref=f21e492]: Every entry ever posted balances — gross debits GHS 621,848.62, gross credits GHS 621,848.62
+            - listitem [ref=f21e493]: Balance sheet balances
+            - listitem [ref=f21e494]: Owed by customers agrees with the customer records
+            - listitem [ref=f21e495]: Owed to suppliers agrees with the supplier records
+            - listitem [ref=f21e496]: Owner's stake reconciles from opening to closing
+            - listitem [ref=f21e497]: Cash flow reconciles — opening plus movement equals closing
+        - paragraph [ref=f21e498]: Financial year starting in January. Change it under Settings.

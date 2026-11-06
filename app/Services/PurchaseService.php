@@ -761,15 +761,19 @@ final class PurchaseService
                 ), fn (array $b): bool => $b['expiryDate'] !== null)),
             ])->all();
 
+        $tenders = DB::table('purchase_payments')
+            ->join('payment_accounts', 'payment_accounts.id', '=', 'purchase_payments.payment_account_id')
+            ->where('purchase_payments.purchase_id', $purchaseId)
+            ->orderBy('purchase_payments.id')
+            ->get(['purchase_payments.id', 'purchase_payments.amount_minor', 'purchase_payments.reference', 'payment_accounts.name AS account_name'])
+            ->map(Row::camel(...))->all();
+
         return [
             ...Row::camel($purchase),
             'items' => $items,
-            'tenders' => DB::table('purchase_payments')
-                ->join('payment_accounts', 'payment_accounts.id', '=', 'purchase_payments.payment_account_id')
-                ->where('purchase_payments.purchase_id', $purchaseId)
-                ->orderBy('purchase_payments.id')
-                ->get(['purchase_payments.id', 'purchase_payments.amount_minor', 'purchase_payments.reference', 'payment_accounts.name AS account_name'])
-                ->map(Row::camel(...))->all(),
+            'tenders' => $tenders,
+            // Paid at the time of the purchase (its tenders); later supplier payments are in outstandingMinor.
+            'paidMinor' => Money::sum(array_column($tenders, 'amountMinor')),
             'outstandingMinor' => self::getPurchaseOutstanding($purchaseId),
         ];
     }

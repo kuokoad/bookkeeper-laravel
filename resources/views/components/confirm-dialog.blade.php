@@ -10,9 +10,12 @@
             <x-input id="void-reason" wire:model="reason" placeholder="e.g. Rung up twice" :invalid="$errors->has('reason')" />
         </x-field>
     </x-confirm-dialog>
+
+    It opens by itself again only for ITS OWN errors (`keys`, default the
+    reason and the form-level message), never for another form's on the page.
 --}}
-@props(['title', 'description', 'trigger', 'heading' => null, 'note' => 'Nothing is deleted.', 'confirm' => 'Yes, void it', 'tone' => 'danger'])
-<div x-data="{ confirming: {{ $errors->any() ? 'true' : 'false' }} }" class="no-print">
+@props(['title', 'description', 'trigger', 'heading' => null, 'note' => 'Nothing is deleted.', 'confirm' => 'Yes, void it', 'tone' => 'danger', 'keys' => ['reason', 'form']])
+<div x-data="{ confirming: {{ $errors->hasAny($keys) ? 'true' : 'false' }} }" class="no-print">
     <div x-show="! confirming" class="rounded-xl border border-line bg-surface-raised p-4">
         <h2 class="text-sm font-semibold text-content">{{ $title }}</h2>
         <p class="mt-1 mb-3 text-sm text-content-muted">{{ $description }}</p>

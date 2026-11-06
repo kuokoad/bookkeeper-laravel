@@ -1,0 +1,420 @@
+- generic [ref=f19e2]:
+  - complementary [ref=f19e3]:
+    - link "NunaBooks dashboard" [ref=f19e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f19e6]:
+        - paragraph [ref=f19e7]: NunaBooks
+        - paragraph [ref=f19e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f19e10]:
+      - group [ref=f19e11]:
+        - generic "Daily" [ref=f19e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f19e14]: ›
+        - list [ref=f19e15]:
+          - listitem [ref=f19e16]:
+            - link "Dashboard" [ref=f19e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f19e18]: space_dashboard
+          - listitem [ref=f19e20]:
+            - link "Sales" [ref=f19e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f19e22]: shopping_cart
+          - listitem [ref=f19e24]:
+            - link "Quotations" [ref=f19e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f19e26]: request_quote
+          - listitem [ref=f19e28]:
+            - link "Purchases" [ref=f19e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f19e30]: receipt_long
+          - listitem [ref=f19e32]:
+            - link "Expenses" [ref=f19e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f19e34]: payments
+      - group [ref=f19e36]:
+        - generic "Stock" [ref=f19e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f19e39]: ›
+        - list [ref=f19e40]:
+          - listitem [ref=f19e41]:
+            - link "Products" [ref=f19e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f19e43]: inventory_2
+          - listitem [ref=f19e45]:
+            - link "Inventory" [ref=f19e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f19e47]: warehouse
+      - group [ref=f19e49]:
+        - generic "People" [ref=f19e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f19e52]: ›
+        - list [ref=f19e53]:
+          - listitem [ref=f19e54]:
+            - link "Customers" [ref=f19e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f19e56]: group
+          - listitem [ref=f19e58]:
+            - link "Suppliers" [ref=f19e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f19e60]: local_shipping
+      - group [ref=f19e62]:
+        - generic "Money" [ref=f19e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f19e65]: ›
+        - list [ref=f19e66]:
+          - listitem [ref=f19e67]:
+            - link "Accounts" [ref=f19e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f19e69]: account_balance
+          - listitem [ref=f19e71]:
+            - link "Reconciliation" [ref=f19e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f19e73]: balance
+          - listitem [ref=f19e75]:
+            - link "Accounting" [ref=f19e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f19e77]: analytics
+          - listitem [ref=f19e79]:
+            - link "Reports" [ref=f19e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f19e81]: analytics
+      - group [ref=f19e83]:
+        - generic "Admin" [ref=f19e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f19e86]: ›
+        - list [ref=f19e87]:
+          - listitem [ref=f19e88]:
+            - link "Users" [ref=f19e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f19e90]: group
+          - listitem [ref=f19e92]:
+            - link "Settings" [ref=f19e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f19e94]: settings
+      - link "Support" [ref=f19e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f19e97]: help
+    - generic [ref=f19e99]:
+      - generic [ref=f19e100]:
+        - generic [ref=f19e101]:
+          - paragraph [ref=f19e102]: Demo Owner
+          - paragraph [ref=f19e103]: owner
+        - link "Change my password" [ref=f19e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f19e105]: lock_reset
+      - generic [ref=f19e106]:
+        - button "Switch user" [ref=f19e108]
+        - button "Sign out" [ref=f19e110]
+  - generic [ref=f19e111]:
+    - banner [ref=f19e112]:
+      - search [ref=f19e113]:
+        - generic [ref=f19e114]: Search
+        - generic [ref=f19e115]:
+          - generic [aria-hidden] [ref=f19e116]: search
+          - searchbox "Search" [ref=f19e117]
+      - generic [ref=f19e118]:
+        - switch "Dark mode" [ref=f19e121]
+        - group [ref=f19e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f19e124] [cursor=pointer]':
+            - generic [ref=f19e125]:
+              - generic [aria-hidden] [ref=f19e126]: notifications
+              - generic [aria-hidden] [ref=f19e127]: "2"
+        - generic [ref=f19e128]:
+          - generic [aria-hidden] [ref=f19e129]: ST
+          - paragraph [ref=f19e130]: Structural Supplies
+    - main [ref=f19e131]:
+      - generic [ref=f19e133]:
+        - generic [ref=f19e134]:
+          - generic [ref=f19e135]:
+            - heading "Inventory report" [level=1] [ref=f19e136]
+            - paragraph [ref=f19e137]: Valuation as at today · movement 01 nov 2026 to 06 nov 2026
+          - generic [ref=f19e138]:
+            - link "All reports" [ref=f19e139] [cursor=pointer]:
+              - /url: /reports
+            - link "Download CSV" [ref=f19e140] [cursor=pointer]:
+              - /url: /export/report/inventory?from=2026-11-01&to=2026-11-06
+            - button "Print" [ref=f19e141]
+        - navigation "Quick filters" [ref=f19e142]:
+          - link "Low stock" [ref=f19e143] [cursor=pointer]:
+            - /url: "?stock=low"
+          - link "Out of stock" [ref=f19e144] [cursor=pointer]:
+            - /url: "?stock=out"
+        - region "Filters" [ref=f19e145]:
+          - generic [ref=f19e146]:
+            - generic [ref=f19e147]:
+              - text: Period
+              - combobox "Period" [ref=f19e148]:
+                - option "Today"
+                - option "Yesterday"
+                - option "This week"
+                - option "Last week"
+                - option "This month" [selected]
+                - option "Last month"
+                - option "This year"
+                - option "Everything"
+                - option "Custom range"
+            - generic [ref=f19e149]:
+              - text: From
+              - textbox "From" [ref=f19e151]: 2026-11-01
+            - generic [ref=f19e152]:
+              - text: To
+              - textbox "To" [ref=f19e154]: 2026-11-06
+            - generic [ref=f19e155]:
+              - text: Category
+              - combobox "Category" [ref=f19e156]:
+                - option "All categories" [selected]
+                - option "Cement"
+                - option "Fixings"
+                - option "Plumbing"
+                - option "Roofing"
+                - option "Services"
+                - option "Steel"
+            - generic [ref=f19e157]:
+              - text: Supplier
+              - combobox "Supplier" [ref=f19e158]:
+                - option "All suppliers" [selected]
+                - option "Amasaman Pipes & Sheets"
+                - option "Ghacem Depot, Tema"
+                - option "Tema Steel Works"
+            - generic [ref=f19e159]:
+              - text: Stock status
+              - combobox "Stock status" [ref=f19e160]:
+                - option "Any stock level" [selected]
+                - option "In stock"
+                - option "Low or out"
+                - option "Out of stock"
+            - generic [ref=f19e161]:
+              - button "Apply" [ref=f19e162]
+              - link "Clear all" [ref=f19e163] [cursor=pointer]:
+                - /url: "?"
+        - generic [ref=f19e164]:
+          - generic [ref=f19e165]:
+            - generic [ref=f19e166]:
+              - paragraph [ref=f19e167]: Stock at cost
+              - generic [aria-hidden] [ref=f19e169]: warehouse
+            - paragraph [ref=f19e170]: GHS 219,330.38
+            - paragraph [ref=f19e171]: What you paid for it
+          - generic [ref=f19e172]:
+            - generic [ref=f19e173]:
+              - paragraph [ref=f19e174]: Stock at selling price
+              - generic [aria-hidden] [ref=f19e176]: warehouse
+            - paragraph [ref=f19e177]: GHS 251,740.50
+            - paragraph [ref=f19e178]: If it all sold
+          - generic [ref=f19e179]:
+            - generic [ref=f19e180]:
+              - paragraph [ref=f19e181]: Profit if all sold
+              - generic [aria-hidden] [ref=f19e183]: trending_up
+            - paragraph [ref=f19e184]: GHS 32,410.12
+          - generic [ref=f19e185]:
+            - generic [ref=f19e186]:
+              - paragraph [ref=f19e187]: Needs attention
+              - generic [aria-hidden] [ref=f19e189]: warning
+            - paragraph [ref=f19e190]: "0"
+            - paragraph [ref=f19e191]: 0 low, 0 out
+        - heading "How long the stock has left" [level=2] [ref=f19e192]
+        - table [ref=f19e194]:
+          - rowgroup [ref=f19e195]:
+            - row [ref=f19e196]:
+              - columnheader "When it runs out" [ref=f19e197]
+              - columnheader "Batches" [ref=f19e198]
+              - columnheader "Quantity" [ref=f19e199]
+          - rowgroup [ref=f19e200]:
+            - row [ref=f19e201]:
+              - cell "Already expired" [ref=f19e202]
+              - cell "—" [ref=f19e203]
+              - cell "—" [ref=f19e204]
+            - row [ref=f19e205]:
+              - cell "Within 7 days" [ref=f19e206]
+              - cell "—" [ref=f19e207]
+              - cell "—" [ref=f19e208]
+            - row [ref=f19e209]:
+              - cell "Within 30 days" [ref=f19e210]
+              - cell "—" [ref=f19e211]
+              - cell "—" [ref=f19e212]
+            - row [ref=f19e213]:
+              - cell "Within 90 days" [ref=f19e214]
+              - cell "—" [ref=f19e215]
+              - cell "—" [ref=f19e216]
+            - row [ref=f19e217]:
+              - cell "Later than 90 days" [ref=f19e218]
+              - cell "—" [ref=f19e219]
+              - cell "—" [ref=f19e220]
+            - row [ref=f19e221]:
+              - cell "No date recorded" [ref=f19e222]
+              - cell "11" [ref=f19e223]
+              - cell "2,262.5" [ref=f19e224]
+        - paragraph [ref=f19e225]:
+          - text: "Quantities across every product, so units are mixed. Stock with no date recorded is listed separately rather than as distant: unknown is not the same as far away."
+          - link "Download every batch" [ref=f19e226] [cursor=pointer]:
+            - /url: /export/report/expiry?to=2026-11-06
+          - text: to see which ones.
+        - heading "Stock valuation" [level=2] [ref=f19e227]
+        - table [ref=f19e229]:
+          - rowgroup [ref=f19e230]:
+            - row [ref=f19e231]:
+              - columnheader "Product" [ref=f19e232]
+              - columnheader "Category" [ref=f19e233]
+              - columnheader "On hand" [ref=f19e234]
+              - columnheader "Avg cost" [ref=f19e235]
+              - columnheader "Value at cost" [ref=f19e236]
+              - columnheader "Selling price" [ref=f19e237]
+              - columnheader "Value at retail" [ref=f19e238]
+              - columnheader [ref=f19e239]
+          - rowgroup [ref=f19e240]:
+            - row [ref=f19e241]:
+              - cell [ref=f19e242]:
+                - link "Binding wire" [ref=f19e243] [cursor=pointer]:
+                  - /url: /inventory?product=6
+                - text: BWIRE
+              - cell "Steel" [ref=f19e244]
+              - cell "34 roll" [ref=f19e245]
+              - cell "88.00" [ref=f19e246]
+              - cell "2,992.00" [ref=f19e247]
+              - cell "108.00" [ref=f19e248]
+              - cell "3,672.00" [ref=f19e249]
+              - cell [ref=f19e250]
+            - row [ref=f19e251]:
+              - cell [ref=f19e252]:
+                - link "Cement 50kg" [ref=f19e253] [cursor=pointer]:
+                  - /url: /inventory?product=1
+                - text: CEM50
+              - cell "Cement" [ref=f19e254]
+              - cell "965 bag" [ref=f19e255]
+              - cell "86.96" [ref=f19e256]
+              - cell "83,919.38" [ref=f19e257]
+              - cell "96.00" [ref=f19e258]
+              - cell "92,640.00" [ref=f19e259]
+              - cell [ref=f19e260]
+            - row [ref=f19e261]:
+              - cell [ref=f19e262]:
+                - link "Chippings 3/4in (tipper load)" [ref=f19e263] [cursor=pointer]:
+                  - /url: /inventory?product=3
+                - text: CHIP34
+              - cell "Cement" [ref=f19e264]
+              - cell "2 load" [ref=f19e265]
+              - cell "1,150.00" [ref=f19e266]
+              - cell "2,300.00" [ref=f19e267]
+              - cell "1,380.00" [ref=f19e268]
+              - cell "2,760.00" [ref=f19e269]
+              - cell [ref=f19e270]
+            - row [ref=f19e271]:
+              - cell [ref=f19e272]:
+                - link "Iron rod 12mm" [ref=f19e273] [cursor=pointer]:
+                  - /url: /inventory?product=4
+                - text: ROD12
+              - cell "Steel" [ref=f19e274]
+              - cell "380 length" [ref=f19e275]
+              - cell "97.58" [ref=f19e276]
+              - cell "37,080.00" [ref=f19e277]
+              - cell "112.00" [ref=f19e278]
+              - cell "42,560.00" [ref=f19e279]
+              - cell [ref=f19e280]
+            - row [ref=f19e281]:
+              - cell [ref=f19e282]:
+                - link "Iron rod 16mm" [ref=f19e283] [cursor=pointer]:
+                  - /url: /inventory?product=5
+                - text: ROD16
+              - cell "Steel" [ref=f19e284]
+              - cell "140 length" [ref=f19e285]
+              - cell "174.40" [ref=f19e286]
+              - cell "24,416.00" [ref=f19e287]
+              - cell "198.00" [ref=f19e288]
+              - cell "27,720.00" [ref=f19e289]
+              - cell [ref=f19e290]
+            - row [ref=f19e291]:
+              - cell [ref=f19e292]:
+                - link "PVC elbow 4in" [ref=f19e293] [cursor=pointer]:
+                  - /url: /inventory?product=9
+                - text: ELB4
+              - cell "Plumbing" [ref=f19e294]
+              - cell "130 pcs (13 box)" [ref=f19e295]
+              - cell "16.00" [ref=f19e296]
+              - cell "2,080.00" [ref=f19e297]
+              - cell "24.00" [ref=f19e298]
+              - cell "3,120.00" [ref=f19e299]
+              - cell [ref=f19e300]
+            - row [ref=f19e301]:
+              - cell [ref=f19e302]:
+                - link "PVC pipe 2in" [ref=f19e303] [cursor=pointer]:
+                  - /url: /inventory?product=8
+                - text: PVC2
+              - cell "Plumbing" [ref=f19e304]
+              - cell "166 length" [ref=f19e305]
+              - cell "54.25" [ref=f19e306]
+              - cell "9,005.27" [ref=f19e307]
+              - cell "68.00" [ref=f19e308]
+              - cell "11,288.00" [ref=f19e309]
+              - cell [ref=f19e310]
+            - row [ref=f19e311]:
+              - cell [ref=f19e312]:
+                - link "PVC pipe 4in" [ref=f19e313] [cursor=pointer]:
+                  - /url: /inventory?product=7
+                - text: PVC4
+              - cell "Plumbing" [ref=f19e314]
+              - cell "108 length" [ref=f19e315]
+              - cell "119.07" [ref=f19e316]
+              - cell "12,860.09" [ref=f19e317]
+              - cell "142.00" [ref=f19e318]
+              - cell "15,336.00" [ref=f19e319]
+              - cell [ref=f19e320]
+            - row [ref=f19e321]:
+              - cell [ref=f19e322]:
+                - link "Roofing nails 3in" [ref=f19e323] [cursor=pointer]:
+                  - /url: /inventory?product=11
+                - text: NAIL3
+              - cell "Fixings" [ref=f19e324]
+              - cell "109.5 kg" [ref=f19e325]
+              - cell "14.00" [ref=f19e326]
+              - cell "1,533.00" [ref=f19e327]
+              - cell "19.00" [ref=f19e328]
+              - cell "2,080.50" [ref=f19e329]
+              - cell [ref=f19e330]
+            - row [ref=f19e331]:
+              - cell [ref=f19e332]:
+                - link "Roofing sheet aluzinc 3m" [ref=f19e333] [cursor=pointer]:
+                  - /url: /inventory?product=10
+                - text: ROOF3M
+              - cell "Roofing" [ref=f19e334]
+              - cell "226 sheet" [ref=f19e335]
+              - cell "182.94" [ref=f19e336]
+              - cell "41,344.64" [ref=f19e337]
+              - cell "214.00" [ref=f19e338]
+              - cell "48,364.00" [ref=f19e339]
+              - cell [ref=f19e340]
+            - row [ref=f19e341]:
+              - cell [ref=f19e342]:
+                - link "Sand (tipper load)" [ref=f19e343] [cursor=pointer]:
+                  - /url: /inventory?product=2
+                - text: SAND-TIP
+              - cell "Cement" [ref=f19e344]
+              - cell "2 load" [ref=f19e345]
+              - cell "900.00" [ref=f19e346]
+              - cell "1,800.00" [ref=f19e347]
+              - cell "1,100.00" [ref=f19e348]
+              - cell "2,200.00" [ref=f19e349]
+              - cell [ref=f19e350]
+            - row [ref=f19e351]:
+              - cell "Total" [ref=f19e352]
+              - cell [ref=f19e353]
+              - cell [ref=f19e354]
+              - cell [ref=f19e355]
+              - cell "219,330.38" [ref=f19e356]
+              - cell [ref=f19e357]
+              - cell "251,740.50" [ref=f19e358]
+              - cell [ref=f19e359]
+        - heading "Stock movement — 01 nov 2026 to 06 nov 2026" [level=2] [ref=f19e360]
+        - table [ref=f19e362]:
+          - rowgroup [ref=f19e363]:
+            - row [ref=f19e364]:
+              - columnheader "Product" [ref=f19e365]
+              - columnheader "In" [ref=f19e366]
+              - columnheader "Out" [ref=f19e367]
+              - columnheader "Net" [ref=f19e368]
+              - columnheader "Value in" [ref=f19e369]
+              - columnheader "Value out" [ref=f19e370]
+              - columnheader "On hand now" [ref=f19e371]
+          - rowgroup [ref=f19e372]:
+            - row [ref=f19e373]:
+              - cell "Cement 50kg" [ref=f19e374]
+              - cell "—" [ref=f19e375]
+              - cell "200 bag" [ref=f19e376]
+              - cell "-200 bag" [ref=f19e377]
+              - cell "0.00" [ref=f19e378]
+              - cell "17,392.62" [ref=f19e379]
+              - cell "965 bag" [ref=f19e380]
+        - paragraph [ref=f19e381]: Stock is valued at what it actually cost, using weighted average — the same figure that appears as Inventory on the balance sheet.

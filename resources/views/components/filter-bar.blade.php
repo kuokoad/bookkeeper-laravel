@@ -18,8 +18,23 @@
      - applying drops `page` (a new filter starts at page 1);
      - filters compose: every carried key this form does not own (sort,
        direction, a quick filter) rides along as a hidden input.
+
+    Quick filters (`quick`, the old FilterBar chips above the controls) are
+    plain links over the same carried query. Each has `params` (null clears a
+    key) and optionally `match` (default: its non-null params); it reads as on
+    when every match key holds that value (null: is absent), and pressing an
+    on chip turns it off again.
+
+        :quick="[['label' => 'Credit sales', 'params' => ['paid' => 'unpaid']]]"
+
+    Active-filter chips ("Showing: Method: Cash ✕") are built from the fields
+    themselves: one per field whose key the URL set (it is in
+    $list['carried']) and whose resolved value is not empty, plus the period
+    when it is not this month. Each ✕ removes only that filter. A field can
+    set 'chip' => false, and `active` adds chips for keys no field owns:
+    [['key' => 'expiring', 'label' => 'Expiring', 'value' => 'within 30 days', 'alsoClears' => []]].
 --}}
-@props(['list', 'fields' => [], 'dates' => false, 'presets' => ['today', 'yesterday', 'week', 'last-week', 'month', 'last-month', 'year', 'all']])
+@props(['list', 'fields' => [], 'dates' => false, 'presets' => ['today', 'yesterday', 'week', 'last-week', 'month', 'last-month', 'year', 'all'], 'quick' => [], 'active' => [], 'defaultPreset' => 'month'])
 @php
     $labels = ['today' => 'Today', 'yesterday' => 'Yesterday', 'week' => 'This week', 'last-week' => 'Last week', 'month' => 'This month', 'last-month' => 'Last month', 'year' => 'This year', 'all' => 'Everything', 'custom' => 'Custom range'];
     $owned = $dates ? ['period', 'from', 'to', 'page'] : ['page'];
@@ -34,8 +49,57 @@
     $hidden = \Illuminate\Support\Arr::except($list['carried'] ?? [], $owned);
     $preset = $list['preset'] ?? 'month';
     $earliest = \App\Support\Filters\Filters::EARLIEST_DATE;
+
+    // Links that change the filter drop the page: a new filter starts at page 1.
+    $carried = \Illuminate\Support\Arr::except($list['carried'] ?? [], ['page']);
+    $href = fn (array $next): string => '?'.http_build_query(array_filter([...$carried, ...$next], fn ($v) => $v !== null && $v !== ''));
+
+    $quickChips = array_map(function (array $chip) use ($carried, $href): array {
+        $match = $chip['match'] ?? array_filter($chip['params'], fn ($v) => $v !== null);
+        $on = collect($match)->every(fn ($value, $key) => $value === null ? ! array_key_exists($key, $carried) : ($carried[$key] ?? null) === $value);
+
+        return ['label' => $chip['label'], 'on' => $on, 'href' => $href($on ? array_fill_keys(array_keys($chip['params']), null) : $chip['params'])];
+    }, $quick);
+
+    $chips = [];
+    if ($dates && ($preset !== $defaultPreset) && array_intersect_key($carried, array_flip(['period', 'from', 'to'])) !== []) {
+        $chips[] = ['key' => 'period', 'label' => 'Period', 'value' => \App\Support\Filters\Filters::describeDateRange($list['range'], $preset, \App\Support\Clock::today()), 'alsoClears' => ['from', 'to']];
+    }
+    foreach ($fields as $field) {
+        if (($field['chip'] ?? true) === false) {
+            continue;
+        }
+        if ($field['kind'] === 'amount-range') {
+            $min = (string) ($field['min'] ?? '');
+            $max = (string) ($field['max'] ?? '');
+            if (($min !== '' || $max !== '') && array_intersect_key($carried, array_flip([$field['minKey'], $field['maxKey']])) !== []) {
+                $chips[] = ['key' => $field['minKey'], 'label' => $field['label'], 'value' => $min !== '' && $max !== '' ? "{$min} – {$max}" : ($min !== '' ? "over {$min}" : "under {$max}"), 'alsoClears' => [$field['maxKey']]];
+            }
+            continue;
+        }
+        $value = (string) ($field['value'] ?? '');
+        if ($value === '' || ! array_key_exists($field['key'], $carried)) {
+            continue;
+        }
+        $chips[] = ['key' => $field['key'], 'label' => $field['label'], 'value' => match ($field['kind']) {
+            'select' => (string) ($field['options'][$value] ?? $value),
+            'date' => \App\View\Format::date($value),
+            default => $value,
+        }, 'alsoClears' => []];
+    }
+    $chips = [...$chips, ...$active];
+    $hasControls = $fields !== [] || $dates;
 @endphp
-<section aria-label="Filters" {{ $attributes->class('no-print mb-4') }}>
+<section aria-label="Filters" {{ $attributes->class('no-print mb-4 space-y-3') }}>
+    @if ($quickChips !== [])
+        <div class="flex flex-wrap gap-1.5" aria-label="Quick filters">
+            @foreach ($quickChips as $chip)
+                <x-button size="sm" :variant="$chip['on'] ? 'primary' : 'secondary'" :href="$chip['href']" :aria-pressed="$chip['on'] ? 'true' : 'false'">{{ $chip['label'] }}</x-button>
+            @endforeach
+        </div>
+    @endif
+
+    @if ($hasControls)
     <form method="GET" class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface-raised p-3" x-data>
         @foreach ($hidden as $key => $value)
             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
@@ -98,4 +162,20 @@
             <x-button variant="ghost" size="md" href="?">Clear all</x-button>
         </div>
     </form>
+    @endif
+
+    @if ($chips !== [])
+        <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-xs text-content-subtle">Showing:</span>
+            @foreach ($chips as $chip)
+                <a href="{{ $href(array_fill_keys([$chip['key'], ...($chip['alsoClears'] ?? [])], null)) }}"
+                   class="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-surface-sunken px-2.5 py-1 text-xs text-content hover:bg-surface-raised focus:outline-none focus-visible:outline-2 focus-visible:outline-accent">
+                    <span class="text-content-muted">{{ $chip['label'] }}:</span>
+                    <span class="font-medium">{{ $chip['value'] }}</span>
+                    <span aria-hidden="true" class="text-content-subtle">✕</span>
+                    <span class="sr-only">Remove this filter</span>
+                </a>
+            @endforeach
+        </div>
+    @endif
 </section>

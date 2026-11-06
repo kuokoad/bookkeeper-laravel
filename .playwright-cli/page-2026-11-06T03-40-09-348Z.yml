@@ -1,0 +1,210 @@
+- generic [ref=f13e2]:
+  - complementary [ref=f13e3]:
+    - link "NunaBooks dashboard" [ref=f13e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f13e6]:
+        - paragraph [ref=f13e7]: NunaBooks
+        - paragraph [ref=f13e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f13e10]:
+      - group [ref=f13e11]:
+        - generic "Daily" [ref=f13e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e14]: ›
+        - list [ref=f13e15]:
+          - listitem [ref=f13e16]:
+            - link "Dashboard" [ref=f13e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f13e18]: space_dashboard
+          - listitem [ref=f13e20]:
+            - link "Sales" [ref=f13e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f13e22]: shopping_cart
+          - listitem [ref=f13e24]:
+            - link "Quotations" [ref=f13e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f13e26]: request_quote
+          - listitem [ref=f13e28]:
+            - link "Purchases" [ref=f13e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f13e30]: receipt_long
+          - listitem [ref=f13e32]:
+            - link "Expenses" [ref=f13e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f13e34]: payments
+      - group [ref=f13e36]:
+        - generic "Stock" [ref=f13e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e39]: ›
+        - list [ref=f13e40]:
+          - listitem [ref=f13e41]:
+            - link "Products" [ref=f13e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f13e43]: inventory_2
+          - listitem [ref=f13e45]:
+            - link "Inventory" [ref=f13e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f13e47]: warehouse
+      - group [ref=f13e49]:
+        - generic "People" [ref=f13e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e52]: ›
+        - list [ref=f13e53]:
+          - listitem [ref=f13e54]:
+            - link "Customers" [ref=f13e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f13e56]: group
+          - listitem [ref=f13e58]:
+            - link "Suppliers" [ref=f13e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f13e60]: local_shipping
+      - group [ref=f13e62]:
+        - generic "Money" [ref=f13e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e65]: ›
+        - list [ref=f13e66]:
+          - listitem [ref=f13e67]:
+            - link "Accounts" [ref=f13e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f13e69]: account_balance
+          - listitem [ref=f13e71]:
+            - link "Reconciliation" [ref=f13e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f13e73]: balance
+          - listitem [ref=f13e75]:
+            - link "Accounting" [ref=f13e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f13e77]: analytics
+          - listitem [ref=f13e79]:
+            - link "Reports" [ref=f13e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f13e81]: analytics
+      - group [ref=f13e83]:
+        - generic "Admin" [ref=f13e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f13e86]: ›
+        - list [ref=f13e87]:
+          - listitem [ref=f13e88]:
+            - link "Users" [ref=f13e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f13e90]: group
+          - listitem [ref=f13e92]:
+            - link "Settings" [ref=f13e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f13e94]: settings
+      - link "Support" [ref=f13e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f13e97]: help
+    - generic [ref=f13e99]:
+      - generic [ref=f13e100]:
+        - generic [ref=f13e101]:
+          - paragraph [ref=f13e102]: Demo Owner
+          - paragraph [ref=f13e103]: owner
+        - link "Change my password" [ref=f13e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f13e105]: lock_reset
+      - generic [ref=f13e106]:
+        - button "Switch user" [ref=f13e108]
+        - button "Sign out" [ref=f13e110]
+  - generic [ref=f13e111]:
+    - banner [ref=f13e112]:
+      - search [ref=f13e113]:
+        - generic [ref=f13e114]: Search
+        - generic [ref=f13e115]:
+          - generic [aria-hidden] [ref=f13e116]: search
+          - searchbox "Search" [ref=f13e117]
+      - generic [ref=f13e118]:
+        - switch "Dark mode" [ref=f13e121]
+        - group [ref=f13e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f13e124] [cursor=pointer]':
+            - generic [ref=f13e125]:
+              - generic [aria-hidden] [ref=f13e126]: notifications
+              - generic [aria-hidden] [ref=f13e127]: "2"
+        - generic [ref=f13e128]:
+          - generic [aria-hidden] [ref=f13e129]: ST
+          - paragraph [ref=f13e130]: Structural Supplies
+    - main [ref=f13e131]:
+      - generic [ref=f13e133]:
+        - generic [ref=f13e135]:
+          - heading "Reports" [level=1] [ref=f13e136]
+          - paragraph [ref=f13e137]: Every figure here is calculated from your actual records, not stored anywhere.
+        - generic [ref=f13e138]:
+          - generic [ref=f13e139]:
+            - generic [ref=f13e140]:
+              - paragraph [ref=f13e141]: Sales this month
+              - generic [aria-hidden] [ref=f13e143]: shopping_cart
+            - paragraph [ref=f13e144]: GHS 18,950.00
+          - generic [ref=f13e145]:
+            - generic [ref=f13e146]:
+              - paragraph [ref=f13e147]: Profit this month
+              - generic [aria-hidden] [ref=f13e149]: trending_up
+            - paragraph [ref=f13e150]: GHS 1,043.88
+            - paragraph [ref=f13e151]: After all costs
+          - generic [ref=f13e152]:
+            - generic [ref=f13e153]:
+              - paragraph [ref=f13e154]: Stock value
+              - generic [aria-hidden] [ref=f13e156]: warehouse
+            - paragraph [ref=f13e157]: GHS 219,330.38
+          - generic [ref=f13e158]:
+            - generic [ref=f13e159]:
+              - paragraph [ref=f13e160]: Business worth
+              - generic [aria-hidden] [ref=f13e162]: balance
+            - paragraph [ref=f13e163]: GHS 225,968.38
+            - paragraph [ref=f13e164]: Assets less what you owe
+        - generic [ref=f13e165]:
+          - generic [ref=f13e166]:
+            - heading "For your accountant" [level=2] [ref=f13e167]
+            - link [ref=f13e169] [cursor=pointer]:
+              - /url: /reports/year-end
+              - generic [ref=f13e170]:
+                - paragraph [ref=f13e171]: Year-end pack
+                - paragraph [ref=f13e172]: A full set of statements for one financial year, with last year alongside. Print it or send the file.
+          - generic [ref=f13e173]:
+            - heading "Money" [level=2] [ref=f13e174]
+            - generic [ref=f13e175]:
+              - link [ref=f13e176] [cursor=pointer]:
+                - /url: /reports/profit-and-loss
+                - generic [ref=f13e177]:
+                  - paragraph [ref=f13e178]: Profit & Loss
+                  - paragraph [ref=f13e179]: What you earned, what it cost, and what is left.
+              - link [ref=f13e180] [cursor=pointer]:
+                - /url: /reports/balance-sheet
+                - generic [ref=f13e181]:
+                  - paragraph [ref=f13e182]: Balance sheet
+                  - paragraph [ref=f13e183]: What the business owns, owes, and is worth.
+              - link [ref=f13e184] [cursor=pointer]:
+                - /url: /reports/cash-flow
+                - generic [ref=f13e185]:
+                  - paragraph [ref=f13e186]: Cash flow
+                  - paragraph [ref=f13e187]: Where money came in and where it went out.
+          - generic [ref=f13e188]:
+            - heading "Trading" [level=2] [ref=f13e189]
+            - generic [ref=f13e190]:
+              - link [ref=f13e191] [cursor=pointer]:
+                - /url: /reports/sales
+                - generic [ref=f13e192]:
+                  - paragraph [ref=f13e193]: Sales report
+                  - paragraph [ref=f13e194]: By day, product, category, customer and payment method.
+              - link [ref=f13e195] [cursor=pointer]:
+                - /url: /reports/purchases
+                - generic [ref=f13e196]:
+                  - paragraph [ref=f13e197]: Purchase report
+                  - paragraph [ref=f13e198]: By day, supplier and product.
+              - link [ref=f13e199] [cursor=pointer]:
+                - /url: /reports/inventory
+                - generic [ref=f13e200]:
+                  - paragraph [ref=f13e201]: Inventory report
+                  - paragraph [ref=f13e202]: Stock valuation, movement, low stock and out of stock.
+              - link [ref=f13e203] [cursor=pointer]:
+                - /url: /reports/tax
+                - generic [ref=f13e204]:
+                  - paragraph [ref=f13e205]: Tax return
+                  - paragraph [ref=f13e206]: What you charged, what you can reclaim, and what you owe.
+          - generic [ref=f13e207]:
+            - heading "Money owed" [level=2] [ref=f13e208]
+            - generic [ref=f13e209]:
+              - link [ref=f13e210] [cursor=pointer]:
+                - /url: /accounting/receivables
+                - generic [ref=f13e211]:
+                  - paragraph [ref=f13e212]: Who owes you
+                  - paragraph [ref=f13e213]: Customer debts by age.
+              - link [ref=f13e214] [cursor=pointer]:
+                - /url: /accounting/payables
+                - generic [ref=f13e215]:
+                  - paragraph [ref=f13e216]: Who you owe
+                  - paragraph [ref=f13e217]: Supplier balances by age.
+        - paragraph [ref=f13e218]: Every report can be filtered by date, downloaded as a spreadsheet, and printed.

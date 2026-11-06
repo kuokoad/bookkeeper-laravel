@@ -1,0 +1,255 @@
+- generic [ref=f3e2]:
+  - complementary [ref=f3e3]:
+    - link "NunaBooks dashboard" [ref=f3e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f3e6]:
+        - paragraph [ref=f3e7]: NunaBooks
+        - paragraph [ref=f3e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f3e10]:
+      - group [ref=f3e11]:
+        - generic "Daily" [ref=f3e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e14]: ›
+        - list [ref=f3e15]:
+          - listitem [ref=f3e16]:
+            - link "Dashboard" [ref=f3e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f3e18]: space_dashboard
+          - listitem [ref=f3e20]:
+            - link "Sales" [ref=f3e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f3e22]: shopping_cart
+          - listitem [ref=f3e24]:
+            - link "Quotations" [ref=f3e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f3e26]: request_quote
+          - listitem [ref=f3e28]:
+            - link "Purchases" [ref=f3e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f3e30]: receipt_long
+          - listitem [ref=f3e32]:
+            - link "Expenses" [ref=f3e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f3e34]: payments
+      - group [ref=f3e36]:
+        - generic "Stock" [ref=f3e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e39]: ›
+        - list [ref=f3e40]:
+          - listitem [ref=f3e41]:
+            - link "Products" [ref=f3e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f3e43]: inventory_2
+          - listitem [ref=f3e45]:
+            - link "Inventory" [ref=f3e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f3e47]: warehouse
+      - group [ref=f3e49]:
+        - generic "People" [ref=f3e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e52]: ›
+        - list [ref=f3e53]:
+          - listitem [ref=f3e54]:
+            - link "Customers" [ref=f3e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f3e56]: group
+          - listitem [ref=f3e58]:
+            - link "Suppliers" [ref=f3e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f3e60]: local_shipping
+      - group [ref=f3e62]:
+        - generic "Money" [ref=f3e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e65]: ›
+        - list [ref=f3e66]:
+          - listitem [ref=f3e67]:
+            - link "Accounts" [ref=f3e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f3e69]: account_balance
+          - listitem [ref=f3e71]:
+            - link "Reconciliation" [ref=f3e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f3e73]: balance
+          - listitem [ref=f3e75]:
+            - link "Accounting" [ref=f3e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f3e77]: analytics
+          - listitem [ref=f3e79]:
+            - link "Reports" [ref=f3e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f3e81]: analytics
+      - group [ref=f3e83]:
+        - generic "Admin" [ref=f3e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e86]: ›
+        - list [ref=f3e87]:
+          - listitem [ref=f3e88]:
+            - link "Users" [ref=f3e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f3e90]: group
+          - listitem [ref=f3e92]:
+            - link "Settings" [ref=f3e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f3e94]: settings
+      - link "Support" [ref=f3e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f3e97]: help
+    - generic [ref=f3e99]:
+      - generic [ref=f3e100]:
+        - generic [ref=f3e101]:
+          - paragraph [ref=f3e102]: Demo Owner
+          - paragraph [ref=f3e103]: owner
+        - link "Change my password" [ref=f3e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f3e105]: lock_reset
+      - generic [ref=f3e106]:
+        - button "Switch user" [ref=f3e108]
+        - button "Sign out" [ref=f3e110]
+  - generic [ref=f3e111]:
+    - banner [ref=f3e112]:
+      - search [ref=f3e113]:
+        - generic [ref=f3e114]: Search
+        - generic [ref=f3e115]:
+          - generic [aria-hidden] [ref=f3e116]: search
+          - searchbox "Search" [ref=f3e117]
+      - generic [ref=f3e118]:
+        - switch "Dark mode" [ref=f3e121]
+        - group [ref=f3e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f3e124] [cursor=pointer]':
+            - generic [ref=f3e125]:
+              - generic [aria-hidden] [ref=f3e126]: notifications
+              - generic [aria-hidden] [ref=f3e127]: "2"
+        - generic [ref=f3e128]:
+          - generic [aria-hidden] [ref=f3e129]: ST
+          - paragraph [ref=f3e130]: Structural Supplies
+    - main [ref=f3e131]:
+      - generic [ref=f3e133]:
+        - generic [ref=f3e134]:
+          - generic [ref=f3e135]:
+            - heading "Health & backup" [level=1] [ref=f3e136]
+            - paragraph [ref=f3e137]: Whether this shop is safe to trade on, and how to take a copy of your records.
+          - link "Settings" [ref=f3e139] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=f3e140]:
+          - heading "Back up your records" [level=2] [ref=f3e141]
+          - paragraph [ref=f3e142]: Everything your shop has ever recorded is in one database. This makes a fresh copy, checks it opens and that the books inside it balance, then sends it to your computer.
+          - paragraph [ref=f3e143]: Do this at the end of each day, and keep the file somewhere other than this computer — a copy that lives beside the original does not survive the original being lost.
+          - alert [ref=f3e145]:
+            - paragraph [ref=f3e146]: Backup needed
+            - generic [ref=f3e147]: No backup has ever been taken. 32 entries would be lost with this computer.
+          - button "Download a backup" [ref=f3e149]
+        - generic [ref=f3e150]:
+          - heading "Update the app" [level=2] [ref=f3e151]
+          - paragraph [ref=f3e152]: This computer is running version 454157a, from 2026-11-06.
+          - paragraph [ref=f3e153]: Updates run only on the shop computer, not in development.
+        - generic [ref=f3e154]:
+          - generic [ref=f3e155]:
+            - generic [ref=f3e156]:
+              - paragraph [ref=f3e157]: Checks passed
+              - generic [aria-hidden] [ref=f3e159]: check_circle
+            - paragraph [ref=f3e160]: "12"
+          - generic [ref=f3e161]:
+            - generic [ref=f3e162]:
+              - paragraph [ref=f3e163]: Problems
+              - generic [aria-hidden] [ref=f3e165]: warning
+            - paragraph [ref=f3e166]: "2"
+          - generic [ref=f3e167]:
+            - generic [ref=f3e168]:
+              - paragraph [ref=f3e169]: Worth checking
+              - generic [aria-hidden] [ref=f3e171]: warning
+            - paragraph [ref=f3e172]: "4"
+        - alert [ref=f3e173]:
+          - paragraph [ref=f3e174]: Do not trade on this yet
+          - generic [ref=f3e175]: 2 thing(s) below must be put right first. Each one is something that would misstate your money or let the wrong person in.
+        - generic [ref=f3e176]:
+          - generic [ref=f3e177]:
+            - generic [ref=f3e178]:
+              - paragraph [ref=f3e179]: Running in production mode
+              - paragraph [ref=f3e180]: APP_ENV is "local". Set APP_ENV=production before real trading, or error details meant for a developer may reach the screen.
+            - generic [ref=f3e181]: Check
+          - generic [ref=f3e182]:
+            - generic [ref=f3e183]:
+              - paragraph [ref=f3e184]: App key is real
+              - paragraph [ref=f3e185]: APP_KEY is set
+            - generic [ref=f3e186]: OK
+          - generic [ref=f3e187]:
+            - generic [ref=f3e188]:
+              - paragraph [ref=f3e189]: Demo seeding is off
+              - paragraph [ref=f3e190]: SEED_DEMO_DATA=false
+            - generic [ref=f3e191]: OK
+          - generic [ref=f3e192]:
+            - generic [ref=f3e193]:
+              - paragraph [ref=f3e194]: Cookies match how it is served
+              - paragraph [ref=f3e195]: SESSION_SECURE_COOKIE=false. Correct for plain HTTP on the shop's own network; set it to true if you put the app behind HTTPS.
+            - generic [ref=f3e196]: Check
+          - generic [ref=f3e197]:
+            - generic [ref=f3e198]:
+              - paragraph [ref=f3e199]: Forwarded headers are not blindly trusted
+              - paragraph [ref=f3e200]: "NUNA_TRUST_PROXY_HEADERS=false: sign-in attempts are counted against one shared bucket rather than a header the caller controls."
+            - generic [ref=f3e201]: OK
+          - generic [ref=f3e202]:
+            - generic [ref=f3e203]:
+              - paragraph [ref=f3e204]: Backups can be taken
+              - paragraph [ref=f3e205]: C:/laragon/bin/mysql/mysql-8.4.0-winx64/bin/mysqldump.exe
+            - generic [ref=f3e206]: OK
+          - generic [ref=f3e207]:
+            - generic [ref=f3e208]:
+              - paragraph [ref=f3e209]: Database exists
+              - paragraph [ref=f3e210]: nunabooks_ui_gd
+            - generic [ref=f3e211]: OK
+          - generic [ref=f3e212]:
+            - generic [ref=f3e213]:
+              - paragraph [ref=f3e214]: Migrations can create triggers
+              - paragraph [ref=f3e215]: The MySQL binary log is on and log_bin_trust_function_creators is off, so the app user may be refused CREATE TRIGGER by a migration or a restore. Set log_bin_trust_function_creators=1 in my.ini.
+            - generic [ref=f3e216]: Check
+          - generic [ref=f3e217]:
+            - generic [ref=f3e218]:
+              - paragraph [ref=f3e219]: No scratch databases left over
+              - paragraph [ref=f3e220]: no backup scratch copies remain
+            - generic [ref=f3e221]: OK
+          - generic [ref=f3e222]:
+            - generic [ref=f3e223]:
+              - paragraph [ref=f3e224]: Migrations applied
+              - paragraph [ref=f3e225]: 9 migration(s) recorded
+            - generic [ref=f3e226]: OK
+          - generic [ref=f3e227]:
+            - generic [ref=f3e228]:
+              - paragraph [ref=f3e229]: No broken references
+              - paragraph [ref=f3e230]: every foreign key points at a row that exists
+            - generic [ref=f3e231]: OK
+          - generic [ref=f3e232]:
+            - generic [ref=f3e233]:
+              - paragraph [ref=f3e234]: The books balance
+              - paragraph [ref=f3e235]: debits and credits both 621,848.62
+            - generic [ref=f3e236]: OK
+          - generic [ref=f3e237]:
+            - generic [ref=f3e238]:
+              - paragraph [ref=f3e239]: Stock matches its movement history
+              - paragraph [ref=f3e240]: 11 product(s) replayed from 36 movement(s)
+            - generic [ref=f3e241]: OK
+          - generic [ref=f3e242]:
+            - generic [ref=f3e243]:
+              - paragraph [ref=f3e244]: Every unit of stock belongs to a batch
+              - paragraph [ref=f3e245]: 11 product(s) fully covered by their batches
+            - generic [ref=f3e246]: OK
+          - generic [ref=f3e247]:
+            - generic [ref=f3e248]:
+              - paragraph [ref=f3e249]: No demo records in the books
+              - paragraph [ref=f3e250]: 30 demo record(s) present. Start from a clean database for a real shop.
+            - generic [ref=f3e251]: Problem
+          - generic [ref=f3e252]:
+            - generic [ref=f3e253]:
+              - paragraph [ref=f3e254]: An owner can sign in
+              - paragraph [ref=f3e255]: 1 active owner(s)
+            - generic [ref=f3e256]: OK
+          - generic [ref=f3e257]:
+            - generic [ref=f3e258]:
+              - paragraph [ref=f3e259]: No demo accounts
+              - paragraph [ref=f3e260]: 2 seeded demo account(s) can still sign in, and their passwords are published in the README.
+            - generic [ref=f3e261]: Problem
+          - generic [ref=f3e262]:
+            - generic [ref=f3e263]:
+              - paragraph [ref=f3e264]: A backup has been taken
+              - paragraph [ref=f3e265]: No backup has ever been taken. 32 entries would be lost with this computer.
+            - generic [ref=f3e266]: Check
+        - paragraph [ref=f3e267]:
+          - text: These are the same checks as
+          - code [ref=f3e268]: php artisan nuna:preflight
+          - text: ", and the backup is the same as"
+          - code [ref=f3e269]: php artisan nuna:backup
+          - text: — shown here because a shop counter has no command line.

@@ -164,7 +164,9 @@ final class ReportExport
 
             case 'receivables':
             case 'payables':
-                $ageing = $report === 'receivables' ? LedgerService::getReceivablesAgeing($range['to']) : LedgerService::getPayablesAgeing($range['to']);
+                // The same as-at parse as the page; the whole ageing, as the old route.
+                $asAt = ListFilters::parseAgeingFilters($params, $report === 'receivables' ? 'customer' : 'supplier', $today)['asAt'];
+                $ageing = $report === 'receivables' ? LedgerService::getReceivablesAgeing($asAt) : LedgerService::getPayablesAgeing($asAt);
 
                 return [
                     'headers' => [$report === 'receivables' ? 'Customer' : 'Supplier', 'Phone', 'Oldest', 'Not due', '1-30 days', '31-60 days', '61-90 days', 'Over 90 days', 'Total'],

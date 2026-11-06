@@ -25,6 +25,9 @@ const OPEN_ROUTES = [
     'export/list/{list}' => 'permission per list, in ExportController (401/403/404 as the old route)',
     'export/report/{report}' => 'reports permission, in ExportController',
     'up' => 'health check',
+    'help' => 'any signed-in person', 'help/{slug}' => 'any signed-in person',
+    'search' => 'SearchService filters by permission', 'search/suggest' => 'SearchService filters by permission',
+    'logo' => 'printed on receipts by staff without the settings right; signed in only (every page that shows it is)',
 ];
 
 function appRoutes(): array
@@ -62,7 +65,16 @@ it('names only real modules and actions in permission middleware', function () {
 
 it('sends somebody not signed in to sign in, from every screen', function (string $uri) {
     $this->get($uri)->assertRedirect('/login');
-})->with(['/dashboard', '/settings', '/no-access', '/account/password']);
+})->with(['/dashboard', '/settings', '/no-access', '/account/password', '/help', '/help/selling', '/search?q=a', '/search/suggest?q=a', '/logo']);
+
+it('keeps every open route but the sign-in, setup and health ones behind sign-in', function () {
+    $public = ['/', 'login', 'login/pin', 'setup', 'up', 'export/list/{list}', 'export/report/{report}'];
+    foreach (appRoutes() as $route) {
+        if (array_key_exists($route->uri(), OPEN_ROUTES) && ! in_array($route->uri(), $public, true)) {
+            expect($route->gatherMiddleware())->toContain('auth');
+        }
+    }
+});
 
 it('sends a staff member without the right to the no-access page, and refuses an action with 403', function () {
     $id = staff(['sales' => viewOnly()]);

@@ -1,0 +1,261 @@
+- generic [ref=f5e2]:
+  - complementary [ref=f5e3]:
+    - link "NunaBooks dashboard" [ref=f5e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f5e6]:
+        - paragraph [ref=f5e7]: NunaBooks
+        - paragraph [ref=f5e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f5e10]:
+      - group [ref=f5e11]:
+        - generic "Daily" [ref=f5e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f5e14]: ›
+        - list [ref=f5e15]:
+          - listitem [ref=f5e16]:
+            - link "Dashboard" [ref=f5e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f5e18]: space_dashboard
+          - listitem [ref=f5e20]:
+            - link "Sales" [ref=f5e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f5e22]: shopping_cart
+          - listitem [ref=f5e24]:
+            - link "Quotations" [ref=f5e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f5e26]: request_quote
+          - listitem [ref=f5e28]:
+            - link "Purchases" [ref=f5e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f5e30]: receipt_long
+          - listitem [ref=f5e32]:
+            - link "Expenses" [ref=f5e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f5e34]: payments
+      - group [ref=f5e36]:
+        - generic "Stock" [ref=f5e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f5e39]: ›
+        - list [ref=f5e40]:
+          - listitem [ref=f5e41]:
+            - link "Products" [ref=f5e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f5e43]: inventory_2
+          - listitem [ref=f5e45]:
+            - link "Inventory" [ref=f5e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f5e47]: warehouse
+      - group [ref=f5e49]:
+        - generic "People" [ref=f5e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f5e52]: ›
+        - list [ref=f5e53]:
+          - listitem [ref=f5e54]:
+            - link "Customers" [ref=f5e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f5e56]: group
+          - listitem [ref=f5e58]:
+            - link "Suppliers" [ref=f5e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f5e60]: local_shipping
+      - group [ref=f5e62]:
+        - generic "Money" [ref=f5e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f5e65]: ›
+        - list [ref=f5e66]:
+          - listitem [ref=f5e67]:
+            - link "Accounts" [ref=f5e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f5e69]: account_balance
+          - listitem [ref=f5e71]:
+            - link "Reconciliation" [ref=f5e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f5e73]: balance
+          - listitem [ref=f5e75]:
+            - link "Accounting" [ref=f5e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f5e77]: analytics
+          - listitem [ref=f5e79]:
+            - link "Reports" [ref=f5e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f5e81]: analytics
+      - group [ref=f5e83]:
+        - generic "Admin" [ref=f5e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f5e86]: ›
+        - list [ref=f5e87]:
+          - listitem [ref=f5e88]:
+            - link "Users" [ref=f5e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f5e90]: group
+          - listitem [ref=f5e92]:
+            - link "Settings" [ref=f5e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f5e94]: settings
+      - link "Support" [ref=f5e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f5e97]: help
+    - generic [ref=f5e99]:
+      - generic [ref=f5e100]:
+        - generic [ref=f5e101]:
+          - paragraph [ref=f5e102]: Demo Owner
+          - paragraph [ref=f5e103]: owner
+        - link "Change my password" [ref=f5e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f5e105]: lock_reset
+      - generic [ref=f5e106]:
+        - button "Switch user" [ref=f5e108]
+        - button "Sign out" [ref=f5e110]
+  - generic [ref=f5e111]:
+    - banner [ref=f5e112]:
+      - search [ref=f5e113]:
+        - generic [ref=f5e114]: Search
+        - generic [ref=f5e115]:
+          - generic [aria-hidden] [ref=f5e116]: search
+          - searchbox "Search" [ref=f5e117]
+      - generic [ref=f5e118]:
+        - switch "Dark mode" [ref=f5e121]
+        - group [ref=f5e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f5e124] [cursor=pointer]':
+            - generic [ref=f5e125]:
+              - generic [aria-hidden] [ref=f5e126]: notifications
+              - generic [aria-hidden] [ref=f5e127]: "2"
+        - generic [ref=f5e128]:
+          - generic [aria-hidden] [ref=f5e129]: ST
+          - paragraph [ref=f5e130]: Structural Supplies
+    - main [ref=f5e131]:
+      - generic [ref=f5e133]:
+        - generic [ref=f5e134]:
+          - generic [ref=f5e135]:
+            - heading "Demo Owner" [level=1] [ref=f5e136]
+            - paragraph [ref=f5e137]: owner · Owner
+          - link "All users" [ref=f5e139] [cursor=pointer]:
+            - /url: /users
+        - generic [ref=f5e140]:
+          - generic [ref=f5e141]:
+            - paragraph [ref=f5e142]: Last signed in
+            - paragraph [ref=f5e143]: 06 Nov 2026, 03:40 am
+          - generic [ref=f5e144]:
+            - paragraph [ref=f5e145]: Till PIN
+            - paragraph [ref=f5e146]: Not set
+          - generic [ref=f5e147]:
+            - paragraph [ref=f5e148]: Status
+            - paragraph [ref=f5e149]:
+              - generic [ref=f5e150]: Active
+        - generic [ref=f5e151]:
+          - generic [ref=f5e152]:
+            - heading "Details" [level=2] [ref=f5e153]
+            - generic [ref=f5e154]:
+              - generic [ref=f5e155]:
+                - generic [ref=f5e156]: Their name*
+                - textbox "Their name" [ref=f5e157]: Demo Owner
+              - generic [ref=f5e158]:
+                - generic [ref=f5e159]: Role*
+                - paragraph [ref=f5e160]: Owner
+                - paragraph [ref=f5e161]: You cannot change your own role. Another owner has to do that for you.
+            - paragraph [ref=f5e162]:
+              - text: Username
+              - strong [ref=f5e163]: owner
+              - text: cannot be changed — it is referenced throughout the audit trail.
+            - button "Save details" [ref=f5e165]
+          - generic [ref=f5e166]:
+            - heading "What they can do" [level=2] [ref=f5e167]
+            - paragraph [ref=f5e168]: An owner has full access to everything. There is nothing to limit.
+          - generic [ref=f5e169]:
+            - heading "Reset their password" [level=2] [ref=f5e170]
+            - paragraph [ref=f5e171]: Use this when someone has forgotten theirs. They are signed out and must choose a new password the next time they sign in, so you do not keep knowing a working password for their account.
+            - generic [ref=f5e173]:
+              - generic [ref=f5e174]: New starting password*
+              - textbox "New starting password" [ref=f5e175]
+            - button "Reset password" [ref=f5e177]
+          - generic [ref=f5e178]:
+            - heading "Till PIN" [level=2] [ref=f5e179]
+            - paragraph [ref=f5e180]: A short PIN for switching quickly at the till. Leave it blank to remove it. Wrong PINs lock the account just as wrong passwords do.
+            - generic [ref=f5e182]:
+              - generic [ref=f5e183]: PIN (4–8 digits)
+              - textbox "PIN (4–8 digits)" [ref=f5e184]:
+                - /placeholder: e.g. 8351
+            - button "Save PIN" [ref=f5e186]
+          - generic [ref=f5e187]:
+            - heading "Access" [level=2] [ref=f5e188]
+            - paragraph [ref=f5e190]: You cannot switch off your own account.
+            - paragraph [ref=f5e191]: Accounts are never deleted. Everything this person recorded stays in the books and in the audit trail.
+        - heading "Recent activity" [level=2] [ref=f5e192]
+        - table [ref=f5e194]:
+          - rowgroup [ref=f5e195]:
+            - row [ref=f5e196]:
+              - columnheader "When" [ref=f5e197]
+              - columnheader "What" [ref=f5e198]
+          - rowgroup [ref=f5e199]:
+            - row [ref=f5e200]:
+              - cell "06 Nov 2026, 03:40 am" [ref=f5e201]
+              - cell "Demo Owner signed in" [ref=f5e202]
+            - row [ref=f5e203]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e204]
+              - 'cell "REC-00002: MTN MoMo counted and agreed exactly" [ref=f5e205]'
+            - row [ref=f5e206]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e207]
+              - 'cell "REC-00001: Cash short by GHS 3.50 (adjusted)" [ref=f5e208]'
+            - row [ref=f5e209]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e210]
+              - 'cell "INC-00005: Service Income — Offloading charged to a customer" [ref=f5e211]'
+            - row [ref=f5e212]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e213]
+              - 'cell "INC-00004: Commission — Weighbridge fee recovered" [ref=f5e214]'
+            - row [ref=f5e215]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e216]
+              - 'cell "EXP-00011: Transport — Tipper hire, Kasoa delivery" [ref=f5e217]'
+            - row [ref=f5e218]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e219]
+              - 'cell "EXP-00010: Internet & Airtime — Airtime for the yard line" [ref=f5e220]'
+            - row [ref=f5e221]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e222]
+              - 'cell "EXP-00009: Rent — Yard rent for the month" [ref=f5e223]'
+            - row [ref=f5e224]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e225]
+              - 'cell "EXP-00008: MoMo Charges — Withdrawal charges" [ref=f5e226]'
+            - row [ref=f5e227]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e228]
+              - 'cell "EXP-00007: Staff Wages — Yard hands — monthly wages" [ref=f5e229]'
+            - row [ref=f5e230]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e231]
+              - 'cell "EXP-00006: Transport — Forklift diesel" [ref=f5e232]'
+            - row [ref=f5e233]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e234]
+              - 'cell "EXP-00005: Electricity — ECG prepaid top-up" [ref=f5e235]'
+            - row [ref=f5e236]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e237]
+              - 'cell "EXP-00004: Rent — Yard rent for the month" [ref=f5e238]'
+            - row [ref=f5e239]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e240]
+              - 'cell "EXP-00003: Staff Wages — Yard hands — monthly wages" [ref=f5e241]'
+            - row [ref=f5e242]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e243]
+              - 'cell "EXP-00002: Transport — Tipper hire, Adenta delivery" [ref=f5e244]'
+            - row [ref=f5e245]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e246]
+              - 'cell "EXP-00001: Rent — Yard rent for the month" [ref=f5e247]'
+            - row [ref=f5e248]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e249]
+              - cell "Owner opening bank balance — Bank Account" [ref=f5e250]
+            - row [ref=f5e251]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e252]
+              - cell "Owner opening MoMo balance — MTN MoMo" [ref=f5e253]
+            - row [ref=f5e254]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e255]
+              - cell "Owner opening cash float — Cash" [ref=f5e256]
+            - row [ref=f5e257]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e258]
+              - 'cell "RCP-00008: 2 item(s), total GHS 18,950.00, dated 05 Nov 2026" [ref=f5e259]'
+            - row [ref=f5e260]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e261]
+              - 'cell "PUR-00004: 1 line(s) from Ghacem Depot, Tema, total GHS 53,400.00" [ref=f5e262]'
+            - row [ref=f5e263]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e264]
+              - 'cell "RCP-00007: 2 item(s), total GHS 1,487.50, dated 25 Oct 2026" [ref=f5e265]'
+            - row [ref=f5e266]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e267]
+              - 'cell "PUR-00003: 3 line(s) from Amasaman Pipes & Sheets, total GHS 28,150.00" [ref=f5e268]'
+            - row [ref=f5e269]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e270]
+              - 'cell "PAY-00001: paid GHS 6,000.00 to Tema Steel Works" [ref=f5e271]'
+            - row [ref=f5e272]:
+              - cell "06 Nov 2026, 03:39 am" [ref=f5e273]
+              - 'cell "RCP-00006: 2 item(s), total GHS 12,528.00, dated 16 Oct 2026" [ref=f5e274]'
+        - paragraph [ref=f5e275]:
+          - link "See everything this person has done" [ref=f5e276] [cursor=pointer]:
+            - /url: /users/audit?user=1

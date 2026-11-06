@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+| The customer screens: the old (app)/customers list, add/edit form, the
+| customer page (receive payment, void a payment) and the statement.
+*/
+
+use App\Livewire\Customers\Form;
+use App\Livewire\Customers\Index;
+use App\Livewire\Customers\Show;
+use App\Models\User;
+use App\Services\Actor;
+use App\Services\CustomerService;
+use App\Support\Clock;
+use App\View\Format;
+use Database\Seeders\DemoSeeder;
+use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
+use Tests\Support\Shop;
+
+beforeEach(function () {
+    $this->ownerId = owner();
+    $this->actor = new Actor($this->ownerId, 'kwame');
+    $this->today = Clock::today();
+    $this->cash = Shop::paymentAccount('CASH');
+});
+
+function customersAs(int $userId, string $page, array $params = [], array $query = []): mixed
+{
+    return Livewire::withQueryParams($query)->actingAs(User::query()->findOrFail($userId))->test($page, $params);
+}
+
+/** A customer owing 30.00 on one credit sale of rice. */
+function owingCustomer(object $test): array
+{
+    $rice = Shop::product($test->actor, 'Rice 5kg', 500, 1000);
+    Shop::openingStock($test->actor, $rice, 100_000, 50_000, '2026-01-01');
+    $customer = Shop::customer($test->actor, 'Adwoa Mensah', null, ['phone' => '024 555 0101']);
+    $sale = Shop::sell($test->actor, [[$rice, 3_000]], [], ['businessDate' => $test->today, 'customerId' => $customer]);
+
+    return ['customer' => $customer, 'sale' => $sale];
+}
+
+it('renders the list, a customer and the statement over the demo shop', function () {
+    (new DemoSeeder)->seedDemo();
+    $owed = CustomerService::getTotalReceivables();
+    expect($owed)->toBeGreaterThan(0);
+    signedIn($this->ownerId)->get('/customers')->assertOk()
+        ->assertSee('Who buys from you, and who owes you money.')
+        ->assertSee(Format::money($owed))->assertSee('Adom Construction Ltd');
+
+    $adom = (int) DB::table('customers')->where('name', 'Adom Construction Ltd')->value('id');
+    signedIn($this->ownerId)->get("/customers/{$adom}")->assertOk()->assertSee('Currently owes')->assertSee('Payments received');
+    signedIn($this->ownerId)->get("/customers/{$adom}/statement")->assertOk()->assertSee('Statement')
+        ->assertSee(Format::money(CustomerService::getCustomerBalance($adom)))->assertDontSee('does not tie to the ledger');
+    signedIn($this->ownerId)->get("/customers/{$adom}/edit")->assertOk()->assertSee('Edit customer');
+    signedIn($this->ownerId)->get('/customers/new')->assertOk()->assertSee('Add customer');
+});
+
+it('refuses somebody without the right', function () {
+    $this->get('/customers')->assertRedirect('/login');
+    $kofi = staff(['sales' => viewOnly()], 'kofi');
+    foreach (['/customers', '/customers/new', '/customers/1', '/customers/1/edit', '/customers/1/statement'] as $path) {
+        signedIn($kofi)->get($path)->assertRedirect('/no-access?area=customers');
+    }
+    $viewer = staff(['customers' => viewOnly()], 'yaw');
+    signedIn($viewer)->get('/customers/new')->assertRedirect('/no-access?area=customers');
+    signedIn($viewer)->get('/customers')->assertOk()->assertDontSee('Add customer');
+    customersAs($viewer, Form::class)->set('name', 'Sneaky')->call('save')->assertForbidden();
+    signedIn($this->ownerId)->get('/customers/999999')->assertNotFound();
+});
+
+it('shows the resolved filters and narrows by balance', function () {
+    ['customer' => $owing] = owingCustomer($this);
+    Shop::customer($this->actor, 'Kojo Clear');
+
+    customersAs($this->ownerId, Index::class, [], ['balance' => 'owing', 'q' => 'adwoa'])
+        ->assertSee('Adwoa Mensah')->assertDontSee('Kojo Clear')
+        ->assertSeeHtml('<option value="owing" selected')->assertSeeHtml('value="adwoa"')
+        ->assertSeeHtml('/export/list/customers?q=adwoa&amp;balance=owing');
+    customersAs($this->ownerId, Index::class, [], ['balance' => 'zero'])->assertSee('Kojo Clear')->assertDontSee('Adwoa Mensah');
+    // The shop-wide figure does not narrow with the filter.
+    customersAs($this->ownerId, Index::class, [], ['balance' => 'zero'])->assertSee(Format::money(3_000));
+    customersAs($this->ownerId, Index::class, [], ['q' => 'nobody'])->assertSee('No customers match');
+});
+
+it('adds and edits a customer, keeping a blank limit apart from a zero one', function () {
+    customersAs($this->ownerId, Form::class)->set('name', '  ')->call('save')
+        ->assertHasErrors(['name'])->assertSee('Enter the customer’s name.');
+    customersAs($this->ownerId, Form::class)->set('name', 'Ama')->set('creditLimit', '1.234')->call('save')
+        ->assertHasErrors(['creditLimit'])->assertSee('Amounts can have at most 2 decimal places');
+
+    customersAs($this->ownerId, Form::class)->set('name', 'Efua Boateng')->set('phone', '020 123 4567')->set('creditLimit', '')->call('save')->assertHasNoErrors();
+    $id = (int) DB::table('customers')->where('name', 'Efua Boateng')->value('id');
+    expect(DB::table('customers')->where('id', $id)->value('credit_limit_minor'))->toBeNull();
+
+    customersAs($this->ownerId, Form::class, ['id' => $id])->assertSet('name', 'Efua Boateng')
+        ->set('creditLimit', '0')->call('save')->assertHasNoErrors()->assertRedirect("/customers/{$id}");
+    expect((int) DB::table('customers')->where('id', $id)->value('credit_limit_minor'))->toBe(0);
+});
+
+it('receives a payment against the oldest sale and voids it again', function () {
+    ['customer' => $customer, 'sale' => $sale] = owingCustomer($this);
+
+    customersAs($this->ownerId, Show::class, ['id' => $customer])
+        ->assertSee('Applied to the oldest unpaid sale first: '.$sale['receiptNo'])
+        ->set('amount', '')->call('receivePayment')->assertHasErrors(['amount'])->assertSee('Enter an amount.');
+    customersAs($this->ownerId, Show::class, ['id' => $customer])->set('amount', '500')->call('receivePayment')->assertHasErrors(['payment']);
+
+    customersAs($this->ownerId, Show::class, ['id' => $customer])->call('payAll')->assertSet('amount', '30.00')
+        ->set('amount', '12.50')->call('receivePayment')->assertHasNoErrors()->assertRedirect("/customers/{$customer}");
+    expect(CustomerService::getCustomerBalance($customer))->toBe(1_750);
+
+    $payment = (int) DB::table('customer_payments')->value('id');
+    customersAs($this->ownerId, Show::class, ['id' => $customer])->call('voidPayment', $payment)
+        ->assertHasErrors(["voidReasons.{$payment}"])->assertSee('Give a reason for voiding this payment.');
+    customersAs($this->ownerId, Show::class, ['id' => $customer])->set("voidReasons.{$payment}", 'Wrong customer')->call('voidPayment', $payment)->assertHasNoErrors();
+    expect(CustomerService::getCustomerBalance($customer))->toBe(3_000);
+});
+
+it('refuses receiving and voiding payments without those rights', function () {
+    ['customer' => $customer] = owingCustomer($this);
+    $viewer = staff(['customers' => viewOnly()], 'yaw');
+    customersAs($viewer, Show::class, ['id' => $customer])->assertDontSee('Receive payment')
+        ->set('amount', '10')->call('receivePayment')->assertForbidden();
+    customersAs($viewer, Show::class, ['id' => $customer])->call('voidPayment', 1)->assertForbidden();
+    expect(DB::table('customer_payments')->count())->toBe(0);
+});
+
+it('lists every unpaid invoice on the statement and totals the ledger balance', function () {
+    ['customer' => $customer, 'sale' => $sale] = owingCustomer($this);
+    $invoice = DB::table('sales')->where('id', $sale['saleId'])->value('invoice_no');
+    signedIn($this->ownerId)->get("/customers/{$customer}/statement")->assertOk()
+        ->assertSee($invoice)->assertSee('Total owed')->assertSee('GHS 30.00')
+        ->assertSee('Back to Adwoa Mensah');
+
+    $clear = Shop::customer($this->actor, 'Kojo Clear');
+    signedIn($this->ownerId)->get("/customers/{$clear}/statement")->assertOk()->assertSee('Nothing outstanding');
+});

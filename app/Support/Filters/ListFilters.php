@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Filters;
 
+use App\Enums\AuditAction;
 use App\Enums\JournalSourceType;
 use App\Enums\MovementType;
 use App\Services\CashbookService;
@@ -14,6 +15,7 @@ use App\Services\QuotationService;
 use App\Services\SaleService;
 use App\Services\SupplierService;
 use App\Support\Clock;
+use Illuminate\Support\Carbon;
 
 /**
  * The URL, turned into a service query, once per module for the page and its
@@ -355,6 +357,124 @@ final class ListFilters
             ...self::parseReportPeriod($params, $today),
             'accountId' => Filters::parseId(self::one($params, 'account')),
             'carried' => self::carry($params, ['period', 'from', 'to', 'account']),
+        ];
+    }
+
+    // --- accounting and the audit log --------------------------------------
+
+    /** The kinds the old journal page offered: every source but the year-end close. */
+    public const JOURNAL_SOURCES = [
+        'SALE', 'SALE_RETURN', 'PURCHASE', 'PURCHASE_RETURN', 'CUSTOMER_PAYMENT', 'SUPPLIER_PAYMENT', 'EXPENSE', 'INCOME',
+        'STOCK_ADJUSTMENT', 'RECONCILIATION', 'OPENING_BALANCE', 'CAPITAL', 'DRAWINGS', 'TRANSFER', 'REVERSAL',
+    ];
+
+    /**
+     * The journal: from (default the 1st of this month), to (default today)
+     * and a source kind. A kind outside the list narrows nothing.
+     *
+     * @return array{filters: array{from: string, to: string, sourceType?: string}, from: string, to: string, source: ?string, carried: array<string, string>}
+     */
+    public static function parseJournalFilters(array $params, ?string $today = null): array
+    {
+        $today ??= Clock::today();
+        $from = Filters::parseDate(self::one($params, 'from')) ?? substr($today, 0, 7).'-01';
+        $to = Filters::parseDate(self::one($params, 'to')) ?? $today;
+        $source = Filters::parseEnum(self::one($params, 'source'), self::JOURNAL_SOURCES);
+
+        return [
+            'filters' => ['from' => $from, 'to' => $to, ...($source === null ? [] : ['sourceType' => $source])],
+            'from' => $from, 'to' => $to, 'source' => $source,
+            // Only what the URL set (and was valid): the defaults are not a filter somebody chose.
+            'carried' => array_filter(['from' => Filters::parseDate(self::one($params, 'from')), 'to' => Filters::parseDate(self::one($params, 'to')), 'source' => $source]),
+        ];
+    }
+
+    /**
+     * One account's ledger: an optional from and to. With no valid `to` the
+     * ledger runs to today, which `toShown` says (never the junk typed).
+     *
+     * @return array{filters: array{from?: string, to?: string}, from: ?string, to: ?string, toShown: string, carried: array<string, string>}
+     */
+    public static function parseLedgerFilters(array $params, ?string $today = null): array
+    {
+        $from = Filters::parseDate(self::one($params, 'from'));
+        $to = Filters::parseDate(self::one($params, 'to'));
+        $filters = array_filter(['from' => $from, 'to' => $to]);
+
+        return ['filters' => $filters, 'from' => $from, 'to' => $to, 'toShown' => $to ?? $today ?? Clock::today(), 'carried' => $filters];
+    }
+
+    /**
+     * The trial balance: as at `to` (default today), optionally from a date.
+     *
+     * @return array{filters: array{from?: string, to: string}, from: ?string, to: string, carried: array<string, string>}
+     */
+    public static function parseTrialBalanceFilters(array $params, ?string $today = null): array
+    {
+        $to = Filters::parseDate(self::one($params, 'to')) ?? $today ?? Clock::today();
+        $from = Filters::parseDate(self::one($params, 'from'));
+        $filters = array_filter(['from' => $from, 'to' => $to]);
+
+        return ['filters' => $filters, 'from' => $from, 'to' => $to, 'carried' => $filters];
+    }
+
+    /**
+     * Who owes you / who you owe: as at a date (`asAt`, or the CSV's `to`;
+     * default today), one party (`$partyKey`: customer or supplier) and a
+     * status (overdue = anything over 90 days, current = nothing over 90).
+     * The CSV is the whole ageing as at the date, as the old route was; the
+     * page narrows the rows after the service built them.
+     *
+     * @return array{asAt: string, isToday: bool, partyId: ?int, status: ?string, filtered: bool, carried: array<string, string>}
+     */
+    public static function parseAgeingFilters(array $params, string $partyKey = 'customer', ?string $today = null): array
+    {
+        $today ??= Clock::today();
+        $asAt = Filters::parseDate(self::one($params, 'asAt') ?? self::one($params, 'to')) ?? $today;
+        $partyId = Filters::parseId(self::one($params, $partyKey));
+        $status = Filters::parseEnum(self::one($params, 'status'), ['overdue', 'current']);
+
+        return [
+            'asAt' => $asAt, 'isToday' => $asAt === $today, 'partyId' => $partyId, 'status' => $status,
+            'filtered' => $partyId !== null || $status !== null || $asAt !== $today,
+            'carried' => array_map('strval', array_filter([$partyKey => $partyId, 'status' => $status, 'asAt' => $asAt === $today ? null : $asAt])),
+        ];
+    }
+
+    /**
+     * The audit log: user, action, entity type (from `$entityTypes`), a
+     * search, and an Accra-day from/to turned into UTC instants (the log is
+     * stamped in UTC; the whole of the "to" day counts). Unknown values
+     * narrow nothing.
+     *
+     * @param  list<string>  $entityTypes
+     * @return array{filters: array<string, mixed>, resolved: array<string, int|string>, page: int, pageSize: int, offset: int, carried: array<string, string>}
+     */
+    public static function parseAuditFilters(array $params, array $entityTypes, int $pageSize = 50): array
+    {
+        $resolved = array_filter([
+            'user' => Filters::parseId(self::one($params, 'user')),
+            'action' => Filters::parseEnum(self::one($params, 'action'), AuditAction::values()),
+            'entity' => Filters::parseEnum(self::one($params, 'entity'), $entityTypes),
+            'q' => Filters::parseSearch(self::one($params, 'q')),
+            'from' => Filters::parseDate(self::one($params, 'from')),
+            'to' => Filters::parseDate(self::one($params, 'to')),
+        ], fn ($v): bool => $v !== null);
+        $paged = Filters::parsePage(self::one($params, 'page'), $pageSize);
+
+        $filters = array_filter([
+            'userId' => $resolved['user'] ?? null,
+            'action' => isset($resolved['action']) ? AuditAction::from($resolved['action']) : null,
+            'entityType' => $resolved['entity'] ?? null,
+            'search' => $resolved['q'] ?? null,
+            'from' => isset($resolved['from']) ? Carbon::parse($resolved['from'], 'Africa/Accra')->startOfDay()->utc() : null,
+            'to' => isset($resolved['to']) ? Carbon::parse($resolved['to'], 'Africa/Accra')->endOfDay()->utc() : null,
+        ], fn ($v): bool => $v !== null);
+
+        return [
+            'filters' => $filters, 'resolved' => $resolved,
+            'page' => $paged['page'], 'pageSize' => $paged['pageSize'], 'offset' => $paged['offset'],
+            'carried' => array_map('strval', $resolved),
         ];
     }
 

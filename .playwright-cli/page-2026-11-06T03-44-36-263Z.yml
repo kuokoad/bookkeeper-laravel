@@ -1,0 +1,407 @@
+- generic [ref=f2e2]:
+  - complementary [ref=f2e3]:
+    - link "NunaBooks dashboard" [ref=f2e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f2e6]:
+        - paragraph [ref=f2e7]: NunaBooks
+        - paragraph [ref=f2e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f2e10]:
+      - group [ref=f2e11]:
+        - generic "Daily" [ref=f2e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e14]: ›
+        - list [ref=f2e15]:
+          - listitem [ref=f2e16]:
+            - link "Dashboard" [ref=f2e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f2e18]: space_dashboard
+          - listitem [ref=f2e20]:
+            - link "Sales" [ref=f2e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f2e22]: shopping_cart
+          - listitem [ref=f2e24]:
+            - link "Quotations" [ref=f2e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f2e26]: request_quote
+          - listitem [ref=f2e28]:
+            - link "Purchases" [ref=f2e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f2e30]: receipt_long
+          - listitem [ref=f2e32]:
+            - link "Expenses" [ref=f2e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f2e34]: payments
+      - group [ref=f2e36]:
+        - generic "Stock" [ref=f2e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e39]: ›
+        - list [ref=f2e40]:
+          - listitem [ref=f2e41]:
+            - link "Products" [ref=f2e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f2e43]: inventory_2
+          - listitem [ref=f2e45]:
+            - link "Inventory" [ref=f2e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f2e47]: warehouse
+      - group [ref=f2e49]:
+        - generic "People" [ref=f2e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e52]: ›
+        - list [ref=f2e53]:
+          - listitem [ref=f2e54]:
+            - link "Customers" [ref=f2e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f2e56]: group
+          - listitem [ref=f2e58]:
+            - link "Suppliers" [ref=f2e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f2e60]: local_shipping
+      - group [ref=f2e62]:
+        - generic "Money" [ref=f2e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e65]: ›
+        - list [ref=f2e66]:
+          - listitem [ref=f2e67]:
+            - link "Accounts" [ref=f2e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f2e69]: account_balance
+          - listitem [ref=f2e71]:
+            - link "Reconciliation" [ref=f2e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f2e73]: balance
+          - listitem [ref=f2e75]:
+            - link "Accounting" [ref=f2e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f2e77]: analytics
+          - listitem [ref=f2e79]:
+            - link "Reports" [ref=f2e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f2e81]: analytics
+      - group [ref=f2e83]:
+        - generic "Admin" [ref=f2e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f2e86]: ›
+        - list [ref=f2e87]:
+          - listitem [ref=f2e88]:
+            - link "Users" [ref=f2e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f2e90]: group
+          - listitem [ref=f2e92]:
+            - link "Settings" [ref=f2e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f2e94]: settings
+      - link "Support" [ref=f2e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f2e97]: help
+    - generic [ref=f2e99]:
+      - generic [ref=f2e100]:
+        - generic [ref=f2e101]:
+          - paragraph [ref=f2e102]: Demo Owner
+          - paragraph [ref=f2e103]: owner
+        - link "Change my password" [ref=f2e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f2e105]: lock_reset
+      - generic [ref=f2e106]:
+        - button "Switch user" [ref=f2e108]
+        - button "Sign out" [ref=f2e110]
+  - generic [ref=f2e111]:
+    - banner [ref=f2e112]:
+      - search [ref=f2e113]:
+        - generic [ref=f2e114]: Search
+        - generic [ref=f2e115]:
+          - generic [aria-hidden] [ref=f2e116]: search
+          - searchbox "Search" [ref=f2e117]
+      - generic [ref=f2e118]:
+        - switch "Dark mode" [ref=f2e121]
+        - group [ref=f2e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f2e124] [cursor=pointer]':
+            - generic [ref=f2e125]:
+              - generic [aria-hidden] [ref=f2e126]: notifications
+              - generic [aria-hidden] [ref=f2e127]: "2"
+        - generic [ref=f2e128]:
+          - generic [aria-hidden] [ref=f2e129]: ST
+          - paragraph [ref=f2e130]: Structural Supplies
+    - main [ref=f2e131]:
+      - generic [ref=f2e133]:
+        - generic [ref=f2e134]:
+          - generic [ref=f2e135]:
+            - heading "Sales" [level=1] [ref=f2e136]
+            - paragraph [ref=f2e137]: Every sale, what it earned and what is still owed.
+          - generic [ref=f2e138]:
+            - link "Download CSV" [ref=f2e139] [cursor=pointer]:
+              - /url: /export/list/sales?period=all
+            - link "New sale" [ref=f2e140] [cursor=pointer]:
+              - /url: /sales/new
+        - generic [ref=f2e141]:
+          - generic [ref=f2e142]:
+            - generic [ref=f2e143]:
+              - paragraph [ref=f2e144]: Revenue
+              - generic [aria-hidden] [ref=f2e146]: add_task
+            - paragraph [ref=f2e147]: GHS 98,553.50
+            - paragraph [ref=f2e148]: 30,558.00 still owing
+          - generic [ref=f2e149]:
+            - generic [ref=f2e150]:
+              - paragraph [ref=f2e151]: Gross profit
+              - generic [aria-hidden] [ref=f2e153]: trending_up
+            - paragraph [ref=f2e154]: 12,983.88
+            - paragraph [ref=f2e155]: Revenue less tax and cost of goods
+          - generic [ref=f2e156]:
+            - generic [ref=f2e157]:
+              - paragraph [ref=f2e158]: Sales
+              - generic [aria-hidden] [ref=f2e160]: shopping_cart
+            - paragraph [ref=f2e161]: "8"
+            - paragraph [ref=f2e162]: Everything up to 2026-11-06
+        - generic [ref=f2e163]:
+          - generic [ref=f2e164]:
+            - generic [ref=f2e165]:
+              - paragraph [ref=f2e166]: Items sold
+              - generic [aria-hidden] [ref=f2e168]: inventory_2
+            - paragraph [ref=f2e169]: "947.5"
+          - generic [ref=f2e170]:
+            - generic [ref=f2e171]:
+              - paragraph [ref=f2e172]: Discount
+              - generic [aria-hidden] [ref=f2e174]: sell
+            - paragraph [ref=f2e175]: "0.00"
+          - generic [ref=f2e176]:
+            - generic [ref=f2e177]:
+              - paragraph [ref=f2e178]: Cost of goods
+              - generic [aria-hidden] [ref=f2e180]: payments
+            - paragraph [ref=f2e181]: 85,569.62
+        - generic "Quick filters" [ref=f2e182]:
+          - link "Today's sales" [ref=f2e183] [cursor=pointer]:
+            - /url: "?period=today"
+          - link "Credit sales" [ref=f2e184] [cursor=pointer]:
+            - /url: "?period=all&paid=unpaid"
+          - link "Cash sales" [ref=f2e185] [cursor=pointer]:
+            - /url: "?period=all&method=CASH"
+          - link "MoMo sales" [ref=f2e186] [cursor=pointer]:
+            - /url: "?period=all&method=MOBILE_MONEY"
+          - link "Voided" [ref=f2e187] [cursor=pointer]:
+            - /url: "?period=all&status=VOIDED"
+        - region "Filters" [ref=f2e188]:
+          - generic [ref=f2e189]:
+            - generic [ref=f2e190]:
+              - text: Period
+              - combobox "Period" [ref=f2e191]:
+                - option "Today"
+                - option "Yesterday"
+                - option "This week"
+                - option "Last week"
+                - option "This month"
+                - option "Last month"
+                - option "This year"
+                - option "Everything" [selected]
+                - option "Custom range"
+            - generic [ref=f2e192]:
+              - text: From
+              - textbox "From" [ref=f2e194]
+            - generic [ref=f2e195]:
+              - text: To
+              - textbox "To" [ref=f2e197]: 2026-11-06
+            - generic [ref=f2e198]:
+              - text: Search
+              - searchbox "Search" [ref=f2e199]
+            - generic [ref=f2e200]:
+              - text: Customer
+              - combobox "Customer" [ref=f2e201]:
+                - option "All customers" [selected]
+                - option "Adom Construction Ltd"
+                - option "Kofi Owusu"
+                - option "Mensah & Sons Builders"
+            - generic [ref=f2e202]:
+              - text: Category
+              - combobox "Category" [ref=f2e203]:
+                - option "All categories" [selected]
+                - option "Cement"
+                - option "Fixings"
+                - option "Plumbing"
+                - option "Roofing"
+                - option "Services"
+                - option "Steel"
+            - generic [ref=f2e204]:
+              - text: Product
+              - combobox "Product" [ref=f2e205]:
+                - option "All products" [selected]
+                - option "Binding wire"
+                - option "Cartage to site"
+                - option "Cement 50kg"
+                - option "Chippings 3/4in (tipper load)"
+                - option "Iron rod 12mm"
+                - option "Iron rod 16mm"
+                - option "PVC elbow 4in"
+                - option "PVC pipe 2in"
+                - option "PVC pipe 4in"
+                - option "Roofing nails 3in"
+                - option "Roofing sheet aluzinc 3m"
+                - option "Sand (tipper load)"
+            - generic [ref=f2e206]:
+              - text: Paid into
+              - combobox "Paid into" [ref=f2e207]:
+                - option "Any account" [selected]
+                - option "Cash"
+                - option "MTN MoMo"
+                - option "Bank Account"
+            - generic [ref=f2e208]:
+              - text: Served by
+              - combobox "Served by" [ref=f2e209]:
+                - option "Anyone" [selected]
+                - option "Ama (Demo Staff)"
+                - option "Demo Owner"
+            - generic [ref=f2e210]:
+              - text: Status
+              - combobox "Status" [ref=f2e211]:
+                - option "All" [selected]
+                - option "Posted"
+                - option "Voided"
+            - group "Total" [ref=f2e212]:
+              - generic [ref=f2e214]:
+                - textbox "Total from" [ref=f2e215]:
+                  - /placeholder: Min
+                - generic [aria-hidden] [ref=f2e216]: –
+                - textbox "Total to" [ref=f2e217]:
+                  - /placeholder: Max
+            - generic [ref=f2e218]:
+              - button "Apply" [ref=f2e219]
+              - link "Clear all" [ref=f2e220] [cursor=pointer]:
+                - /url: "?"
+        - table [ref=f2e222]:
+          - rowgroup [ref=f2e223]:
+            - row [ref=f2e224]:
+              - columnheader [ref=f2e225]:
+                - link "Receipt" [ref=f2e226] [cursor=pointer]:
+                  - /url: "?period=all&sort=receipt&direction=asc"
+                  - text: Receipt
+                  - generic [aria-hidden] [ref=f2e227]: ⇅
+              - columnheader [ref=f2e228]:
+                - link "When" [ref=f2e229] [cursor=pointer]:
+                  - /url: "?period=all&sort=date&direction=asc"
+                  - text: When
+                  - generic [aria-hidden] [ref=f2e230]: ▼
+              - columnheader [ref=f2e231]:
+                - link "Customer" [ref=f2e232] [cursor=pointer]:
+                  - /url: "?period=all&sort=customer&direction=asc"
+                  - text: Customer
+                  - generic [aria-hidden] [ref=f2e233]: ⇅
+              - columnheader "Items" [ref=f2e234]
+              - columnheader [ref=f2e235]:
+                - link "Total" [ref=f2e236] [cursor=pointer]:
+                  - /url: "?period=all&sort=amount&direction=desc"
+                  - text: Total
+                  - generic [aria-hidden] [ref=f2e237]: ⇅
+              - columnheader [ref=f2e238]:
+                - link "Profit" [ref=f2e239] [cursor=pointer]:
+                  - /url: "?period=all&sort=profit&direction=desc"
+                  - text: Profit
+                  - generic [aria-hidden] [ref=f2e240]: ⇅
+              - columnheader "Owing" [ref=f2e241]
+              - columnheader "Status" [ref=f2e242]
+          - rowgroup [ref=f2e243]:
+            - row [ref=f2e244]:
+              - cell [ref=f2e245]:
+                - link "RCP-00008" [ref=f2e246] [cursor=pointer]:
+                  - /url: /sales/8
+              - cell "05 Nov 2026 03:43 am" [ref=f2e247]
+              - cell "Adom Construction Ltd Demo Owner" [ref=f2e248]:
+                - link "Adom Construction Ltd" [ref=f2e249] [cursor=pointer]:
+                  - /url: /customers/1
+                - generic [ref=f2e250]: Demo Owner
+              - cell "2" [ref=f2e251]
+              - cell "18,950.00" [ref=f2e252]
+              - cell "1,557.38" [ref=f2e253]
+              - cell "18,950.00" [ref=f2e254]
+              - cell "Credit" [ref=f2e255]
+            - row [ref=f2e257]:
+              - cell [ref=f2e258]:
+                - link "RCP-00007" [ref=f2e259] [cursor=pointer]:
+                  - /url: /sales/7
+              - cell "25 Oct 2026 03:43 am" [ref=f2e260]
+              - cell "Kofi Owusu Demo Owner" [ref=f2e261]:
+                - link "Kofi Owusu" [ref=f2e262] [cursor=pointer]:
+                  - /url: /customers/3
+                - generic [ref=f2e263]: Demo Owner
+              - cell "2" [ref=f2e264]
+              - cell "1,487.50" [ref=f2e265]
+              - cell "180.50" [ref=f2e266]
+              - cell "—" [ref=f2e267]
+              - cell "Paid" [ref=f2e268]
+            - row [ref=f2e270]:
+              - cell [ref=f2e271]:
+                - link "RCP-00006" [ref=f2e272] [cursor=pointer]:
+                  - /url: /sales/6
+              - cell "16 Oct 2026 03:43 am" [ref=f2e273]
+              - cell "Mensah & Sons Builders Demo Owner" [ref=f2e274]:
+                - link "Mensah & Sons Builders" [ref=f2e275] [cursor=pointer]:
+                  - /url: /customers/2
+                - generic [ref=f2e276]: Demo Owner
+              - cell "2" [ref=f2e277]
+              - cell "12,528.00" [ref=f2e278]
+              - cell "1,536.00" [ref=f2e279]
+              - cell "8,528.00" [ref=f2e280]
+              - cell "Credit" [ref=f2e281]
+            - row [ref=f2e283]:
+              - cell [ref=f2e284]:
+                - link "RCP-00005" [ref=f2e285] [cursor=pointer]:
+                  - /url: /sales/5
+              - cell "09 Oct 2026 03:43 am" [ref=f2e286]
+              - cell "Mensah & Sons Builders Demo Owner" [ref=f2e287]:
+                - link "Mensah & Sons Builders" [ref=f2e288] [cursor=pointer]:
+                  - /url: /customers/2
+                - generic [ref=f2e289]: Demo Owner
+              - cell "3" [ref=f2e290]
+              - cell "4,908.00" [ref=f2e291]
+              - cell "1,008.00" [ref=f2e292]
+              - cell "—" [ref=f2e293]
+              - cell "Paid" [ref=f2e294]
+            - row [ref=f2e296]:
+              - cell [ref=f2e297]:
+                - link "RCP-00004" [ref=f2e298] [cursor=pointer]:
+                  - /url: /sales/4
+              - cell "07 Oct 2026 03:43 am" [ref=f2e299]
+              - cell "Mensah & Sons Builders Demo Owner" [ref=f2e300]:
+                - link "Mensah & Sons Builders" [ref=f2e301] [cursor=pointer]:
+                  - /url: /customers/2
+                - generic [ref=f2e302]: Demo Owner
+              - cell "3" [ref=f2e303]
+              - cell "6,312.00" [ref=f2e304]
+              - cell "1,220.00" [ref=f2e305]
+              - cell "—" [ref=f2e306]
+              - cell "Paid" [ref=f2e307]
+            - row [ref=f2e309]:
+              - cell [ref=f2e310]:
+                - link "RCP-00003" [ref=f2e311] [cursor=pointer]:
+                  - /url: /sales/3
+              - cell "26 Sept 2026 03:43 am" [ref=f2e312]
+              - cell "Walk-in Demo Owner" [ref=f2e313]:
+                - text: Walk-in
+                - generic [ref=f2e314]: Demo Owner
+              - cell "2" [ref=f2e315]
+              - cell "5,288.00" [ref=f2e316]
+              - cell "808.00" [ref=f2e317]
+              - cell "—" [ref=f2e318]
+              - cell "Paid" [ref=f2e319]
+            - row [ref=f2e321]:
+              - cell [ref=f2e322]:
+                - link "RCP-00002" [ref=f2e323] [cursor=pointer]:
+                  - /url: /sales/2
+              - cell "12 Sept 2026 03:43 am" [ref=f2e324]
+              - cell "Adom Construction Ltd Demo Owner" [ref=f2e325]:
+                - link "Adom Construction Ltd" [ref=f2e326] [cursor=pointer]:
+                  - /url: /customers/1
+                - generic [ref=f2e327]: Demo Owner
+              - cell "4" [ref=f2e328]
+              - cell "33,080.00" [ref=f2e329]
+              - cell "4,690.00" [ref=f2e330]
+              - cell "3,080.00" [ref=f2e331]
+              - cell "Credit" [ref=f2e332]
+            - row [ref=f2e334]:
+              - cell [ref=f2e335]:
+                - link "RCP-00001" [ref=f2e336] [cursor=pointer]:
+                  - /url: /sales/1
+              - cell "04 Sept 2026 03:43 am" [ref=f2e337]
+              - cell "Walk-in Demo Owner" [ref=f2e338]:
+                - text: Walk-in
+                - generic [ref=f2e339]: Demo Owner
+              - cell "2" [ref=f2e340]
+              - cell "16,000.00" [ref=f2e341]
+              - cell "1,984.00" [ref=f2e342]
+              - cell "—" [ref=f2e343]
+              - cell "Paid" [ref=f2e344]
+        - navigation "Pagination" [ref=f2e346]:
+          - paragraph [ref=f2e347]: Showing 1–8 of 8 sales
+        - paragraph [ref=f2e348]: Profit is revenue less the cost the goods actually carried when they were sold, taken from the stock ledger — not from today’s cost price. Every figure above the table is calculated from the sales this filter selects, and the CSV downloads the same set.

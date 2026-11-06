@@ -59,11 +59,11 @@ Never `number_format` or divide by 100 in a view. Form inputs parse back with `M
 | `<x-card title?>`, `<x-stat label value hint tone icon size>` | Cards and single figures (`value` already formatted). |
 | `<x-table>` + `<x-slot:head>` + `<x-slot:foot>` | Tables; rows as `<tr class="border-b border-line last:border-0">` with `<x-td numeric?>`, `<x-money-cell>`, `<x-empty-row colspan>`. |
 | `<x-th sort="amount" :sorts="SaleService::SALE_SORTS" :list="$list" numeric>` | Sortable heading. `sorts` is the module's whitelist (the constant ListFilters passes to `Filters::parseSort`); a key outside it throws. |
-| `<x-filter-bar :list :dates :fields>` | GET filter form. Each field passes its **resolved** `value` (required); the period comes from `$list['range']`/`['preset']`. Carries sort and other keys; drops `page`. Field kinds: `search`, `select`, `amount-range`, `date`. |
+| `<x-filter-bar :list :dates :fields>` | GET filter form. Each field passes its **resolved** `value` (required); the period comes from `$list['range']`/`['preset']`. Carries sort and other keys; drops `page`. Field kinds: `search`, `select`, `amount-range`, `date`. `:quick` adds the quick-filter chips; a removable "Showing:" chip appears for each field the URL set (`'chip' => false` to opt out, `:active` for extras). |
 | `<x-pagination :list :total noun>` | Paging over the same filters. |
 | `<x-csv-button list="sales" :query="$list['carried']" />` / `report="profit-and-loss"` | Download through `GET /export/list/{list}` or `/export/report/{report}` (ExportController: per-list permission, per-person throttle, 401/403/404). |
 | `<x-field label for name? hint required>` + `<x-input :invalid amount?>` / `<x-date-input>` | Form fields; the error shown is `$errors->first(name)`. |
-| `<x-confirm-dialog title description trigger heading confirm wire:submit="void">` | Two-step confirm (void, delete) with fields in the slot. |
+| `<x-confirm-dialog title description trigger heading confirm wire:submit="void">` | Two-step confirm (void, delete) with fields in the slot. Reopens only for its own errors (`:keys`, default `reason` and `form`). |
 | `<x-alert tone>`, `<x-badge tone>`, `<x-empty-state title description>` + `action` slot, `<x-icon name>` | As the old ui components. |
 | `<x-chart.trend>`, `<x-chart.bars>` | Server SVG charts; final figures in, pixels out. |
 | `<x-flash />` | Already in the shell. Redirect with `->with('status', 'Saved.')` (or `'error'`); from Livewire without a redirect, `$this->dispatch('toast', message: 'Saved.')`. |

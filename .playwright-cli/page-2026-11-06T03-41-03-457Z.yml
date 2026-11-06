@@ -1,0 +1,176 @@
+- generic [ref=f9e2]:
+  - complementary [ref=f9e3]:
+    - link "NunaBooks dashboard" [ref=f9e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f9e6]:
+        - paragraph [ref=f9e7]: NunaBooks
+        - paragraph [ref=f9e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f9e10]:
+      - group [ref=f9e11]:
+        - generic "Daily" [ref=f9e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f9e14]: ›
+        - list [ref=f9e15]:
+          - listitem [ref=f9e16]:
+            - link "Dashboard" [ref=f9e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f9e18]: space_dashboard
+          - listitem [ref=f9e20]:
+            - link "Sales" [ref=f9e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f9e22]: shopping_cart
+          - listitem [ref=f9e24]:
+            - link "Quotations" [ref=f9e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f9e26]: request_quote
+          - listitem [ref=f9e28]:
+            - link "Purchases" [ref=f9e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f9e30]: receipt_long
+          - listitem [ref=f9e32]:
+            - link "Expenses" [ref=f9e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f9e34]: payments
+      - group [ref=f9e36]:
+        - generic "Stock" [ref=f9e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f9e39]: ›
+        - list [ref=f9e40]:
+          - listitem [ref=f9e41]:
+            - link "Products" [ref=f9e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f9e43]: inventory_2
+          - listitem [ref=f9e45]:
+            - link "Inventory" [ref=f9e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f9e47]: warehouse
+      - group [ref=f9e49]:
+        - generic "People" [ref=f9e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f9e52]: ›
+        - list [ref=f9e53]:
+          - listitem [ref=f9e54]:
+            - link "Customers" [ref=f9e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f9e56]: group
+          - listitem [ref=f9e58]:
+            - link "Suppliers" [ref=f9e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f9e60]: local_shipping
+      - group [ref=f9e62]:
+        - generic "Money" [ref=f9e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f9e65]: ›
+        - list [ref=f9e66]:
+          - listitem [ref=f9e67]:
+            - link "Accounts" [ref=f9e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f9e69]: account_balance
+          - listitem [ref=f9e71]:
+            - link "Reconciliation" [ref=f9e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f9e73]: balance
+          - listitem [ref=f9e75]:
+            - link "Accounting" [ref=f9e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f9e77]: analytics
+          - listitem [ref=f9e79]:
+            - link "Reports" [ref=f9e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f9e81]: analytics
+      - group [ref=f9e83]:
+        - generic "Admin" [ref=f9e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f9e86]: ›
+        - list [ref=f9e87]:
+          - listitem [ref=f9e88]:
+            - link "Users" [ref=f9e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f9e90]: group
+          - listitem [ref=f9e92]:
+            - link "Settings" [ref=f9e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f9e94]: settings
+      - link "Support" [ref=f9e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f9e97]: help
+    - generic [ref=f9e99]:
+      - generic [ref=f9e100]:
+        - generic [ref=f9e101]:
+          - paragraph [ref=f9e102]: Demo Owner
+          - paragraph [ref=f9e103]: owner
+        - link "Change my password" [ref=f9e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f9e105]: lock_reset
+      - generic [ref=f9e106]:
+        - button "Switch user" [ref=f9e108]
+        - button "Sign out" [ref=f9e110]
+  - generic [ref=f9e111]:
+    - banner [ref=f9e112]:
+      - search [ref=f9e113]:
+        - generic [ref=f9e114]: Search
+        - generic [ref=f9e115]:
+          - generic [aria-hidden] [ref=f9e116]: search
+          - searchbox "Search" [ref=f9e117]
+      - generic [ref=f9e118]:
+        - switch "Dark mode" [ref=f9e121]
+        - group [ref=f9e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f9e124] [cursor=pointer]':
+            - generic [ref=f9e125]:
+              - generic [aria-hidden] [ref=f9e126]: notifications
+              - generic [aria-hidden] [ref=f9e127]: "2"
+        - generic [ref=f9e128]:
+          - generic [aria-hidden] [ref=f9e129]: ST
+          - paragraph [ref=f9e130]: Structural Supplies
+    - main [ref=f9e131]:
+      - generic [ref=f9e133]:
+        - generic [ref=f9e135]:
+          - heading "Help" [level=1] [ref=f9e136]
+          - paragraph [ref=f9e137]: How to use the shop's books. Stored on this machine, so it works without internet.
+        - generic [ref=f9e138]:
+          - link [ref=f9e139] [cursor=pointer]:
+            - /url: /help/getting-started
+            - generic [ref=f9e140]:
+              - paragraph [ref=f9e141]: Getting started
+              - paragraph [ref=f9e142]: Set the shop up, put something on the shelf, sell it, and see what it earned.
+          - link [ref=f9e143] [cursor=pointer]:
+            - /url: /help/finding-things
+            - generic [ref=f9e144]:
+              - paragraph [ref=f9e145]: Finding things
+              - paragraph [ref=f9e146]: Narrow any list to exactly what you want, and take it away as a spreadsheet.
+          - link [ref=f9e147] [cursor=pointer]:
+            - /url: /help/quoting
+            - generic [ref=f9e148]:
+              - paragraph [ref=f9e149]: Quoting a customer
+              - paragraph [ref=f9e150]: Give a contractor a price they can take away, then turn it into a sale without typing it again.
+          - link [ref=f9e151] [cursor=pointer]:
+            - /url: /help/fixing-a-mistake
+            - generic [ref=f9e152]:
+              - paragraph [ref=f9e153]: Fixing a mistake
+              - paragraph [ref=f9e154]: Undo a wrong sale, take goods back, or correct a count — without deleting anything.
+          - link [ref=f9e155] [cursor=pointer]:
+            - /url: /help/credit-and-payments
+            - generic [ref=f9e156]:
+              - paragraph [ref=f9e157]: Buying and selling on credit
+              - paragraph [ref=f9e158]: Take goods before paying, sell to customers who pay later, and see which invoice a payment settles.
+          - link [ref=f9e159] [cursor=pointer]:
+            - /url: /help/moving-money
+            - generic [ref=f9e160]:
+              - paragraph [ref=f9e161]: Moving money between accounts
+              - paragraph [ref=f9e162]: Bank the day's cash, or move money between Cash, MoMo and the bank without touching profit.
+          - link [ref=f9e163] [cursor=pointer]:
+            - /url: /help/backdating-a-sale
+            - generic [ref=f9e164]:
+              - paragraph [ref=f9e165]: Recording a sale on an earlier day
+              - paragraph [ref=f9e166]: Enter paper receipts on the day they happened, and what the till refuses.
+          - link [ref=f9e167] [cursor=pointer]:
+            - /url: /help/managing-tax
+            - generic [ref=f9e168]:
+              - paragraph [ref=f9e169]: Managing tax
+              - paragraph [ref=f9e170]: Set up Ghana's three taxes, and change a rate when the budget moves one.
+          - link [ref=f9e171] [cursor=pointer]:
+            - /url: /help/closing-a-period
+            - generic [ref=f9e172]:
+              - paragraph [ref=f9e173]: Closing a period
+              - paragraph [ref=f9e174]: Lock a month once it is filed, close a year, and produce the pack your accountant asks for.
+          - link [ref=f9e175] [cursor=pointer]:
+            - /url: /help/backups
+            - generic [ref=f9e176]:
+              - paragraph [ref=f9e177]: Backups
+              - paragraph [ref=f9e178]: The routine that keeps the books safe, and what to do on a bad day.
+        - paragraph [ref=f9e179]: These pages are the same ones kept with the software, so what you read here matches the version you are running.

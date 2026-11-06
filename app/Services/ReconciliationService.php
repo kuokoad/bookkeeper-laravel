@@ -84,7 +84,7 @@ final class ReconciliationService
 
             // What the books claimed at this moment. This is the evidence.
             $expected = PaymentAccountService::getPaymentAccountBalance($accountId, $input['businessDate']);
-            $difference = Money::subtract($input['actual'], $expected);
+            $difference = self::countDifference($input['actual'], $expected);
 
             // The audit summary is written once and never revised, so it reads
             // the way the shop reads money.
@@ -252,6 +252,27 @@ final class ReconciliationService
     public static function getReconciliation(int $id): array
     {
         return self::listReconciliations(id: $id)[0] ?? throw new NotFoundError('Reconciliation', $id);
+    }
+
+    /** Counted less the books: positive is money over, negative money short. The page's live preview uses the same rule. */
+    public static function countDifference(int $actual, int $expected): int
+    {
+        return Money::subtract($actual, $expected);
+    }
+
+    /**
+     * The overview's headline: every unresolved difference added up, and how
+     * many accounts were never counted.
+     *
+     * @param  list<array{unresolvedDifference: int, lastCountedOn: ?string}>  $overview  getReconciliationOverview()
+     * @return array{unresolved: int, neverCounted: int}
+     */
+    public static function getOverviewTotals(array $overview): array
+    {
+        return [
+            'unresolved' => Money::sum(array_column($overview, 'unresolvedDifference')),
+            'neverCounted' => count(array_filter($overview, fn (array $a): bool => $a['lastCountedOn'] === null)),
+        ];
     }
 
     /**

@@ -1,0 +1,304 @@
+- generic [ref=f11e2]:
+  - complementary [ref=f11e3]:
+    - link "NunaBooks dashboard" [ref=f11e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f11e6]:
+        - paragraph [ref=f11e7]: NunaBooks
+        - paragraph [ref=f11e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f11e10]:
+      - group [ref=f11e11]:
+        - generic "Daily" [ref=f11e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f11e14]: ›
+        - list [ref=f11e15]:
+          - listitem [ref=f11e16]:
+            - link "Dashboard" [ref=f11e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f11e18]: space_dashboard
+          - listitem [ref=f11e20]:
+            - link "Sales" [ref=f11e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f11e22]: shopping_cart
+          - listitem [ref=f11e24]:
+            - link "Quotations" [ref=f11e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f11e26]: request_quote
+          - listitem [ref=f11e28]:
+            - link "Purchases" [ref=f11e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f11e30]: receipt_long
+          - listitem [ref=f11e32]:
+            - link "Expenses" [ref=f11e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f11e34]: payments
+      - group [ref=f11e36]:
+        - generic "Stock" [ref=f11e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f11e39]: ›
+        - list [ref=f11e40]:
+          - listitem [ref=f11e41]:
+            - link "Products" [ref=f11e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f11e43]: inventory_2
+          - listitem [ref=f11e45]:
+            - link "Inventory" [ref=f11e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f11e47]: warehouse
+      - group [ref=f11e49]:
+        - generic "People" [ref=f11e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f11e52]: ›
+        - list [ref=f11e53]:
+          - listitem [ref=f11e54]:
+            - link "Customers" [ref=f11e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f11e56]: group
+          - listitem [ref=f11e58]:
+            - link "Suppliers" [ref=f11e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f11e60]: local_shipping
+      - group [ref=f11e62]:
+        - generic "Money" [ref=f11e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f11e65]: ›
+        - list [ref=f11e66]:
+          - listitem [ref=f11e67]:
+            - link "Accounts" [ref=f11e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f11e69]: account_balance
+          - listitem [ref=f11e71]:
+            - link "Reconciliation" [ref=f11e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f11e73]: balance
+          - listitem [ref=f11e75]:
+            - link "Accounting" [ref=f11e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f11e77]: analytics
+          - listitem [ref=f11e79]:
+            - link "Reports" [ref=f11e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f11e81]: analytics
+      - group [ref=f11e83]:
+        - generic "Admin" [ref=f11e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f11e86]: ›
+        - list [ref=f11e87]:
+          - listitem [ref=f11e88]:
+            - link "Users" [ref=f11e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f11e90]: group
+          - listitem [ref=f11e92]:
+            - link "Settings" [ref=f11e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f11e94]: settings
+      - link "Support" [ref=f11e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f11e97]: help
+    - generic [ref=f11e99]:
+      - generic [ref=f11e100]:
+        - generic [ref=f11e101]:
+          - paragraph [ref=f11e102]: Demo Owner
+          - paragraph [ref=f11e103]: owner
+        - link "Change my password" [ref=f11e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f11e105]: lock_reset
+      - generic [ref=f11e106]:
+        - button "Switch user" [ref=f11e108]
+        - button "Sign out" [ref=f11e110]
+  - generic [ref=f11e111]:
+    - banner [ref=f11e112]:
+      - search [ref=f11e113]:
+        - generic [ref=f11e114]: Search
+        - generic [ref=f11e115]:
+          - generic [aria-hidden] [ref=f11e116]: search
+          - searchbox "Search" [ref=f11e117]
+      - generic [ref=f11e118]:
+        - switch "Dark mode" [ref=f11e121]
+        - group [ref=f11e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f11e124] [cursor=pointer]':
+            - generic [ref=f11e125]:
+              - generic [aria-hidden] [ref=f11e126]: notifications
+              - generic [aria-hidden] [ref=f11e127]: "2"
+        - generic [ref=f11e128]:
+          - generic [aria-hidden] [ref=f11e129]: ST
+          - paragraph [ref=f11e130]: Structural Supplies
+    - main [ref=f11e131]:
+      - generic [ref=f11e133]:
+        - generic [ref=f11e134]:
+          - generic [ref=f11e135]:
+            - heading "Trial balance" [level=1] [ref=f11e136]
+            - paragraph [ref=f11e137]: Every account with movement, and the proof that debits equal credits.
+          - link "Back" [ref=f11e139] [cursor=pointer]:
+            - /url: /accounting
+        - status [ref=f11e140]:
+          - generic [ref=f11e141]: The books balance. Total debits equal total credits exactly.
+        - region "Filters" [ref=f11e142]:
+          - generic [ref=f11e143]:
+            - generic [ref=f11e144]:
+              - text: From (optional)
+              - textbox "From (optional)" [ref=f11e146]
+            - generic [ref=f11e147]:
+              - text: As at
+              - textbox "As at" [ref=f11e149]: 2026-11-06
+            - generic [ref=f11e150]:
+              - button "Apply" [ref=f11e151]
+              - link "Clear all" [ref=f11e152] [cursor=pointer]:
+                - /url: "?"
+        - generic [ref=f11e153]:
+          - generic [ref=f11e154]:
+            - generic [ref=f11e155]:
+              - paragraph [ref=f11e156]: Total debits
+              - generic [aria-hidden] [ref=f11e158]: balance
+            - paragraph [ref=f11e159]: GHS 621,848.62
+          - generic [ref=f11e160]:
+            - generic [ref=f11e161]:
+              - paragraph [ref=f11e162]: Total credits
+              - generic [aria-hidden] [ref=f11e164]: balance
+            - paragraph [ref=f11e165]: GHS 621,848.62
+          - generic [ref=f11e166]:
+            - generic [ref=f11e167]:
+              - paragraph [ref=f11e168]: Status
+              - generic [aria-hidden] [ref=f11e170]: balance
+            - paragraph [ref=f11e171]: Balanced
+        - table [ref=f11e173]:
+          - rowgroup [ref=f11e174]:
+            - row [ref=f11e175]:
+              - columnheader "Code" [ref=f11e176]
+              - columnheader "Account" [ref=f11e177]
+              - columnheader "Debit" [ref=f11e178]
+              - columnheader "Credit" [ref=f11e179]
+          - rowgroup [ref=f11e180]:
+            - row [ref=f11e181]:
+              - cell "1001" [ref=f11e182]
+              - cell [ref=f11e183]:
+                - link "Cash on Hand" [ref=f11e184] [cursor=pointer]:
+                  - /url: /accounting/ledger/37
+              - cell "27,787.50" [ref=f11e185]
+              - cell "8,693.50" [ref=f11e186]
+            - row [ref=f11e187]:
+              - cell "1011" [ref=f11e188]
+              - cell [ref=f11e189]:
+                - link "MTN Mobile Money" [ref=f11e190] [cursor=pointer]:
+                  - /url: /accounting/ledger/38
+              - cell "10,346.00" [ref=f11e191]
+              - cell "6,482.00" [ref=f11e192]
+            - row [ref=f11e193]:
+              - cell "1021" [ref=f11e194]
+              - cell [ref=f11e195]:
+                - link "Bank Account" [ref=f11e196] [cursor=pointer]:
+                  - /url: /accounting/ledger/39
+              - cell "120,312.00" [ref=f11e197]
+              - cell "107,600.00" [ref=f11e198]
+            - row [ref=f11e199]:
+              - cell "1100" [ref=f11e200]
+              - cell [ref=f11e201]:
+                - link "Accounts Receivable" [ref=f11e202] [cursor=pointer]:
+                  - /url: /accounting/ledger/4
+              - cell "50,558.00" [ref=f11e203]
+              - cell "20,000.00" [ref=f11e204]
+            - row [ref=f11e205]:
+              - cell "1200" [ref=f11e206]
+              - cell [ref=f11e207]:
+                - link "Inventory" [ref=f11e208] [cursor=pointer]:
+                  - /url: /accounting/ledger/5
+              - cell "304,900.00" [ref=f11e209]
+              - cell "85,569.62" [ref=f11e210]
+            - row [ref=f11e211]:
+              - cell "2000" [ref=f11e212]
+              - cell [ref=f11e213]:
+                - link "Accounts Payable" [ref=f11e214] [cursor=pointer]:
+                  - /url: /accounting/ledger/6
+              - cell "6,000.00" [ref=f11e215]
+              - cell "65,590.00" [ref=f11e216]
+            - row [ref=f11e217]:
+              - cell "3000" [ref=f11e218]
+              - cell [ref=f11e219]:
+                - link "Owner's Capital" [ref=f11e220] [cursor=pointer]:
+                  - /url: /accounting/ledger/10
+              - cell "—" [ref=f11e221]
+              - cell "90,000.00" [ref=f11e222]
+            - row [ref=f11e223]:
+              - cell "3900" [ref=f11e224]
+              - cell [ref=f11e225]:
+                - link "Opening Balance Equity" [ref=f11e226] [cursor=pointer]:
+                  - /url: /accounting/ledger/13
+              - cell "—" [ref=f11e227]
+              - cell "138,910.00" [ref=f11e228]
+            - row [ref=f11e229]:
+              - cell "4000" [ref=f11e230]
+              - cell [ref=f11e231]:
+                - link "Sales Revenue" [ref=f11e232] [cursor=pointer]:
+                  - /url: /accounting/ledger/14
+              - cell "—" [ref=f11e233]
+              - cell "98,553.50" [ref=f11e234]
+            - row [ref=f11e235]:
+              - cell "4210" [ref=f11e236]
+              - cell [ref=f11e237]:
+                - link "Commission" [ref=f11e238] [cursor=pointer]:
+                  - /url: /accounting/ledger/34
+              - cell "—" [ref=f11e239]
+              - cell "150.00" [ref=f11e240]
+            - row [ref=f11e241]:
+              - cell "4220" [ref=f11e242]
+              - cell [ref=f11e243]:
+                - link "Service Income" [ref=f11e244] [cursor=pointer]:
+                  - /url: /accounting/ledger/35
+              - cell "—" [ref=f11e245]
+              - cell "300.00" [ref=f11e246]
+            - row [ref=f11e247]:
+              - cell "5000" [ref=f11e248]
+              - cell [ref=f11e249]:
+                - link "Cost of Goods Sold" [ref=f11e250] [cursor=pointer]:
+                  - /url: /accounting/ledger/18
+              - cell "85,569.62" [ref=f11e251]
+              - cell "—" [ref=f11e252]
+            - row [ref=f11e253]:
+              - cell "5910" [ref=f11e254]
+              - cell [ref=f11e255]:
+                - link "Cash Over / Short" [ref=f11e256] [cursor=pointer]:
+                  - /url: /accounting/ledger/20
+              - cell "3.50" [ref=f11e257]
+              - cell "—" [ref=f11e258]
+            - row [ref=f11e259]:
+              - cell "6010" [ref=f11e260]
+              - cell [ref=f11e261]:
+                - link "Rent" [ref=f11e262] [cursor=pointer]:
+                  - /url: /accounting/ledger/22
+              - cell "7,200.00" [ref=f11e263]
+              - cell "—" [ref=f11e264]
+            - row [ref=f11e265]:
+              - cell "6020" [ref=f11e266]
+              - cell [ref=f11e267]:
+                - link "Electricity" [ref=f11e268] [cursor=pointer]:
+                  - /url: /accounting/ledger/23
+              - cell "380.00" [ref=f11e269]
+              - cell "—" [ref=f11e270]
+            - row [ref=f11e271]:
+              - cell "6040" [ref=f11e272]
+              - cell [ref=f11e273]:
+                - link "Internet & Airtime" [ref=f11e274] [cursor=pointer]:
+                  - /url: /accounting/ledger/25
+              - cell "60.00" [ref=f11e275]
+              - cell "—" [ref=f11e276]
+            - row [ref=f11e277]:
+              - cell "6050" [ref=f11e278]
+              - cell [ref=f11e279]:
+                - link "Transport" [ref=f11e280] [cursor=pointer]:
+                  - /url: /accounting/ledger/26
+              - cell "2,290.00" [ref=f11e281]
+              - cell "—" [ref=f11e282]
+            - row [ref=f11e283]:
+              - cell "6060" [ref=f11e284]
+              - cell [ref=f11e285]:
+                - link "Staff Wages" [ref=f11e286] [cursor=pointer]:
+                  - /url: /accounting/ledger/27
+              - cell "6,400.00" [ref=f11e287]
+              - cell "—" [ref=f11e288]
+            - row [ref=f11e289]:
+              - cell "6100" [ref=f11e290]
+              - cell [ref=f11e291]:
+                - link "MoMo Charges" [ref=f11e292] [cursor=pointer]:
+                  - /url: /accounting/ledger/31
+              - cell "42.00" [ref=f11e293]
+              - cell "—" [ref=f11e294]
+            - row [ref=f11e295]:
+              - cell [ref=f11e296]
+              - cell "Total" [ref=f11e297]
+              - cell "621,848.62" [ref=f11e298]
+              - cell "621,848.62" [ref=f11e299]
+        - paragraph [ref=f11e300]: Everything up to 06 Nov 2026. This lists the raw debit and credit totals per account — the check that the double entry holds. For what the shop is worth, see the balance sheet.

@@ -9,8 +9,10 @@ declare(strict_types=1);
 | run here.
 */
 
+use App\Services\Actor;
 use App\Services\UpdateService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
 function gitIn(string $cwd, string ...$arguments): string
@@ -113,4 +115,18 @@ it('allows updating from the screen only on a production Windows install', funct
     expect(UpdateService::updateUnsupportedReason('local', 'Windows'))->not->toBeNull()
         ->and(UpdateService::updateUnsupportedReason('production', 'Linux'))->not->toBeNull()
         ->and(UpdateService::updateUnsupportedReason('production', 'Windows'))->toBeNull();
+});
+
+it('records who started an update in the audit log, even when the task will not start', function () {
+    $id = owner();
+    $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nuna-update-'.uniqid().'.json';
+    Process::fake(['*' => Process::result(exitCode: 1, errorOutput: 'no such task')]);
+
+    expect(fn () => UpdateService::startUpdate(new Actor($id, 'kwame'), $path))->toThrow(RuntimeException::class);
+
+    $row = DB::table('audit_logs')->where('entity_type', 'app')->first();
+    expect($row)->not->toBeNull()
+        ->and($row->action)->toBe('UPDATE')
+        ->and((int) $row->user_id)->toBe($id)
+        ->and(file_exists($path))->toBeFalse();
 });

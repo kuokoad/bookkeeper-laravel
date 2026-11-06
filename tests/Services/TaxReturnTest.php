@@ -129,6 +129,20 @@ describe('tax that was never reclaimable', function () {
             ->and($byCode['VAT']['recoverableInputMinor'])->toBe(1_500);
     });
 
+    it('counts it in what was paid on purchases, per tax and in total', function () {
+        trGhanaTaxes(leviesRecoverable: false);
+        ($this->buy)(($this->rice)(), '2026-08-05');
+
+        $period = TaxReturnService::getTaxReturn(TR_AUGUST);
+        $byCode = array_column($period['components'], null, 'code');
+        expect($byCode['NHIL']['paidOnPurchasesMinor'])->toBe(250)
+            ->and($byCode['VAT']['paidOnPurchasesMinor'])->toBe(1_500)
+            ->and($period['totalPaidOnPurchases'])->toBe($period['totalRecoverableInput'] + $period['totalNonRecoverableInput'])
+            // Nothing sold: the authority owes the reclaimable part back, shown without its minus sign.
+            ->and($period['netPayable'])->toBe(-$period['totalRecoverableInput'])
+            ->and($period['netUnsigned'])->toBe($period['totalRecoverableInput']);
+    });
+
     it('never reclaims it, however the setting is changed afterwards', function () {
         trGhanaTaxes(leviesRecoverable: false);
         ($this->buy)(($this->rice)(), '2026-08-05');

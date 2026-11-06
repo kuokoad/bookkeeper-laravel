@@ -25,6 +25,21 @@ use Illuminate\Support\Facades\DB;
  */
 final class SupplierService
 {
+    /**
+     * The supplier page's "Total bought" (posted purchases, not returns) and
+     * "Total paid later" (posted payments), summed over the rows given: the
+     * old page summed the 100 of each it showed, and so does this.
+     *
+     * @return array{totalBought: int, totalPaid: int}
+     */
+    public static function summariseActivity(array $purchases, array $payments): array
+    {
+        return [
+            'totalBought' => Money::sum(array_column(array_filter($purchases, fn (array $p): bool => $p['status'] === 'POSTED' && $p['kind'] === 'PURCHASE'), 'totalMinor')),
+            'totalPaid' => Money::sum(array_column(array_filter($payments, fn (array $p): bool => $p['status'] === 'POSTED'), 'amountMinor')),
+        ];
+    }
+
     public const SUPPLIER_SORTS = ['name', 'balance'];
 
     /** A supplier's payable balance as SQL, correlated on the outer suppliers row. */

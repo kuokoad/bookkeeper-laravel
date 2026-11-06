@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Database\Tx;
+use App\Enums\AuditAction;
 use App\Support\Clock;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Process;
@@ -113,9 +115,14 @@ final class UpdateService
         return null;
     }
 
-    /** Marks the update running and hands over to the scheduled task; returns at once. */
-    public static function startUpdate(?string $statusPath = null): void
+    /**
+     * Records who started it (the audit row is written first, so an attempt
+     * that fails to start is on record too), marks the update running and
+     * hands over to the scheduled task; returns at once.
+     */
+    public static function startUpdate(Actor $actor, ?string $statusPath = null): void
     {
+        Tx::run(fn () => AuditService::write(AuditAction::Update, 'app', 'Started an update of the app', actor: $actor));
         $statusPath ??= (string) config('nuna.update_status_path');
         file_put_contents($statusPath, json_encode([
             'state' => 'running', 'startedAt' => Clock::now()->toIso8601ZuluString('millisecond'), 'finishedAt' => null, 'from' => null, 'to' => null, 'message' => 'Updating.',

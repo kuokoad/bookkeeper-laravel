@@ -1,0 +1,301 @@
+- generic [ref=f10e2]:
+  - complementary [ref=f10e3]:
+    - link "NunaBooks dashboard" [ref=f10e4] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f10e6]:
+        - paragraph [ref=f10e7]: NunaBooks
+        - paragraph [ref=f10e8]: Simple Books. Stronger Business.
+    - navigation "Main" [ref=f10e10]:
+      - group [ref=f10e11]:
+        - generic "Daily" [ref=f10e12] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e14]: ›
+        - list [ref=f10e15]:
+          - listitem [ref=f10e16]:
+            - link "Dashboard" [ref=f10e17] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [aria-hidden] [ref=f10e18]: space_dashboard
+          - listitem [ref=f10e20]:
+            - link "Sales" [ref=f10e21] [cursor=pointer]:
+              - /url: /sales
+              - generic [aria-hidden] [ref=f10e22]: shopping_cart
+          - listitem [ref=f10e24]:
+            - link "Quotations" [ref=f10e25] [cursor=pointer]:
+              - /url: /quotations
+              - generic [aria-hidden] [ref=f10e26]: request_quote
+          - listitem [ref=f10e28]:
+            - link "Purchases" [ref=f10e29] [cursor=pointer]:
+              - /url: /purchases
+              - generic [aria-hidden] [ref=f10e30]: receipt_long
+          - listitem [ref=f10e32]:
+            - link "Expenses" [ref=f10e33] [cursor=pointer]:
+              - /url: /expenses
+              - generic [aria-hidden] [ref=f10e34]: payments
+      - group [ref=f10e36]:
+        - generic "Stock" [ref=f10e37] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e39]: ›
+        - list [ref=f10e40]:
+          - listitem [ref=f10e41]:
+            - link "Products" [ref=f10e42] [cursor=pointer]:
+              - /url: /products
+              - generic [aria-hidden] [ref=f10e43]: inventory_2
+          - listitem [ref=f10e45]:
+            - link "Inventory" [ref=f10e46] [cursor=pointer]:
+              - /url: /inventory
+              - generic [aria-hidden] [ref=f10e47]: warehouse
+      - group [ref=f10e49]:
+        - generic "People" [ref=f10e50] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e52]: ›
+        - list [ref=f10e53]:
+          - listitem [ref=f10e54]:
+            - link "Customers" [ref=f10e55] [cursor=pointer]:
+              - /url: /customers
+              - generic [aria-hidden] [ref=f10e56]: group
+          - listitem [ref=f10e58]:
+            - link "Suppliers" [ref=f10e59] [cursor=pointer]:
+              - /url: /suppliers
+              - generic [aria-hidden] [ref=f10e60]: local_shipping
+      - group [ref=f10e62]:
+        - generic "Money" [ref=f10e63] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e65]: ›
+        - list [ref=f10e66]:
+          - listitem [ref=f10e67]:
+            - link "Accounts" [ref=f10e68] [cursor=pointer]:
+              - /url: /accounts
+              - generic [aria-hidden] [ref=f10e69]: account_balance
+          - listitem [ref=f10e71]:
+            - link "Reconciliation" [ref=f10e72] [cursor=pointer]:
+              - /url: /reconciliation
+              - generic [aria-hidden] [ref=f10e73]: balance
+          - listitem [ref=f10e75]:
+            - link "Accounting" [ref=f10e76] [cursor=pointer]:
+              - /url: /accounting
+              - generic [aria-hidden] [ref=f10e77]: analytics
+          - listitem [ref=f10e79]:
+            - link "Reports" [ref=f10e80] [cursor=pointer]:
+              - /url: /reports
+              - generic [aria-hidden] [ref=f10e81]: analytics
+      - group [ref=f10e83]:
+        - generic "Admin" [ref=f10e84] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f10e86]: ›
+        - list [ref=f10e87]:
+          - listitem [ref=f10e88]:
+            - link "Users" [ref=f10e89] [cursor=pointer]:
+              - /url: /users
+              - generic [aria-hidden] [ref=f10e90]: group
+          - listitem [ref=f10e92]:
+            - link "Settings" [ref=f10e93] [cursor=pointer]:
+              - /url: /settings
+              - generic [aria-hidden] [ref=f10e94]: settings
+      - link "Support" [ref=f10e96] [cursor=pointer]:
+        - /url: /help
+        - generic [aria-hidden] [ref=f10e97]: help
+    - generic [ref=f10e99]:
+      - generic [ref=f10e100]:
+        - generic [ref=f10e101]:
+          - paragraph [ref=f10e102]: Demo Owner
+          - paragraph [ref=f10e103]: owner
+        - link "Change my password" [ref=f10e104] [cursor=pointer]:
+          - /url: /account/password
+          - generic [aria-hidden] [ref=f10e105]: lock_reset
+      - generic [ref=f10e106]:
+        - button "Switch user" [ref=f10e108]
+        - button "Sign out" [ref=f10e110]
+  - generic [ref=f10e111]:
+    - banner [ref=f10e112]:
+      - search [ref=f10e113]:
+        - generic [ref=f10e114]: Search
+        - generic [ref=f10e115]:
+          - generic [aria-hidden] [ref=f10e116]: search
+          - searchbox "Search" [ref=f10e117]
+      - generic [ref=f10e118]:
+        - switch "Dark mode" [ref=f10e121]
+        - group [ref=f10e123]:
+          - 'generic "Notifications: 2 needing attention" [ref=f10e124] [cursor=pointer]':
+            - generic [ref=f10e125]:
+              - generic [aria-hidden] [ref=f10e126]: notifications
+              - generic [aria-hidden] [ref=f10e127]: "2"
+        - generic [ref=f10e128]:
+          - generic [aria-hidden] [ref=f10e129]: ST
+          - paragraph [ref=f10e130]: Structural Supplies
+    - main [ref=f10e131]:
+      - generic [ref=f10e133]:
+        - generic [ref=f10e134]:
+          - heading "Backups" [level=1] [ref=f10e136]
+          - link "All help" [ref=f10e138] [cursor=pointer]:
+            - /url: /help
+        - article [ref=f10e139]:
+          - paragraph [ref=f10e140]: The routine, what the commands actually do, and what to do on a bad day.
+          - heading "Prerequisites" [level=2] [ref=f10e141]
+          - paragraph [ref=f10e142]:
+            - text: Terminal access on the machine running the app, or an owner account for the in-app download at
+            - code [ref=f10e143]: /settings/health
+            - text: .
+          - heading "What a backup is" [level=2] [ref=f10e144]
+          - paragraph [ref=f10e145]: The whole business is one MySQL database. Every sale, every payment, every product, the ledger underneath them, the users, the settings and the logo. A copy of that database kept somewhere safe is the shop. Lose it with no copy and there is nothing to go back to.
+          - code [ref=f10e147]: php artisan nuna:backup
+          - paragraph [ref=f10e148]:
+            - text: That writes a timestamped file such as
+            - code [ref=f10e149]: nunabooks-2026-08-26T18-00-00.sql.gz
+            - text: into
+            - code [ref=f10e150]: storage/backups
+            - text: ", and it is safe to run while the shop is trading."
+          - paragraph [ref=f10e151]:
+            - strong [ref=f10e152]: This is why a backup is a command and not a file copy.
+            - text: Copying MySQL's data folder to a USB stick in the file explorer is not a backup. MySQL keeps recent work in memory and in its own logs while it runs, so a copy of its files taken on its own can be missing the latest trading, or torn in half mid-write. The command asks MySQL for a consistent snapshot instead (
+            - code [ref=f10e153]: mysqldump --single-transaction
+            - text: ), which produces one complete file without asking the shop to stop.
+          - heading "Every copy is checked before it counts" [level=3] [ref=f10e154]
+          - paragraph [ref=f10e155]: "A backup nobody has opened is a guess. So the command loads the finished file into a scratch database, checks it there, and drops the scratch copy afterwards. It proves:"
+          - list [ref=f10e156]:
+            - listitem [ref=f10e157]: The file loads end to end, with the triggers that guard the books.
+            - listitem [ref=f10e158]:
+              - strong [ref=f10e159]: The books inside the copy still balance
+              - text: — every entry, and the trial balance.
+            - listitem [ref=f10e160]: What customers owe and what you owe suppliers equal their control accounts.
+            - listitem [ref=f10e161]: Every product's stock replays to the figure on screen, and the stock ledger equals the Inventory account.
+            - listitem [ref=f10e162]: An owner can still sign in.
+            - listitem [ref=f10e163]: The audit log, the journal and every account's totals match the live books it was taken from.
+          - paragraph [ref=f10e164]:
+            - text: The balance checks are the ones that matter. Loading says the file survived; the others say the
+            - emphasis [ref=f10e165]: accounts
+            - text: survived, which is what the shop actually needs from a backup.
+          - paragraph [ref=f10e166]:
+            - strong [ref=f10e167]: A copy that fails is deleted and the command fails loudly.
+            - text: A broken backup you believe in is worse than no backup at all, so it is never left in the folder looking valid. Older backups are trimmed only after a good one exists, so a failure never leaves you with fewer than you started with.
+          - paragraph [ref=f10e168]:
+            - text: Each backup is a single self-contained
+            - code [ref=f10e169]: .sql.gz
+            - text: file. It can be copied to a stick on its own and still be whole.
+          - heading "The commands" [level=3] [ref=f10e170]
+          - table [ref=f10e171]:
+            - rowgroup [ref=f10e172]:
+              - row [ref=f10e173]:
+                - columnheader "Command" [ref=f10e174]
+                - columnheader "What it does" [ref=f10e175]
+            - rowgroup [ref=f10e176]:
+              - row [ref=f10e177]:
+                - cell [ref=f10e178]:
+                  - code [ref=f10e179]: php artisan nuna:backup
+                - cell "Verified backup, keeping the newest 14" [ref=f10e180]
+              - row [ref=f10e181]:
+                - cell [ref=f10e182]:
+                  - code [ref=f10e183]: php artisan nuna:backup --keep=30
+                - cell "Keep 30 instead" [ref=f10e184]
+              - row [ref=f10e185]:
+                - cell [ref=f10e186]:
+                  - code [ref=f10e187]: php artisan nuna:backup --dir=E:\backups
+                - cell "Write straight to a USB stick" [ref=f10e188]
+              - row [ref=f10e189]:
+                - cell [ref=f10e190]:
+                  - code [ref=f10e191]: php artisan nuna:restore <file> --force
+                - cell "Put one back (see below)" [ref=f10e192]
+          - heading "The daily routine" [level=2] [ref=f10e193]
+          - paragraph [ref=f10e194]: "At close of business:"
+          - code [ref=f10e196]: php artisan nuna:backup --dir=E:\backups
+          - paragraph [ref=f10e197]:
+            - text: Point
+            - code [ref=f10e198]: "--dir"
+            - text: at a USB stick. That is the whole routine.
+          - paragraph [ref=f10e199]: A backup sitting on the same computer does not survive that computer being stolen, dropped, or having its disk fail — which are the three things you are backing up against. A copy on the same disk protects you only from your own mistakes, which is the least likely of the four.
+          - paragraph [ref=f10e200]:
+            - text: If the shop has no terminal, an owner can download a verified copy from
+            - strong [ref=f10e201]: Settings → Health & backup
+            - text: . Same file, same verification.
+          - heading "Before anything risky" [level=2] [ref=f10e202]
+          - paragraph [ref=f10e203]: "Take one before:"
+          - list [ref=f10e204]:
+            - listitem [ref=f10e205]: closing a financial year
+            - listitem [ref=f10e206]: restoring an older backup (so today is recoverable if the restore was the mistake)
+            - listitem [ref=f10e207]:
+              - text: upgrading the app (
+              - strong [ref=f10e208]: Update now
+              - text: on the Health screen takes one for you first)
+            - listitem [ref=f10e209]: any bulk change
+          - code [ref=f10e211]: php artisan nuna:backup
+          - heading "Restoring" [level=2] [ref=f10e212]
+          - code [ref=f10e214]: php artisan nuna:restore storage/backups/nunabooks-2026-08-26T18-00-00.sql.gz --force
+          - paragraph [ref=f10e215]:
+            - text: Stop the app first. The command refuses while the app's web server (the
+            - code [ref=f10e216]: NunaBooksApache
+            - text: service) is running. Restoring is done from the command line only; there is no restore button in the app.
+          - heading "Never load a backup into the database by hand" [level=3] [ref=f10e217]
+          - paragraph [ref=f10e218]: This is the one instruction on this page that is worth reading twice, because getting it wrong is silent.
+          - paragraph [ref=f10e219]: Loading a dump over a live database with a MySQL tool of your own leaves no copy of what was there before, and nothing checks that what went in is sound. A file that loads only half way, or a dump from a different shop, can leave books that still balance, so nothing warns you. You would only find out by noticing a figure.
+          - paragraph [ref=f10e220]: "The command does it properly, in this order:"
+          - list [ref=f10e221]:
+            - listitem [ref=f10e222]:
+              - text: Checks the backup in a scratch database
+              - strong [ref=f10e223]: before
+              - text: touching anything, so a bad file never replaces a working database.
+            - listitem [ref=f10e224]: Refuses while the app is running.
+            - listitem [ref=f10e225]:
+              - text: Saves the books it is about to replace as
+              - code [ref=f10e226]: ...-before-restore.sql.gz
+              - text: "beside your backups, so a restore made in a panic is itself undoable. That copy is not checked against itself, on purpose: the books being replaced may be the broken thing."
+            - listitem [ref=f10e227]: Empties the database and loads the backup.
+            - listitem [ref=f10e228]: Checks the result again, triggers included, and says where the replaced books are if anything does not match.
+          - paragraph [ref=f10e229]: "Restoring onto a brand-new computer with an empty database skips step 3: there is nothing to keep."
+          - heading "Practise it once" [level=2] [ref=f10e230]
+          - paragraph [ref=f10e231]: "A backup you have never restored is a hope, not a plan. Once, on a copy:"
+          - list [ref=f10e232]:
+            - listitem [ref=f10e233]: Take a backup.
+            - listitem [ref=f10e234]: Note today's sales total.
+            - listitem [ref=f10e235]: Restore a backup from a few days ago.
+            - listitem [ref=f10e236]: Confirm the total changed to match that day.
+            - listitem [ref=f10e237]: Restore the backup from step 1 to get back.
+          - paragraph [ref=f10e238]: Fifteen minutes, once. You will know the routine works and that you can do it under pressure.
+          - heading "Verification" [level=2] [ref=f10e239]
+          - paragraph [ref=f10e240]: "After a restore:"
+          - list [ref=f10e241]:
+            - listitem [ref=f10e242]: Sign in. The shop name and logo are the ones you expect.
+            - listitem [ref=f10e243]:
+              - strong [ref=f10e244]: Trial balance
+              - text: balances.
+            - listitem [ref=f10e245]: Recent sales are the ones from the backup's date, not today's.
+            - listitem [ref=f10e246]:
+              - strong [ref=f10e247]: Inventory
+              - text: shows no red alert.
+            - listitem [ref=f10e248]:
+              - code [ref=f10e249]: /settings/health
+              - text: passes its readiness checks.
+          - heading "Troubleshooting" [level=2] [ref=f10e250]
+          - paragraph [ref=f10e251]:
+            - strong [ref=f10e252]: The backup command failed and deleted its own output.
+            - text: "Working as intended. Every backup is verified before it counts, and one that fails is removed rather than left looking valid. A broken backup you believe in is worse than none. Investigate the database itself:"
+            - code [ref=f10e253]: php artisan nuna:preflight
+            - text: .
+          - paragraph [ref=f10e254]:
+            - strong [ref=f10e255]: "\"The web server (NunaBooksApache) is running.\""
+            - text: Stop it as the message says (
+            - code [ref=f10e256]: Stop-Service NunaBooksApache
+            - text: ), then restore.
+          - paragraph [ref=f10e257]:
+            - strong [ref=f10e258]: I restored and the books do not balance.
+            - text: Restore the
+            - code [ref=f10e259]: ...-before-restore.sql.gz
+            - text: file to get back to where you were, then investigate before trying again.
+          - paragraph [ref=f10e260]:
+            - strong [ref=f10e261]: Backups are filling the disk.
+            - code [ref=f10e262]: php artisan nuna:backup
+            - text: keeps the newest 14. Use
+            - code [ref=f10e263]: "--keep=30"
+            - text: for more.
+          - paragraph [ref=f10e264]:
+            - strong [ref=f10e265]: How far back do I need?
+            - text: Far enough to cover the gap between a mistake happening and someone noticing. For a shop filing monthly, a month of dailies plus a keeper at each month end.
+          - heading "Related" [level=2] [ref=f10e266]
+          - list [ref=f10e267]:
+            - listitem [ref=f10e268]:
+              - link "Close a period" [ref=f10e269] [cursor=pointer]:
+                - /url: /help/closing-a-period
+              - text: — take one before closing a year.
+            - listitem [ref=f10e270]:
+              - text: Commands —
+              - code [ref=f10e271]: nuna:backup
+              - text: ","
+              - code [ref=f10e272]: nuna:restore
+              - text: ","
+              - code [ref=f10e273]: nuna:preflight
+              - text: .
+        - link "All the guides" [ref=f10e275] [cursor=pointer]:
+          - /url: /help

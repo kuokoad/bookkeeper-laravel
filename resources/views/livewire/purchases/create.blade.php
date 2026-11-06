@@ -30,7 +30,7 @@
             @error('form')<x-alert tone="danger">{{ $message }}</x-alert>@enderror
 
             <div class="rounded-xl border border-line bg-surface-raised p-4">
-                <div class="grid gap-4 sm:grid-cols-3">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                         <label for="supplier" class="mb-1 block text-sm font-medium text-content">Supplier <span class="text-danger">*</span></label>
                         <select id="supplier" wire:model.live="supplierId" class="{{ $select }}">
@@ -46,6 +46,11 @@
                             :min="$lockedBefore ? \App\Domain\BusinessDate::addDays($lockedBefore, 1) : null" aria-label="Delivery date" />
                         {!! $err('date', $reading['dateError']) !!}
                         @if ($lockedBefore)<p class="mt-1 text-xs text-content-subtle">The books are closed up to @date($lockedBefore).</p>@endif
+                    </div>
+                    <div>
+                        <label for="dueDate" class="mb-1 block text-sm font-medium text-content">Due date</label>
+                        <x-date-input id="dueDate" wire:model.live="dueDate" :value="$dueDate" :min="$businessDate !== '' ? $businessDate : null" aria-describedby="dueDate-hint" />
+                        <p id="dueDate-hint" class="mt-1 text-xs text-content-subtle">Optional: when the supplier wants paying. Payables ages the debt from this day.</p>
                     </div>
                     <div>
                         <label for="invoiceNo" class="mb-1 block text-sm font-medium text-content">Their invoice no.</label>

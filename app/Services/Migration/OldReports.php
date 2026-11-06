@@ -13,7 +13,7 @@ use PDO;
  * closing entries out of the P&L and in the balance sheet, the subledger
  * split by each party's sign, receivables aged from the due date (payables
  * from the purchase date) as at a date with voids netted, and the tax return
- * from every tax row, the cash flow from the payment-account lines, sales by
+ * from every tax row (its document counts as standing at the period end, D9), the cash flow from the payment-account lines, sales by
  * day and the stock valuation. Even the financial years are plain date
  * arithmetic here. Reconcile v2 compares these with the new reports.
  */
@@ -332,6 +332,9 @@ final class OldReports
      * counts until its mirror is dated, payments by then, credited returns
      * on the sale they came off), bucketed by days past the due date for
      * sales (else the sale date) and past the purchase date for purchases.
+     * D8 (owner decision, 2026-11-06) ages a purchase from its due date, else
+     * its date; the old schema has no purchases.due_date and imported rows
+     * keep NULL, so the purchase date IS the decided rule for this data.
      *
      * @return array<string, int> "party bucket" => amount, parties netting to zero left out
      */
@@ -413,12 +416,17 @@ final class OldReports
             $figures["{$code} non-recoverable input"] ??= 0;
             $figures["{$code} net"] = $figures["{$code} output"] - $figures["{$code} recoverable input"];
         }
-        foreach (['sales' => 'sales', 'purchases' => 'purchases'] as $label => $table) {
-            $box = $old->prepare("SELECT COALESCE(SUM(subtotal_minor - discount_minor), 0), COUNT(*) FROM {$table} WHERE business_date BETWEEN ? AND ?");
-            $box->execute([$from, $to]);
-            [$value, $count] = $box->fetch(PDO::FETCH_NUM);
-            $figures["taxable {$label}"] = (int) $value;
-            $figures["{$label} documents"] = (int) $count;
+        // D9 (owner decision, 2026-11-06): the value still nets every row; the count, for sales and purchases
+        // alike, is the documents standing at the period end: never a VOID mirror, and an original only if
+        // no void of it is dated on or before the end.
+        foreach (['sales' => 'voids_sale_id', 'purchases' => 'voids_purchase_id'] as $table => $voids) {
+            $box = $old->prepare("SELECT COALESCE(SUM(d.subtotal_minor - d.discount_minor), 0),
+                    COUNT(CASE WHEN d.kind <> 'VOID' AND NOT EXISTS (SELECT 1 FROM {$table} m WHERE m.{$voids} = d.id AND m.business_date <= ?) THEN 1 END)
+                FROM {$table} d WHERE d.business_date BETWEEN ? AND ?");
+            $box->execute([$to, $from, $to]);
+            [$value, $documents] = $box->fetch(PDO::FETCH_NUM);
+            $figures["taxable {$table}"] = (int) $value;
+            $figures["{$table} documents"] = (int) $documents;
         }
 
         return $figures;

@@ -141,7 +141,7 @@ Balances are derived from `journal_lines.customer_id` / `supplier_id`. A negativ
 
 | Table | Columns | Checks / indexes |
 |---|---|---|
-| `purchases` | `purchase_no`!, `kind` `='PURCHASE'`, `supplier_id`, posted-document block, `invoice_no`, `subtotal_minor`!, `discount_minor`, `tax_minor`, `total_minor`!, `returns_purchase_id`, `voids_purchase_id`, `voided_by_purchase_id`, `note` | `kind IN ('PURCHASE','RETURN','VOID')`; `total = subtotal − discount + tax`; unique `purchase_no`; self-reference checks → trigger |
+| `purchases` | `purchase_no`!, `kind` `='PURCHASE'`, `supplier_id`, posted-document block, `invoice_no`, `due_date` DATE (new here, PLAN D8: when the supplier wants paying; NULL for none and for every imported row), `subtotal_minor`!, `discount_minor`, `tax_minor`, `total_minor`!, `returns_purchase_id`, `voids_purchase_id`, `voided_by_purchase_id`, `note` | `kind IN ('PURCHASE','RETURN','VOID')`; `total = subtotal − discount + tax`; unique `purchase_no`; self-reference checks → trigger; index `idx_purchases_due_date`. `due_date` is the purchase date plus 0 to 365 days, checked by `PurchaseService` as a sale's terms are (no CHECK, as `sales.due_date`); Payables ages from `COALESCE(due_date, business_date)` |
 | `purchase_items` | `purchase_id`! cascade, `line_no`!, `product_id`!, `product_name`!, `unit`!, `qty_milli`!, `unit_cost_minor`!, `discount_minor`, `line_total_minor`!, `returned_qty_milli`, `entry_*` | `qty_milli <> 0`; `returned_qty_milli >= 0` |
 | `purchase_payments` | `purchase_id`! cascade, `payment_account_id`!, `amount_minor`!, `reference` | `amount_minor <> 0` |
 | `purchase_taxes` | as `sale_taxes` plus `is_recoverable` | `basis IN ('NET','NET_PLUS_LEVIES')`; unique `(purchase_id, code)` |

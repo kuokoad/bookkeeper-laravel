@@ -24,19 +24,14 @@ use App\Support\Filters\ListFilters;
 final class ReportExport
 {
     /**
-     * The from/to the old route fell back to: junk becomes this month so far.
+     * The from/to the old route fell back to: junk becomes this month so far,
+     * and a backwards pair is swapped (ListFilters::parseReportDates).
      *
      * @return array{from: string, to: string}
      */
     public static function period(array $params, string $today): array
     {
-        $from = $params['from'] ?? null;
-        $to = $params['to'] ?? null;
-
-        return [
-            'from' => $from !== null && Filters::isValidBusinessDate($from) ? $from : substr($today, 0, 7).'-01',
-            'to' => $to !== null && Filters::isValidBusinessDate($to) ? $to : $today,
-        ];
+        return ListFilters::parseReportDates($params, $today);
     }
 
     /** @return array{filename: string, body: string, headers: list<string>, rows: list<list<string>>}|null */
@@ -111,15 +106,17 @@ final class ReportExport
                 ]];
 
             case 'sales':
-                return self::sales(ListFilters::parseSalesReportFilters($params, $range['to'])['filters']);
+                // The ids from the shared parser, the dates resolved above: the period param is not re-read against another "today".
+                return self::sales([...ListFilters::parseSalesReportFilters($params, $range['to'])['filters'], ...$range]);
 
             case 'purchases':
-                $q = ListFilters::parsePurchaseReportFilters($params, $range['to'])['filters'];
+                $q = [...ListFilters::parsePurchaseReportFilters($params, $range['to'])['filters'], ...$range];
 
                 return ['headers' => ['Section', 'Name', 'Count/Qty', 'Total'], 'rows' => [
                     ...array_map(fn (array $r): array => ['By day', $r['businessDate'], (string) $r['purchaseCount'], $m($r['total'])], OperationsService::getPurchasesByDay($q)),
                     ...array_map(fn (array $r): array => ['By supplier', $r['supplierName'], (string) $r['purchaseCount'], $m($r['total'])], OperationsService::getPurchasesBySupplier($q)),
-                    ...array_map(fn (array $r): array => ['By product', $r['productName'], Csv::qty($r['qtyBought']), $m($r['total'])], OperationsService::getPurchasesByProduct($q)),
+                    // One row per product and unit (D7): the unit tells the rows of a product apart.
+                    ...array_map(fn (array $r): array => ['By product', "{$r['productName']} ({$r['unit']})", Csv::qty($r['qtyBought']), $m($r['total'])], OperationsService::getPurchasesByProduct($q)),
                 ]];
 
             case 'inventory':

@@ -10,9 +10,19 @@ declare(strict_types=1);
 use App\Domain\Dashboard;
 
 describe('dashboard periods', function () {
-    it('preserves original inclusive windows across calendar boundaries', function () {
-        expect(Dashboard::dashboardPeriod('2026-03-01', 'week'))->toBe(['from' => '2026-02-22', 'to' => '2026-03-01'])
-            ->and(Dashboard::dashboardPeriod('2024-03-01', 'month'))->toBe(['from' => '2024-01-31', 'to' => '2024-03-01'])
+    it('spans exactly 7, 30 and 90 days, both ends counted (D5)', function () {
+        // Friday 2026-11-06: the week starts last Saturday, not last Friday.
+        expect(Dashboard::dashboardPeriod('2026-11-06', 'week'))->toBe(['from' => '2026-10-31', 'to' => '2026-11-06'])
+            ->and(Dashboard::dashboardPeriod('2026-11-06', 'month'))->toBe(['from' => '2026-10-08', 'to' => '2026-11-06'])
+            ->and(Dashboard::dashboardPeriod('2026-11-06', 'quarter'))->toBe(['from' => '2026-08-09', 'to' => '2026-11-06'])
+            ->and(count(Dashboard::dashboardDailySeries([], Dashboard::dashboardPeriod('2026-11-06', 'week'))))->toBe(7)
+            ->and(count(Dashboard::dashboardDailySeries([], Dashboard::dashboardPeriod('2026-11-06', 'month'))))->toBe(30)
+            ->and(count(Dashboard::dashboardDailySeries([], Dashboard::dashboardPeriod('2026-11-06', 'quarter'))))->toBe(90);
+    });
+
+    it('keeps inclusive windows across calendar boundaries', function () {
+        expect(Dashboard::dashboardPeriod('2026-03-01', 'week'))->toBe(['from' => '2026-02-23', 'to' => '2026-03-01'])
+            ->and(Dashboard::dashboardPeriod('2024-03-01', 'month'))->toBe(['from' => '2024-02-01', 'to' => '2024-03-01'])
             ->and(Dashboard::dashboardRangeHref('week', 'quarter'))->toBe('/dashboard?sales=week&spend=quarter')
             ->and(Dashboard::dashboardRangeHref('month', 'quarter'))->toBe('/dashboard?sales=month&spend=quarter')
             ->and(Dashboard::dashboardRangeHref('week', 'month'))->toBe('/dashboard?sales=week&spend=month');

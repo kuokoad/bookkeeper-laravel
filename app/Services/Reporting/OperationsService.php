@@ -196,7 +196,7 @@ final class OperationsService
                 'revenue' => $t['revenue'],
                 'cost' => $t['cost'],
                 'profit' => $profit,
-                'marginBp' => $t['revenue'] === 0 ? null : JsCompat::round($profit / $t['revenue'] * 10_000),
+                'marginBp' => $t['revenue'] === 0 ? null : Money::mulDiv($profit, 10_000, $t['revenue']),
             ];
         }, $tallies);
     }
@@ -310,7 +310,7 @@ final class OperationsService
             ])->all();
     }
 
-    /** Matching purchase LINES, per product. @return list<array{productId: int, productName: string, unit: string, qtyBought: int, total: int}> */
+    /** Matching purchase LINES, per product and unit. @return list<array{productId: int, productName: string, unit: string, qtyBought: int, total: int}> */
     public static function getPurchasesByProduct(array $query): array
     {
         $q = self::purchaseConditions(DB::table('purchase_items')->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id'), $query);
@@ -321,10 +321,11 @@ final class OperationsService
             $q->whereExists(fn ($e) => $e->selectRaw('1')->from('products as pl_product')->whereColumn('pl_product.id', 'purchase_items.product_id')->where('pl_product.category_id', $query['categoryId']));
         }
 
+        // One row per product AND the unit its lines were counted in (D7): 5 carton and 10 pcs never add up to "15".
         // shortcut: a product renamed between deliveries shows MAX(name); SQLite showed whichever row it read last.
-        return $q->groupBy('purchase_items.product_id')
-            ->orderByRaw('SUM(purchase_items.line_total_minor) DESC')->orderBy('purchase_items.product_id')
-            ->selectRaw('purchase_items.product_id, MAX(purchase_items.product_name) AS name, MAX(purchase_items.unit) AS unit, COALESCE(SUM(purchase_items.qty_milli), 0) AS qty, COALESCE(SUM(purchase_items.line_total_minor), 0) AS total')
+        return $q->groupBy('purchase_items.product_id', 'purchase_items.unit')
+            ->orderByRaw('SUM(purchase_items.line_total_minor) DESC')->orderBy('purchase_items.product_id')->orderBy('purchase_items.unit')
+            ->selectRaw('purchase_items.product_id, MAX(purchase_items.product_name) AS name, purchase_items.unit, COALESCE(SUM(purchase_items.qty_milli), 0) AS qty, COALESCE(SUM(purchase_items.line_total_minor), 0) AS total')
             ->get()->map(fn (object $r): array => ['productId' => (int) $r->product_id, 'productName' => (string) $r->name, 'unit' => (string) $r->unit, 'qtyBought' => (int) $r->qty, 'total' => (int) $r->total])->all();
     }
 

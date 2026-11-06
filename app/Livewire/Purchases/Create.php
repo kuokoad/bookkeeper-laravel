@@ -36,6 +36,9 @@ final class Create extends Component
 
     public string $businessDate = '';
 
+    /** When the supplier wants paying (D8): optional, empty is none. */
+    public string $dueDate = '';
+
     public string $invoiceNo = '';
 
     public string $note = '';
@@ -194,7 +197,7 @@ final class Create extends Component
 
             return;
         }
-        if (! Filters::isValidBusinessDate($this->businessDate)) {
+        if (! Filters::isValidBusinessDate($this->businessDate) || ($this->dueDate !== '' && ! Filters::isValidBusinessDate($this->dueDate))) {
             $fail('Enter a valid date.');
 
             return;
@@ -251,6 +254,7 @@ final class Create extends Component
             $result = PurchaseService::createPurchase([
                 'supplierId' => (int) $this->supplierId,
                 'businessDate' => $this->businessDate,
+                'dueDate' => $this->dueDate === '' ? null : $this->dueDate,
                 'invoiceNo' => trim($this->invoiceNo) === '' ? null : trim($this->invoiceNo),
                 'items' => $items,
                 'invoiceDiscount' => $discount,
@@ -267,7 +271,7 @@ final class Create extends Component
         $this->savedNo = $result['purchaseNo'];
         $this->savedId = $result['purchaseId'];
         $this->rows = [self::blankRow(1)];
-        $this->invoiceNo = $this->note = $this->invoiceDiscount = $this->payAmount = $this->reference = '';
+        $this->invoiceNo = $this->dueDate = $this->note = $this->invoiceDiscount = $this->payAmount = $this->reference = '';
         unset($this->products);
     }
 

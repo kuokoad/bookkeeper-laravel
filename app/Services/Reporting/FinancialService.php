@@ -6,7 +6,6 @@ namespace App\Services\Reporting;
 
 use App\Domain\Accounting\ChartOfAccounts as Coa;
 use App\Domain\Accounting\Journal;
-use App\Domain\JsCompat;
 use App\Domain\Money;
 use App\Enums\AccountType;
 use Illuminate\Support\Facades\DB;
@@ -38,8 +37,8 @@ final class FinancialService
     ];
 
     /**
-     * Totals per account with the balance signed for its type. Unlike
-     * getAccountBalances, excludeClosing applies on its own too.
+     * Totals per account with the balance signed for its type; excludeClosing
+     * applies on its own too, as in getAccountBalances since D4.
      *
      * @return list<array{id: int, code: string, name: string, type: string, parentId: ?int, debit: int, credit: int, balance: int}>
      */
@@ -141,11 +140,11 @@ final class FinancialService
             'totalRevenue' => $totalRevenue,
             'costOfGoodsSold' => $costOfGoodsSold,
             'grossProfit' => $grossProfit,
-            'grossMarginBp' => $netSales === 0 ? null : JsCompat::round($grossProfit / $netSales * 10_000),
+            'grossMarginBp' => $netSales === 0 ? null : Money::mulDiv($grossProfit, 10_000, $netSales),
             'expenses' => $expenses,
             'totalExpenses' => $totalExpenses,
             'netProfit' => $netProfit,
-            'netMarginBp' => $totalRevenue === 0 ? null : JsCompat::round($netProfit / $totalRevenue * 10_000),
+            'netMarginBp' => $totalRevenue === 0 ? null : Money::mulDiv($netProfit, 10_000, $totalRevenue),
         ];
     }
 

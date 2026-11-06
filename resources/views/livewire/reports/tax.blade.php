@@ -65,8 +65,9 @@
 
         <x-alert :tone="$owed ? 'warning' : 'info'" title="Before you file this">
             <p>
-                These figures come from {{ $tax['saleCount'] }} sales document{{ $docs($tax['saleCount']) }} and {{ $tax['purchaseCount'] }} purchase document{{ $docs($tax['purchaseCount']) }} dated inside the period, cancellations
-                included. A sale cancelled after a return was filed appears in the period it was
+                These figures come from {{ $tax['saleCount'] }} sales document{{ $docs($tax['saleCount']) }} and {{ $tax['purchaseCount'] }} purchase document{{ $docs($tax['purchaseCount']) }} dated inside the period and still
+                standing at its end: a sale cancelled within the period is not counted, and a cancellation is
+                never counted as a document of its own, though it still adjusts the amounts. A sale cancelled after a return was filed appears in the period it was
                 cancelled, not the one it was made — which is how it should be, and means an earlier
                 period will not change under you.
             </p>

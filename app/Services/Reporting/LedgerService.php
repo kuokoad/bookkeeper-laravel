@@ -280,17 +280,20 @@ final class LedgerService
             ->where('sales.business_date', '<=', $asAt)->orderBy('sales.business_date')->orderBy('sales.id')
             ->get(['sales.id', 'sales.business_date', 'sales.due_date', 'sales.customer_id', 'customers.name', 'customers.phone']);
 
-        return self::age($rows, SaleService::getOutstandingBySale(['asAt' => $asAt]), 'customer_id', $asAt, useDueDate: true);
+        return self::age($rows, SaleService::getOutstandingBySale(['asAt' => $asAt]), 'customer_id', $asAt);
     }
 
-    /** The same for suppliers, aged from the purchase date (the old report had no due date here). */
+    /**
+     * The same for suppliers, from the purchase's due date, else its date
+     * (D8: the old report had no due date and aged every delivery from the day it came).
+     */
     public static function getPayablesAgeing(string $asAt): array
     {
         $rows = DB::table('purchases')->join('suppliers', 'suppliers.id', '=', 'purchases.supplier_id')
             ->where('purchases.business_date', '<=', $asAt)->orderBy('purchases.business_date')->orderBy('purchases.id')
-            ->get(['purchases.id', 'purchases.business_date', 'purchases.supplier_id', 'suppliers.name', 'suppliers.phone']);
+            ->get(['purchases.id', 'purchases.business_date', 'purchases.due_date', 'purchases.supplier_id', 'suppliers.name', 'suppliers.phone']);
 
-        return self::age($rows, PurchaseService::getOutstandingByPurchase(['asAt' => $asAt]), 'supplier_id', $asAt, useDueDate: false);
+        return self::age($rows, PurchaseService::getOutstandingByPurchase(['asAt' => $asAt]), 'supplier_id', $asAt);
     }
 
     /**
@@ -345,7 +348,7 @@ final class LedgerService
         ];
     }
 
-    private static function age(iterable $rows, array $outstanding, string $partyColumn, string $asAt, bool $useDueDate): array
+    private static function age(iterable $rows, array $outstanding, string $partyColumn, string $asAt): array
     {
         $byParty = [];
         foreach ($rows as $row) {
@@ -358,7 +361,7 @@ final class LedgerService
                 'partyId' => $id, 'partyName' => (string) $row->name, 'phone' => $row->phone,
                 'total' => 0, 'current' => 0, 'days1to30' => 0, 'days31to60' => 0, 'days61to90' => 0, 'over90' => 0, 'oldestDate' => null,
             ];
-            $agedFrom = (string) ($useDueDate ? ($row->due_date ?? $row->business_date) : $row->business_date);
+            $agedFrom = (string) ($row->due_date ?? $row->business_date);
             $bucket = self::bucketFor(BusinessDate::daysBetween($agedFrom, $asAt));
             $party[$bucket] = Money::add($party[$bucket], $owed);
             $party['total'] = Money::add($party['total'], $owed);

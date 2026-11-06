@@ -31,7 +31,11 @@ use PDO;
  * per-account lines, receivables and payables ageing, the tax return per
  * component, the cash flow per source and per payment account, sales by day
  * and the stock valuation, each against the same figures worked out from the
- * old SQLite copy by OldReports.
+ * old SQLite copy by OldReports. Where an owner decision changed a compared
+ * figure, OldReports computes the decided rule (D9's document counts; D8's
+ * payables ageing, identical on old data, which has no due dates). The
+ * figures D5, D6, D7 and D11 change (dashboard windows, money trend,
+ * purchases by product, margins) are not among those compared.
  */
 final class Reconciler
 {

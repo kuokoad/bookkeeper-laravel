@@ -8,6 +8,7 @@ use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
 use App\Domain\Accounting\PeriodLock;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -37,7 +38,7 @@ use Illuminate\Support\Facades\DB;
  * cost), records what was paid at the time, posts ONE balanced entry
  * (Inventory / Cash / Accounts Payable) and writes the audit.
  *
- * createPurchase input: ['supplierId', 'businessDate', 'invoiceNo'?, 'items' => list of
+ * createPurchase input: ['supplierId', 'businessDate', 'dueDate'?, 'invoiceNo'?, 'items' => list of
  * ['productId', 'qty', 'unitCost', 'discount'?, 'expiryDate'?, 'alt'?, 'altFactor'?],
  * 'invoiceDiscount'?, 'tenders' => list of ['paymentAccountId', 'amount', 'reference'?],
  * 'note'?, 'occurredAt'? => Carbon, 'isDemo'?].
@@ -99,8 +100,17 @@ final class PurchaseService
         if (($input['items'] ?? []) === []) {
             throw new ValidationError('Add at least one product to the purchase.');
         }
+        // D8: when the supplier wants paying, held to a sale's terms: the purchase date plus 0 to 365 days.
+        $dueDate = $input['dueDate'] ?? null;
+        if ($dueDate !== null) {
+            BusinessDate::assert($dueDate, 'due date');
+            $days = BusinessDate::daysBetween($input['businessDate'], $dueDate);
+            if ($days < 0 || $days > 365) {
+                throw new ValidationError('The due date must be from the purchase date up to a year after it.', ['dueDate' => $dueDate]);
+            }
+        }
 
-        return Tx::run(function () use ($input, $actor): array {
+        return Tx::run(function () use ($input, $actor, $dueDate): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
             $at = Clock::stamp($occurredAt);
             $isDemo = $input['isDemo'] ?? false;
@@ -149,6 +159,7 @@ final class PurchaseService
                 'kind' => 'PURCHASE',
                 'supplier_id' => $input['supplierId'],
                 'business_date' => $input['businessDate'],
+                'due_date' => $dueDate,
                 'occurred_at' => $at,
                 'invoice_no' => $input['invoiceNo'] ?? null,
                 'subtotal_minor' => $totals['subtotal'],

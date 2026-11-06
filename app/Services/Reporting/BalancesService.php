@@ -25,22 +25,18 @@ final class BalancesService
      * (journal_lines.id IS NULL OR journal_entries.id IS NOT NULL, old
      * balances.service.ts:80-84, ledger.service.ts:91-95, financial.service.ts:79-83)
      * is reproduced: an account that has lines, none of them in the window,
-     * is left out; one that never had a line stays, at zero.
-     *
-     * $periodOnlyWhenDated reproduces the old getAccountBalances, which
-     * applied its conditions only when a from or to was given: with
-     * excludeClosing alone, closing entries still counted.
+     * is left out; one that never had a line stays, at zero. Every condition
+     * applies whenever any is set (D4): the old getAccountBalances applied
+     * them only when a from or to was given, so excludeClosing alone still
+     * counted the closing entries.
      *
      * @return list<array{accountId: int, code: string, name: string, type: string, parentId: ?int, isSystem: bool, isActive: bool, sortOrder: int, totalDebit: int, totalCredit: int, entryCount: int, childCount: int}>
      */
-    public static function loadTotals(array $range = [], bool $periodOnlyWhenDated = false): array
+    public static function loadTotals(array $range = []): array
     {
         $from = $range['from'] ?? null;
         $to = $range['to'] ?? null;
         $excludeClosing = (bool) ($range['excludeClosing'] ?? false);
-        if ($periodOnlyWhenDated && $from === null && $to === null) {
-            $excludeClosing = false;
-        }
 
         $conditions = [];
         $bindings = [];
@@ -127,7 +123,7 @@ final class BalancesService
             'totalDebit' => $a['totalDebit'],
             'totalCredit' => $a['totalCredit'],
             'balance' => Journal::signedBalance(AccountType::from($a['type']), $a['totalDebit'], $a['totalCredit']),
-        ], self::loadTotals($range, periodOnlyWhenDated: true));
+        ], self::loadTotals($range));
     }
 
     /** One account's balance on its normal side; a heading adds its direct children. */

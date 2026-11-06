@@ -136,10 +136,10 @@ describe('profit', function () {
             ->and(SaleCalculator::marginBp(0, 0))->toBeNull();
     });
 
-    it('rounds a half basis point the way the old screens did', function () {
-        // 1/20000 = 0.5 bp: Math.round gives 1; -0.5 bp gives 0 (towards +∞), not -1.
+    it('rounds a half basis point away from zero, a loss included (D11)', function () {
+        // 1/20000 = 0.5 bp either way: 1 bp, and -1 bp where Math.round gave 0.
         expect(SaleCalculator::marginBp(20_000, 19_999))->toBe(1)
-            ->and(SaleCalculator::marginBp(20_000, 20_001))->toBe(0);
+            ->and(SaleCalculator::marginBp(20_000, 20_001))->toBe(-1);
     });
 
     it('is net of tax, and shares earnings across lines to the pesewa', function () {

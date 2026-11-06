@@ -243,7 +243,7 @@ The items below are reports, not postings: they change what a screen or
 export shows, never a stored figure.
 
 **D4. Account balances with "leave out closing entries" and no dates still
-count the closing entries.** Old `reporting/balances.service.ts:80-84`
+count the closing entries. DONE (2026-11-06, approved by the owner).** Old `reporting/balances.service.ts:80-84`
 (new `BalancesService::getAccountBalances`, `periodOnlyWhenDated`): the
 WHERE that drops lines outside the window is applied only when a from or to
 is given, and the totals sum journal lines, not entries, so the closing
@@ -251,36 +251,55 @@ condition in the JOIN filters nothing. Example: 2025 closed with sales of
 10,000.00; all-time balances with `excludeClosing` show Sales Revenue (4000)
 at 0.00, not 10,000.00. The P&L and year-end close always pass dates, so
 neither is affected today. Proposed: apply the conditions whenever any is set.
+Now: `BalancesService::loadTotals` applies every condition whenever any is set;
+the `periodOnlyWhenDated` shim is gone (`ReportDecisionsTest`).
 
-**D5. The dashboard's "week" is 8 days, "month" 31 and "quarter" 91.** Old
+**D5. The dashboard's "week" is 8 days, "month" 31 and "quarter" 91. DONE
+(2026-11-06, approved by the owner).** Old
 `lib/dashboard.ts:9,16`: the range runs `today − 7 .. today`, both ends
 inclusive. Example: on Friday 2026-11-06 "this week" covers Friday
 2026-10-30 to Friday 2026-11-06, so last Friday's takings are counted with
 today's. Proposed: `today − 6 .. today` (and 29 and 89), or calendar
 week/month/quarter to date.
+Now: `Dashboard::dashboardPeriod` runs `today − 6`, `− 29`, `− 89` to today, so
+7, 30 and 90 days, as the 7d/30d/90d buttons say (`tests/Domain/DashboardTest`).
 
 **D6. The money trend counts a transfer between your own accounts as money
-in and money out, while the shop-wide cash flow leaves transfers out.** Old
+in and money out, while the shop-wide cash flow leaves transfers out. DONE
+(2026-11-06, approved by the owner).** Old
 `reporting/money-trend.ts:80-95` sums every debit and credit on the money
 accounts; `financial.service.ts:460` drops `TRANSFER` shop-wide. Example:
 moving 2,000.00 from the till to the bank in March shows March's trend
 with 2,000.00 more in and 2,000.00 more out than the cash-flow report for
 March (the net is the same). Proposed: drop transfers from the trend too.
+Now: `MoneyTrend::getMoneyByMonth` leaves `TRANSFER` entries (and their voids)
+out, so a month's in and out equal the cash-flow report's (`ReportDecisionsTest`).
 
 **D7. Purchases by product adds quantities across a unit change and shows one
-unit.** Old `reporting/operations.service.ts:658-672` groups by product only
+unit. DONE (2026-11-06, approved by the owner).** Old `reporting/operations.service.ts:658-672` groups by product only
 and takes any row's `unit`. Example: 5 cartons of Milo bought before the unit
 changed to pieces (24 a carton), then 10 pieces: the report reads "15 pcs"
 (or "15 carton"), where 130 pieces came in. Proposed: group by product and
 unit, one row per unit bought in.
+Now: `OperationsService::getPurchasesByProduct` groups by product and the
+stored line unit (`purchase_items.unit`): "5 carton" and "10 pcs" are two rows;
+the CSV names each row "Milo 400g (carton)" (`ReportDecisionsTest`).
 
-**D8. Payables are aged from the purchase date; purchases have no due date.**
+**D8. Payables are aged from the purchase date; purchases have no due date.
+DONE (2026-11-06, approved by the owner).**
 Old `reporting/ledger.service.ts:585` (receivables use the due date, :523).
 Example: a delivery on 60-day terms received 45 days ago shows as 31–60 days
 overdue when nothing is due yet. Proposed: add a due date (or supplier terms)
 to purchases and age from it, falling back to the purchase date.
+Now: `purchases.due_date` (nullable DATE, new here; imported rows stay NULL;
+suppliers have no terms, so it defaults to empty). The purchase form has an
+optional Due date, held to a sale's terms (purchase date plus 0 to 365 days:
+"The due date must be from the purchase date up to a year after it."), the
+purchase page shows it, the Payables screen heads its date "Oldest due", and Payables ages from `COALESCE(due_date,
+business_date)` (`ReportDecisionsTest`).
 
-**D9. The taxable-sales box counts a voided sale and its void.** Old
+**D9. The taxable-sales box counts a voided sale and its void. DONE
+(2026-11-06, approved by the owner).** Old
 `reporting/tax-return.service.ts:151` sums `subtotal − discount` over every
 sales row in the period, voided originals and their negative mirrors
 included. A void in the same period nets to zero, but the document count
@@ -288,14 +307,27 @@ goes up by two. Example: one sale of 100.00 and a void of another of 50.00
 reads "taxable sales 100.00 over 3 sales". Across periods (sale in March,
 void in April) April shows −50.00. Proposed: count only `POSTED` sales and
 returns for the count; keep the value netting as is.
+Now (the owner chose "as at the period end", for purchases too):
+`TaxReturnService` counts a sale, return or purchase dated in the period unless
+a void of it is dated on or before the period end; a `VOID` mirror never
+counts. The value is unchanged. The example reads "100.00 over 1 sale"; a March
+sale voided in April stays "1 sale" in March and April counts 0
+(`ReportDecisionsTest`; reconcile's OldReports counts the same way).
 
 **D10. An invalid report `from` falls back to the 1st of this month, and a
-`from` after `to` is not swapped.** Old `app/api/reports/[report]/route.ts:59`.
+`from` after `to` is not swapped. DONE (2026-11-06, approved by the owner).** Old `app/api/reports/[report]/route.ts:59`.
 Example: `from=2026-02-30&to=2026-01-31` on 2026-11-06 becomes
 2026-11-01..2026-01-31, an empty report with no warning. Proposed: refuse or
 swap the pair, and show the resolved dates.
+Now: `ListFilters::parseReportDates` resolves a report CSV's dates through the
+page's own `Filters::resolveDateRange('custom', …)`: a backwards pair is
+swapped, one end alone means "from then on" or "up to then", neither valid is
+this month so far, so the file and the page always agree; the page shows the
+resolved dates. The sales and purchases files take those dates rather than
+re-reading the period (`ReportDecisionsTest`).
 
-**D11. Margins are `Math.round` of a float ratio.** Old
+**D11. Margins are `Math.round` of a float ratio. DONE (2026-11-06, approved
+by the owner).** Old
 `reporting/financial.service.ts:198,202` and `operations.service.ts:397`
 (new: `JsCompat::round`). Math.round sends a tie towards +∞, where every
 money figure in the app rounds half away from zero, and the float division
@@ -303,6 +335,10 @@ can land a hair either side of a tie. Example: a loss of 1.00 on sales of
 20,000.00 is exactly −0.5 bp: the old app shows a margin of 0 bp (0.00%),
 half away from zero gives −1 bp (−0.01%). The effect is at most 1 bp.
 Proposed: integer `Money::divRoundHalf(profit × 10,000, revenue)`.
+Now: P&L gross and net margins, sales-by-product margins and
+`SaleCalculator::marginBp` use `Money::mulDiv(profit, 10_000, revenue)`.
+`JsCompat::round` stays for the stock valuation's retail value
+(`ReportDecisionsTest`, `SaleCalculatorTest`).
 
 **D12. A sign-in for an account still on its old-app password answers more
 slowly.** Old `services/auth.service.ts` spent one scrypt on every attempt,

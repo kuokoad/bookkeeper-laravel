@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Services\Reporting;
 
 use App\Domain\FinancialYear;
+use App\Enums\JournalSourceType;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Money in and out per month, for the dashboard's cash-flow chart, in one
  * grouped query. "Money" is the GL accounts behind the payment accounts: a
  * debit is money arriving, a credit money leaving. A port of the old
- * reporting/money-trend.ts.
+ * reporting/money-trend.ts, except that transfers between the shop's own
+ * accounts are left out, as the shop-wide cash flow leaves them out (D6):
+ * money changing pockets is neither in nor out.
  */
 final class MoneyTrend
 {
@@ -42,6 +45,7 @@ final class MoneyTrend
         $rows = DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
             ->whereIn('journal_lines.account_id', $moneyAccountIds)
             ->whereBetween('journal_entries.entry_date', [$from, $to])
+            ->where('journal_entries.source_type', '<>', JournalSourceType::Transfer->value)
             ->groupByRaw("DATE_FORMAT(journal_entries.entry_date, '%Y-%m')")
             ->selectRaw("DATE_FORMAT(journal_entries.entry_date, '%Y-%m') AS m, COALESCE(SUM(journal_lines.debit_minor), 0) AS d, COALESCE(SUM(journal_lines.credit_minor), 0) AS c")
             ->get()->keyBy('m');

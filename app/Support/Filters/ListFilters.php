@@ -326,6 +326,19 @@ final class ListFilters
         return ['filters' => $resolved['range'], 'range' => $resolved['range'], 'preset' => $resolved['preset'], 'carried' => self::carry($params, ['period', 'from', 'to'])];
     }
 
+    /**
+     * A report export's from and to, resolved exactly as the page resolves a
+     * custom range (D10): one end alone means "from then on" or "up to then",
+     * a pair the wrong way round is swapped, and with neither valid it is this
+     * month so far, as the old CSV route fell back.
+     *
+     * @return array{from: string, to: string}
+     */
+    public static function parseReportDates(array $params, ?string $today = null): array
+    {
+        return Filters::resolveDateRange('custom', self::one($params, 'from'), self::one($params, 'to'), $today ?? Clock::today())['range'];
+    }
+
     /** @return array{filters: array, range: array{from: string, to: string}, preset: string, carried: array<string, string>} */
     public static function parseSalesReportFilters(array $params, ?string $today = null): array
     {

@@ -17,6 +17,8 @@ goes against. The screens do not let you pick which invoice a payment settles.
 1. Go to **Purchases → New purchase**.
 2. Pick the **Supplier**. A new supplier has to be added under **Suppliers** first.
 3. Set the **Delivery date** and, if you have it, the supplier's invoice number.
+   If the supplier gave you time to pay, set the **Due date** (up to a year after
+   the delivery). Leave it empty if not.
 4. Add each product with its quantity and cost. Add an expiry date for goods that
    expire.
 5. Under payment:
@@ -36,7 +38,9 @@ supplier.
   how old the debt is.
 - Each purchase's own page shows what has been paid on it and what is still owed.
 
-Purchases have no due date. "Old" means old since the delivery date.
+A purchase with a due date is aged from that day: a delivery on 60-day terms is
+"current" until the 60 days are up. A purchase without one is aged from its delivery
+date.
 
 ### Pay a supplier
 
@@ -127,5 +131,6 @@ See [Fix a mistake](fix-a-mistake.md) for how voids work in general.
   supplier wants their latest invoice settled first, the app still pays oldest first.
   The payment services already accept a chosen split; the two payment forms do not
   offer one.
-- **Due dates on purchases.** Supplier terms are not recorded, so Payables ages
-  debts from the delivery date.
+- **Supplier terms.** A supplier has no payment terms of its own, so each
+  purchase's due date is typed in; without one, Payables ages the debt from the
+  delivery date.

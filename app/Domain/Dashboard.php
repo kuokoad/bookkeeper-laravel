@@ -18,10 +18,15 @@ final class Dashboard
         return $value === 'week' || $value === 'quarter' ? $value : 'month';
     }
 
-    /** Today minus N days through today, inclusive, as the original dashboard windows. @return array{from: string, to: string} */
+    /**
+     * The last N days, today included: both ends count, so the window starts
+     * N − 1 days back (D5; the old range ran today − N, one day too many).
+     *
+     * @return array{from: string, to: string}
+     */
     public static function dashboardPeriod(string $today, string $range): array
     {
-        return ['from' => BusinessDate::addDays($today, -self::RANGES[$range]), 'to' => $today];
+        return ['from' => BusinessDate::addDays($today, 1 - self::RANGES[$range]), 'to' => $today];
     }
 
     public static function dashboardRangeHref(string $sales, string $spend): string

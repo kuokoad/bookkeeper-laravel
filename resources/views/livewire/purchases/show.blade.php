@@ -6,7 +6,7 @@
     $lines = $journal['lines'] ?? [];
 @endphp
 <div class="w-full">
-    <x-page-header :title="$purchase['purchaseNo']" :description="Format::date($purchase['businessDate']).($purchase['invoiceNo'] ? ' · Invoice '.$purchase['invoiceNo'] : '')">
+    <x-page-header :title="$purchase['purchaseNo']" :description="Format::date($purchase['businessDate']).($purchase['dueDate'] ? ' · Due '.Format::date($purchase['dueDate']) : '').($purchase['invoiceNo'] ? ' · Invoice '.$purchase['invoiceNo'] : '')">
         <x-slot:actions><x-button variant="secondary" size="sm" href="/purchases">All purchases</x-button></x-slot:actions>
     </x-page-header>
 

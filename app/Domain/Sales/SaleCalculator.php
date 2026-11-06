@@ -150,8 +150,8 @@ final class SaleCalculator
 
     /**
      * Margin in basis points, for display. Null rather than a misleading zero
-     * when there is no revenue. Rounded as JavaScript's Math.round did (half
-     * towards +∞), so the figure matches the old screens.
+     * when there is no revenue. Exact, half away from zero like every money
+     * figure (D11); the old screens took Math.round of a float ratio.
      */
     public static function marginBp(int $netRevenue, int $cogs): ?int
     {
@@ -159,7 +159,7 @@ final class SaleCalculator
             return null;
         }
 
-        return (int) floor(self::grossProfit($netRevenue, $cogs) / $netRevenue * 10_000 + 0.5);
+        return Money::mulDiv(self::grossProfit($netRevenue, $cogs), 10_000, $netRevenue);
     }
 
     /** Cash that may go back on a return: never more than leaves the customer in credit. */

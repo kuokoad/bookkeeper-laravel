@@ -40,6 +40,8 @@
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_DATABASE" value="nunabooks_test"/>
         <env name="DB_URL" value=""/>
+        <!-- The seeded baseline only, whatever the developer's .env says: tests build their own shop. -->
+        <env name="SEED_DEMO_DATA" value="false" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

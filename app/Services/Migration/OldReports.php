@@ -14,7 +14,7 @@ use PDO;
  * split by each party's sign, receivables aged from the due date (payables
  * from the purchase date) as at a date with voids netted, and the tax return
  * from every tax row (its document counts as standing at the period end, D9), the cash flow from the payment-account lines, sales by
- * day and the stock valuation. Even the financial years are plain date
+ * day, sales by product and by category, purchases by day and the stock valuation. Even the financial years are plain date
  * arithmetic here. Reconcile v2 compares these with the new reports.
  */
 final class OldReports
@@ -312,6 +312,67 @@ final class OldReports
     }
 
     /**
+     * The line-level sales reports over a period, from every line of every
+     * sales row dated in it (voids and returns netting): revenue in all is
+     * each row's total less tax; quantity and cost per product, or cost per
+     * category (the product's category now), are plain sums of the lines.
+     *
+     * @param  'product'|'category'  $by
+     * @return array<string, int>
+     */
+    public static function salesByLine(PDO $old, string $by, string $from, string $to): array
+    {
+        $revenue = $old->prepare('SELECT COALESCE(SUM(s.total_minor - s.tax_minor), 0) FROM sales s
+            WHERE s.business_date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM sale_items i WHERE i.sale_id = s.id)');
+        $revenue->execute([$from, $to]);
+        $figures = ['revenue' => (int) $revenue->fetchColumn()];
+
+        $key = $by === 'product' ? 'i.product_id' : "COALESCE(p.category_id, 'none')";
+        $lines = $old->prepare("SELECT {$key}, SUM(i.qty_milli), SUM(i.total_cost_minor) FROM sale_items i
+            JOIN sales s ON s.id = i.sale_id LEFT JOIN products p ON p.id = i.product_id
+            WHERE s.business_date BETWEEN ? AND ? GROUP BY {$key}");
+        $lines->execute([$from, $to]);
+        foreach ($lines->fetchAll(PDO::FETCH_NUM) as [$id, $qty, $cost]) {
+            if ($by === 'product') {
+                $figures["{$by} {$id} qty"] = (int) $qty;
+            }
+            $figures["{$by} {$id} cost"] = (int) $cost;
+        }
+
+        return $figures;
+    }
+
+    /**
+     * Per day: posted purchases (count and total) and, D22 (owner decision, 2026-11-06), posted
+     * supplier returns on their own date (Returned is the size of their negative totals) and the net.
+     * The old report summed the purchases only.
+     *
+     * @return array<string, int>
+     */
+    public static function purchasesByDay(PDO $old, string $from, string $to): array
+    {
+        $statement = $old->prepare("SELECT business_date, kind, COUNT(*), SUM(total_minor) FROM purchases
+            WHERE status = 'POSTED' AND kind IN ('PURCHASE', 'RETURN') AND business_date BETWEEN ? AND ?
+            GROUP BY business_date, kind");
+        $statement->execute([$from, $to]);
+        $figures = [];
+        foreach ($statement->fetchAll(PDO::FETCH_NUM) as [$date, $kind, $count, $sum]) {
+            $figures["{$date} purchases"] ??= 0;
+            $figures["{$date} total"] ??= 0;
+            $figures["{$date} returned"] ??= 0;
+            if ($kind === 'PURCHASE') {
+                $figures["{$date} purchases"] = (int) $count;
+                $figures["{$date} total"] = (int) $sum;
+            } else {
+                $figures["{$date} returned"] = -(int) $sum;
+            }
+            $figures["{$date} net"] = $figures["{$date} total"] - $figures["{$date} returned"];
+        }
+
+        return $figures;
+    }
+
+    /**
      * Stock held now, per tracked product (archived ones while they hold
      * stock or value), at cost and at the selling price (Math.round of
      * price x qty / 1000, half towards +infinity).
@@ -343,6 +404,10 @@ final class OldReports
      * D8 (owner decision, 2026-11-06) ages a purchase from its due date, else
      * its date; the old schema has no purchases.due_date and imported rows
      * keep NULL, so the purchase date IS the decided rule for this data.
+     * D32 (owner decision, 2026-11-06): a payment counts as it stood that day.
+     * The old app counted posted payments only, so one voided after the date
+     * went missing; here a voided payment still counts while its void (the
+     * entry its own entry's reversed_by points to, else voided_at) is later.
      *
      * @return array<string, int> "party bucket" => amount, parties netting to zero left out
      */
@@ -361,7 +426,10 @@ final class OldReports
             ),
             tend AS (SELECT {$fk} AS id, SUM(amount_minor) AS t FROM {$tender} GROUP BY {$fk}),
             settled AS (SELECT a.{$fk} AS id, SUM(a.amount_minor) AS t FROM {$alloc} a JOIN {$payments} p ON p.id = a.payment_id
-                        WHERE p.status = 'POSTED' AND p.business_date <= :d GROUP BY a.{$fk}),
+                        LEFT JOIN journal_entries pe ON pe.id = p.journal_entry_id LEFT JOIN journal_entries ve ON ve.id = pe.reversed_by_entry_id
+                        WHERE p.business_date <= :d
+                          AND (p.status = 'POSTED' OR COALESCE(ve.entry_date, date(p.voided_at / 1000, 'unixepoch')) > :d)
+                        GROUP BY a.{$fk}),
             credited AS (SELECT r.returns_id AS id, SUM(COALESCE(tend.t, 0) - r.total_minor) AS c FROM docs r LEFT JOIN tend ON tend.id = r.id
                          WHERE r.returns_id IN (SELECT id FROM docs) GROUP BY r.returns_id)
             SELECT d.party, {$agedFrom} AS aged_from,

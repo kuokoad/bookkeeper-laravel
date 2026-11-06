@@ -697,10 +697,17 @@ final class SaleService
             ->selectRaw('`sale_payments`.`sale_id` AS id, COALESCE(SUM(`sale_payments`.`amount_minor`), 0) AS t')->pluck('t', 'id')->all();
         $settledQuery = DB::table('customer_payment_allocations')
             ->join('customer_payments', 'customer_payments.id', '=', 'customer_payment_allocations.payment_id')
-            ->where('customer_payments.status', 'POSTED')
             ->where($ofCustomer('customer_payment_allocations.sale_id'));
-        if ($asAt !== null) {
-            $settledQuery->where('customer_payments.business_date', '<=', $asAt);
+        if ($asAt === null) {
+            $settledQuery->where('customer_payments.status', 'POSTED');
+        } else {
+            // D32: as it stood that day. A payment voided later still counts; the
+            // void's date is its reversal entry's (voided_at for one with no entry).
+            $settledQuery->where('customer_payments.business_date', '<=', $asAt)->whereRaw(
+                "(`customer_payments`.`status` = 'POSTED' OR COALESCE((SELECT `v`.`entry_date` FROM `journal_entries` `v`
+                    WHERE `v`.`reverses_entry_id` = `customer_payments`.`journal_entry_id` ORDER BY `v`.`id` LIMIT 1), DATE(`customer_payments`.`voided_at`)) > ?)",
+                [$asAt],
+            );
         }
         $settled = $settledQuery->groupBy('customer_payment_allocations.sale_id')
             ->selectRaw('`customer_payment_allocations`.`sale_id` AS id, COALESCE(SUM(`customer_payment_allocations`.`amount_minor`), 0) AS t')->pluck('t', 'id')->all();

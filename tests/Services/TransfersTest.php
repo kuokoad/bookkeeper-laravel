@@ -62,7 +62,7 @@ describe('banking cash', function () {
 
         ($this->bankCash)(60_000);
 
-        expect(FinancialService::getNetProfit(['from' => '2026-08-01', 'to' => '2026-08-31']))->toBe(0)
+        expect(FinancialService::getProfitAndLoss(['from' => '2026-08-01', 'to' => '2026-08-31'])['netProfit'])->toBe(0)
             ->and(Shop::balance(ChartOfAccounts::OWNERS_CAPITAL))->toBe($capital)
             ->and(Shop::balance(ChartOfAccounts::OWNERS_DRAWINGS))->toBe($drawings)
             ->and(Shop::trialBalanced())->toBeTrue();
@@ -93,8 +93,8 @@ describe('banking cash', function () {
     it('shows on both statements: out of Cash, into the Bank', function () {
         ($this->bankCash)(60_000);
 
-        $cashOut = collect(PaymentAccountService::getAccountMovements($this->cash))->firstWhere('sourceType', 'TRANSFER');
-        $bankIn = collect(PaymentAccountService::getAccountMovements($this->bank))->firstWhere('sourceType', 'TRANSFER');
+        $cashOut = collect(PaymentAccountService::getAccountStatement($this->cash)['movements'])->firstWhere('sourceType', 'TRANSFER');
+        $bankIn = collect(PaymentAccountService::getAccountStatement($this->bank)['movements'])->firstWhere('sourceType', 'TRANSFER');
         expect($cashOut['outMinor'])->toBe(60_000)
             ->and($bankIn['inMinor'])->toBe(60_000);
     });

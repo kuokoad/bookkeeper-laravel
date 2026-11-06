@@ -519,3 +519,22 @@ earlier lines are carried in the opening balance; the closing figure is
 unchanged. A `to` alone before the 1st starts at the 1st of its own month
 (`AccountingFiltersTest`, `AccountingScreensTest`). README differences row
 "Journal, ledger, trial balance and audit dates".
+
+**D31. Backup download is for owners only. DONE (2026-11-06, approved by the owner).** Old: anyone with settings edit could download the full backup, which holds every password hash and figure. Now the Health screen's download needs an owner, as updates do; staff with full Settings rights get 403 and see "Only the shop owner can take a backup" (`HealthScreenTest`). `php artisan nuna:backup` on the PC is unchanged.
+
+**D32. Ageing as at a past date leaves out a payment voided after that date.
+DONE (2026-11-06, approved by the owner).** Old `reporting/ledger.service.ts`
+ageing (new `SaleService::getOutstandingBySale` and
+`PurchaseService::getOutstandingByPurchase` with `asAt`) counts only payments
+still `POSTED` today. Example: a credit sale of 100.00 on 5 Jan, paid on
+10 Jan, the payment voided on 3 Feb: receivables ageing as at 31 Jan shows
+100.00 owed, while the balance sheet and the subledger as at 31 Jan show 0.00.
+Proposed: show it as it stood that day.
+Now: with `asAt`, a customer or supplier payment's allocations count when the
+payment is dated on or before that day and is still posted or was voided
+after it (the date of its reversal entry, else `voided_at`); a void dated on
+or before the day removes it. Sale, purchase and return voids already used
+their mirror's date. The example reads 0.00 as at 31 Jan, agreeing with the
+balance sheet and subledger, and 100.00 as at 3 Feb
+(`VoidedPaymentAgeingTest`; reconcile's `OldReports::ageing` works out the
+same rule from the old copy on its own).

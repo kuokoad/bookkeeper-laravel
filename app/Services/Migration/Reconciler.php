@@ -29,11 +29,14 @@ use PDO;
  * services, for every financial year in the data and as at the latest date
  * (or --as-at): the trial balance, the P&L, the balance sheet with its
  * per-account lines, receivables and payables ageing, the tax return per
- * component, the cash flow per source and per payment account, sales by day
- * and the stock valuation, each against the same figures worked out from the
+ * component, the cash flow per source and per payment account, sales by day,
+ * sales by product and by category (revenue in all, each line's quantity and
+ * cost), purchases by day (with D22's
+ * returned and net) and the stock valuation, each against the same figures worked out from the
  * old SQLite copy by OldReports. Where an owner decision changed a compared
  * figure, OldReports computes the decided rule (D9's document counts; D8's
- * payables ageing, identical on old data, which has no due dates). The
+ * payables ageing, identical on old data, which has no due dates; D22's
+ * returned and net purchases; D32's payments as they stood at the date). The
  * figures D5, D6, D7 and D11 change (dashboard windows, money trend,
  * purchases by product, margins) are not among those compared.
  */
@@ -237,10 +240,14 @@ final class Reconciler
             $check("tax return {$label}", OldReports::taxReturn($old, $from, $to), $this->newTaxReturn($from, $to));
             $check("cash flow {$label}", OldReports::cashFlow($old, $from, $to), $this->newCashFlow($from, $to));
             $check("sales by day {$label}", OldReports::salesByDay($old, $from, $to), $this->newSalesByDay($from, $to));
+            $check("sales by product {$label}", OldReports::salesByLine($old, 'product', $from, $to), $this->newSalesByLine(OperationsService::getSalesByProduct(['from' => $from, 'to' => $to]), 'product'));
+            $check("sales by category {$label}", OldReports::salesByLine($old, 'category', $from, $to), $this->newSalesByLine(OperationsService::getSalesByCategory(['from' => $from, 'to' => $to]), 'category'));
+            $check("sales by product, SQL against line by line, {$label}", $this->productRevenue($from, $to, lineByLine: true), $this->productRevenue($from, $to, lineByLine: false));
+            $check("purchases by day {$label}", OldReports::purchasesByDay($old, $from, $to), $this->newPurchasesByDay($from, $to));
         }
         $check('stock valuation', OldReports::stockValuation($old), $this->newStockValuation());
 
-        $this->checked['financial years, each with its P&L, tax return, cash flow and sales by day'] = count($years);
+        $this->checked['financial years, each with its P&L, tax return, cash flow, sales by day, by product (and per product, SQL against line by line) and by category, and purchases by day'] = count($years);
         $this->checked['report dates (each year end and the latest), each with its trial balance, balance sheet and ageing'] = count(array_unique($dates));
         $this->checked['report figures'] = $figures;
     }
@@ -310,6 +317,53 @@ final class Reconciler
             $figures["{$day['businessDate']} total"] = $day['total'];
             $figures["{$day['businessDate']} tax"] = $day['tax'];
             $figures["{$day['businessDate']} cost"] = $day['cogs'];
+        }
+
+        return $figures;
+    }
+
+    /**
+     * Each product's revenue per month: summed in SQL (the report's own path), or every line shared
+     * out in PHP (earnedLines, the path a filter uses). The two must agree on real data; a month at a
+     * time keeps the line-by-line side within the memory limit.
+     */
+    private function productRevenue(string $from, string $to, bool $lineByLine): array
+    {
+        $figures = [];
+        for ($month = new \DateTimeImmutable($from); $month->format('Y-m-d') <= $to; $month = $month->modify('first day of next month')) {
+            $query = ['from' => $month->format('Y-m-d'), 'to' => min($month->format('Y-m-t'), $to)];
+            $rows = $lineByLine ? OperationsService::getSalesByProduct($query, OperationsService::earnedLines($query)) : OperationsService::getSalesByProduct($query);
+            foreach ($rows as $row) {
+                $figures["{$query['from']} product {$row['productId']} revenue"] = $row['revenue'];
+            }
+        }
+
+        return $figures;
+    }
+
+    /** Revenue in all, and each row's cost (and quantity, by product). */
+    private function newSalesByLine(array $rows, string $by): array
+    {
+        $figures = ['revenue' => array_sum(array_column($rows, 'revenue'))];
+        foreach ($rows as $row) {
+            $id = $row["{$by}Id"] ?? 'none';
+            if ($by === 'product') {
+                $figures["{$by} {$id} qty"] = $row['qtySold'];
+            }
+            $figures["{$by} {$id} cost"] = $row['cost'];
+        }
+
+        return $figures;
+    }
+
+    private function newPurchasesByDay(string $from, string $to): array
+    {
+        $figures = [];
+        foreach (OperationsService::getPurchasesByDay(['from' => $from, 'to' => $to]) as $day) {
+            $figures["{$day['businessDate']} purchases"] = $day['purchaseCount'];
+            $figures["{$day['businessDate']} total"] = $day['total'];
+            $figures["{$day['businessDate']} returned"] = $day['returned'];
+            $figures["{$day['businessDate']} net"] = $day['net'];
         }
 
         return $figures;

@@ -76,15 +76,4 @@ final class PeriodLockService
             );
         });
     }
-
-    /** Entries after the lock: what is still open to change. */
-    public static function countOpenEntries(?string $lockedBefore): int
-    {
-        $query = DB::table('journal_entries');
-        if ($lockedBefore !== null) {
-            $query->where('journal_entries.entry_date', '>', $lockedBefore);
-        }
-
-        return $query->count();
-    }
 }

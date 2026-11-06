@@ -146,6 +146,148 @@ final class OperationsService
         return array_values(array_map(fn (array $t): array => [...$t, 'receipts' => count($t['receipts'])], $tallies));
     }
 
+    /**
+     * tallyLines by product or category, without building a year of line arrays in PHP. Reads only
+     * the figures (seven numbers a line), a calendar year at a time so memory stays at a year's figures, and
+     * shares each receipt out as earnedLines does: a receipt whose lines are all one sign and add up
+     * to its total less tax earns each line's own total (what the allocation gives it), any other
+     * (an invoice discount, or tax inside the shelf price) goes through shareOut, the same
+     * largest-remainder rule as Money::allocate in integers. Same figures, order and names as
+     * tallyLines over earnedLines: ties keep the order of first appearance, the newest line names a
+     * product. Receipts are not counted (neither table shows them).
+     *
+     * @param  'product'|'category'  $by
+     * @return list<array{line: array, qty: int, revenue: int, cost: int}>
+     */
+    private static function tallyByLineSql(array $query, string $by): array
+    {
+        // Every product's category and its name now, as the line tables read them.
+        $catalog = DB::table('products')->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->get(['products.id', 'products.category_id', 'categories.name AS category_name'])->keyBy('id');
+        $keep = fn (int $productId): bool => (! isset($query['productId']) || $productId === $query['productId'])
+            && (! isset($query['categoryId']) || (int) ($catalog[$productId]->category_id ?? 0) === $query['categoryId']);
+
+        $products = [];
+        $add = function (array $receipt, array $earned) use (&$products, $keep): void {
+            foreach ($receipt as $i => [$saleId, $lineNo, $productId, $qty, , $cost]) {
+                if (! $keep($productId)) {
+                    continue;
+                }
+                $at = $saleId * 1_000_000 + $lineNo;
+                $g = $products[$productId] ?? ['qty' => 0, 'revenue' => 0, 'cost' => 0, 'first' => $at, 'last' => $at];
+                $products[$productId] = ['qty' => $g['qty'] + $qty, 'revenue' => $g['revenue'] + $earned[$i], 'cost' => $g['cost'] + $cost,
+                    'first' => min($g['first'], $at), 'last' => max($g['last'], $at)];
+            }
+        };
+        // shortcut: read a calendar year at a time, so memory holds at most a year's figures (about 40 MB
+        // at 146,000 lines). Over more than a quarter, a hash join of the period's sales against one scan
+        // of every line beats looking each sale's lines up (about 0.45 s against 0.8 s for that year);
+        // over a short period the lookups win. Revisit when a year runs to millions of lines.
+        $long = (new \DateTimeImmutable($query['from']))->diff(new \DateTimeImmutable($query['to']))->days > 92;
+        for ($year = new \DateTimeImmutable($query['from']); $year->format('Y-m-d') <= $query['to']; $year = $year->modify('first day of january next year')) {
+            $sql = self::salesDatedIn($long
+                ? DB::table('sales')->straightJoin(DB::raw('`sale_items` IGNORE INDEX (`uq_sale_items_sale_line`, `sale_items_product_id_foreign`)'), 'sales.id', '=', 'sale_items.sale_id')
+                : DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id'),
+                [...$query, 'from' => $year->format('Y-m-d'), 'to' => min($year->format('Y-12-31'), $query['to'])])
+                ->orderBy('sale_items.sale_id')->orderBy('sale_items.line_no')
+                ->selectRaw('sale_items.sale_id, sale_items.line_no, sale_items.product_id, sale_items.qty_milli, sale_items.line_total_minor,
+                    sale_items.total_cost_minor, sales.total_minor - sales.tax_minor AS e');
+            // Plain PDO rows: six integers a line, not an object each.
+            $statement = DB::connection()->getPdo()->prepare($sql->toSql());
+            $statement->execute($sql->getBindings());
+
+            $receipt = [];
+            $e = 0;
+            while (($row = $statement->fetch(\PDO::FETCH_NUM)) !== false) {
+                $row = array_map(intval(...), $row);
+                if ($receipt !== [] && $receipt[0][0] !== $row[0]) {
+                    $add($receipt, self::shareOut($e, array_column($receipt, 4)));
+                    $receipt = [];
+                }
+                $e = $row[6];
+                $receipt[] = $row;
+            }
+            if ($receipt !== []) {
+                $add($receipt, self::shareOut($e, array_column($receipt, 4)));
+            }
+        }
+
+        $line = fn (int $productId, ?object $newest = null): array => [
+            'productId' => $productId,
+            'productName' => (string) ($newest->product_name ?? ''),
+            'unit' => (string) ($newest->unit ?? ''),
+            'categoryId' => ($c = $catalog[$productId]->category_id ?? null) === null ? null : (int) $c,
+            'categoryName' => $catalog[$productId]->category_name ?? null,
+        ];
+        if ($by === 'product') {
+            // The newest line names each product: one read of those lines by their key.
+            $newest = [];
+            if ($products !== []) {
+                $pairs = array_merge(...array_map(fn (array $g): array => [intdiv($g['last'], 1_000_000), $g['last'] % 1_000_000], array_values($products)));
+                $newest = DB::table('sale_items')->whereRaw('(sale_items.sale_id, sale_items.line_no) IN ('.implode(', ', array_fill(0, count($products), '(?, ?)')).')', $pairs)
+                    ->get(['sale_items.product_id', 'sale_items.product_name', 'sale_items.unit'])->keyBy('product_id')->all();
+            }
+            $groups = [];
+            foreach ($products as $id => $g) {
+                $groups[$id] = [...$g, 'line' => $line($id, $newest[$id] ?? null)];
+            }
+        } else {
+            $groups = [];
+            foreach ($products as $id => $g) {
+                $k = 'k'.($catalog[$id]->category_id ?? '');
+                $groups[$k] = isset($groups[$k])
+                    ? ['qty' => $groups[$k]['qty'] + $g['qty'], 'revenue' => $groups[$k]['revenue'] + $g['revenue'], 'cost' => $groups[$k]['cost'] + $g['cost'],
+                        'first' => min($groups[$k]['first'], $g['first']), 'line' => $groups[$k]['line']]
+                    : [...$g, 'line' => $line($id)];
+            }
+        }
+        uasort($groups, fn (array $a, array $b): int => $a['first'] <=> $b['first']);
+
+        return array_values(array_map(fn (array $g): array => ['line' => $g['line'], 'qty' => $g['qty'], 'revenue' => $g['revenue'], 'cost' => $g['cost']], $groups));
+    }
+
+    /**
+     * One receipt's earnings by line: SaleCalculator::lineEarnings (Money::allocate of total less
+     * tax by the lines' sizes) in plain integers. A receipt whose lines already add up to it, all of
+     * one sign, earns each line's own total. Money::allocate itself takes over where a product of
+     * the figures could pass the integer range.
+     *
+     * @param  list<int>  $lineTotals
+     * @return list<int>
+     */
+    private static function shareOut(int $earned, array $lineTotals): array
+    {
+        $weights = array_map(abs(...), $lineTotals);
+        $sum = array_sum($weights);
+        if ($sum === abs(array_sum($lineTotals)) && array_sum($lineTotals) === $earned) {
+            return $lineTotals;
+        }
+        if ($sum === 0) {
+            $weights = array_fill(0, count($weights), 1);
+            $sum = count($weights);
+        }
+        if (abs($earned) > intdiv(PHP_INT_MAX, $sum)) {
+            return SaleCalculator::lineEarnings($earned, 0, $lineTotals);
+        }
+        $shares = [];
+        $remainders = [];
+        foreach ($weights as $i => $weight) {
+            $shares[$i] = intdiv($earned * $weight, $sum);
+            $remainders[$i] = abs($earned * $weight - $shares[$i] * $sum);
+        }
+        $leftover = $earned - array_sum($shares);
+        if ($leftover !== 0) {
+            // Largest remainder first, the earlier line on a tie, one pesewa each (|leftover| < lines).
+            $order = array_keys($weights);
+            usort($order, fn (int $a, int $b): int => $remainders[$b] <=> $remainders[$a] ?: $a <=> $b);
+            foreach (array_slice($order, 0, abs($leftover)) as $i) {
+                $shares[$i] += $leftover > 0 ? 1 : -1;
+            }
+        }
+
+        return $shares;
+    }
+
     private static function byRevenue(array $a, array $b): int
     {
         return $b['revenue'] <=> $a['revenue'];
@@ -203,7 +345,7 @@ final class OperationsService
     /** @return list<array{productId: int, productName: string, unit: string, categoryName: ?string, qtySold: int, revenue: int, cost: int, profit: int, marginBp: ?int}> */
     public static function getSalesByProduct(array $query, ?array $lines = null): array
     {
-        $tallies = self::tallyLines($lines ?? self::earnedLines($query), fn (array $l): string => (string) $l['productId']);
+        $tallies = $lines === null ? self::tallyByLineSql($query, 'product') : self::tallyLines($lines, fn (array $l): string => (string) $l['productId']);
         usort($tallies, fn (array $a, array $b): int => self::byRevenue($a, $b) ?: $a['line']['productId'] <=> $b['line']['productId']);
 
         return array_map(function (array $t): array {
@@ -243,7 +385,7 @@ final class OperationsService
     /** @return list<array{categoryId: ?int, categoryName: string, revenue: int, cost: int, profit: int}> */
     public static function getSalesByCategory(array $query, ?array $lines = null): array
     {
-        $tallies = self::tallyLines($lines ?? self::earnedLines($query), fn (array $l): string => (string) $l['categoryId']);
+        $tallies = $lines === null ? self::tallyByLineSql($query, 'category') : self::tallyLines($lines, fn (array $l): string => (string) $l['categoryId']);
         usort($tallies, self::byRevenue(...));
 
         return array_map(fn (array $t): array => [

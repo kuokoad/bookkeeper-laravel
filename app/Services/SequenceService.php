@@ -41,12 +41,4 @@ final class SequenceService
 
         return self::format($row->prefix, (int) $row->next_number - 1, (int) $row->padding);
     }
-
-    /** What the next number would be, without taking it. For display only. */
-    public static function peek(DocType $type): ?string
-    {
-        $row = DB::table('sequences')->where('doc_type', $type->value)->first();
-
-        return $row === null ? null : self::format($row->prefix, (int) $row->next_number, (int) $row->padding);
-    }
 }

@@ -245,15 +245,6 @@ final class ReconciliationService
             ])->map(fn (object $row): array => [...Row::camel($row), 'adjusted' => (bool) $row->adjusted])->all();
     }
 
-    /**
-     * One count. The old app found it among the newest 100 of the whole shop,
-     * so an older count read as not found; here it is read by its id.
-     */
-    public static function getReconciliation(int $id): array
-    {
-        return self::listReconciliations(id: $id)[0] ?? throw new NotFoundError('Reconciliation', $id);
-    }
-
     /** Counted less the books: positive is money over, negative money short. The page's live preview uses the same rule. */
     public static function countDifference(int $actual, int $expected): int
     {

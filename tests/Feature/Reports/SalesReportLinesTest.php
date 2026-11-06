@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 /*
-| The sales report reads its lines once per page or export and shares them
-| between the stock item, stock group, and (under a product or category
-| filter) the day and customer tables. It used to read every line of the
-| period up to four times per render.
+| Under a product or category filter the sales report reads its lines once per
+| page or export and shares them between the stock item, stock group, day and
+| customer tables; without one, the stock item and group tables are summed in
+| SQL. It used to read every line of the period up to four times per render.
 */
 
 use App\Services\Reporting\OperationsService;
@@ -23,17 +23,20 @@ beforeEach(function () {
     Shop::sell($actor, [[$this->rice, 2_000], [$milo, 1_000]], [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 7_500]]);
     $this->lineReads = 0;
     DB::listen(function ($query): void {
-        if (str_starts_with($query->sql, 'select') && str_contains($query->sql, 'from `sale_items` inner join `sales`')) {
+        // A read of every line (no GROUP BY): the stock item and group tables sum in SQL without a filter.
+        if (str_starts_with($query->sql, 'select') && str_contains($query->sql, 'from `sale_items` inner join `sales`') && ! str_contains($query->sql, 'group by')) {
             $this->lineReads++;
         }
     });
 });
 
-it('reads the sale lines once for a page render, with and without a product filter', function (string $query) {
-    signedIn($this->ownerId)->get('/reports/sales?period=all'.$query)->assertOk()->assertSee('Rice 5kg');
+// Without a filter the tallies stream through PDO directly, which DB::listen cannot see;
+// SalesByLineSqlTest proves that path's figures, so only the filtered read is counted here.
+it('reads the sale lines once for a page render under a product filter', function () {
+    signedIn($this->ownerId)->get('/reports/sales?period=all&product='.$this->rice)->assertOk()->assertSee('Rice 5kg');
 
     expect($this->lineReads)->toBe(1);
-})->with(['no filter' => '', 'a product filter' => fn () => '&product='.$this->rice]);
+});
 
 it('reads the sale lines once for the CSV export', function () {
     signedIn($this->ownerId)->get('/export/report/sales?period=all&product='.$this->rice)->assertOk();

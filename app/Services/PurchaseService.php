@@ -630,10 +630,17 @@ final class PurchaseService
             ->selectRaw('`purchase_payments`.`purchase_id` AS id, COALESCE(SUM(`purchase_payments`.`amount_minor`), 0) AS t')->pluck('t', 'id')->all();
         $settledQuery = DB::table('supplier_payment_allocations')
             ->join('supplier_payments', 'supplier_payments.id', '=', 'supplier_payment_allocations.payment_id')
-            ->where('supplier_payments.status', 'POSTED')
             ->when($supplierId !== null, $ofSupplier('supplier_payment_allocations.purchase_id'));
-        if ($asAt !== null) {
-            $settledQuery->where('supplier_payments.business_date', '<=', $asAt);
+        if ($asAt === null) {
+            $settledQuery->where('supplier_payments.status', 'POSTED');
+        } else {
+            // D32: as it stood that day. A payment voided later still counts; the
+            // void's date is its reversal entry's (voided_at for one with no entry).
+            $settledQuery->where('supplier_payments.business_date', '<=', $asAt)->whereRaw(
+                "(`supplier_payments`.`status` = 'POSTED' OR COALESCE((SELECT `v`.`entry_date` FROM `journal_entries` `v`
+                    WHERE `v`.`reverses_entry_id` = `supplier_payments`.`journal_entry_id` ORDER BY `v`.`id` LIMIT 1), DATE(`supplier_payments`.`voided_at`)) > ?)",
+                [$asAt],
+            );
         }
         $settled = $settledQuery->groupBy('supplier_payment_allocations.purchase_id')
             ->selectRaw('`supplier_payment_allocations`.`purchase_id` AS id, COALESCE(SUM(`supplier_payment_allocations`.`amount_minor`), 0) AS t')->pluck('t', 'id')->all();

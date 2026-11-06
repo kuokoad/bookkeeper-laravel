@@ -22,6 +22,20 @@ return [
     'trust_proxy_headers' => filter_var(env('NUNA_TRUST_PROXY_HEADERS', false), FILTER_VALIDATE_BOOL),
 
     /*
+    | First-run setup (creating the owner account) answers only the shop PC
+    | itself (127.0.0.1 / ::1). On: anyone on the network can reach it, and
+    | the first to post becomes the owner.
+    */
+    'setup_from_lan' => filter_var(env('NUNA_SETUP_FROM_LAN', false), FILTER_VALIDATE_BOOL),
+
+    /*
+    | The old app's live database. nuna:import-sqlite and nuna:reconcile
+    | refuse it (compared by real path, ignoring case on Windows): they take a
+    | copy made while the old app is stopped.
+    */
+    'old_live_database' => env('NUNA_OLD_LIVE_DATABASE', 'C:\ClaudeProjects\bookkeeper\data\bookkeeper.db'),
+
+    /*
     | The folder holding mysqldump.exe and mysql.exe. Unset: the newest
     | C:\laragon\bin\mysql\*\bin, else whatever is on the PATH.
     */

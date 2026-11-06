@@ -9,6 +9,7 @@ declare(strict_types=1);
 */
 
 use App\Auth\Sessions;
+use App\Enums\UserRole;
 use App\Http\Controllers\Auth\LoginController;
 use App\Models\User;
 use App\Services\AuthService;
@@ -53,6 +54,57 @@ describe('first run', function () {
                 'confirmPassword' => 'The two passwords do not match.',
             ]);
         expect(AuthService::needsInitialSetup())->toBeTrue();
+    });
+
+    $valid = ['businessName' => 'Adwoa Hardware', 'displayName' => 'Adwoa', 'username' => 'adwoa', 'password' => 'a-good-password-1', 'confirmPassword' => 'a-good-password-1'];
+
+    it('refuses a complete second setup, so nobody can mint a second owner', function () use ($valid) {
+        $this->post('/setup', $valid)->assertRedirect('/login?setup=complete');
+        $this->post('/setup', ['username' => 'kofi', 'displayName' => 'Kofi', 'businessName' => 'Kofi Stores'] + $valid)
+            ->assertSessionHasErrors(['form' => 'Setup has already been completed. Please sign in.']);
+
+        expect(DB::table('users')->pluck('username')->all())->toBe(['adwoa'])
+            ->and(DB::table('business_settings')->value('business_name'))->toBe('Adwoa Hardware');
+    });
+
+    // What this proves is the re-check inside the write transaction; the row lock itself needs a second connection to show.
+    it('re-checks for an account inside the write transaction, so a setup that passed the first check still loses', function () use ($valid) {
+        // The other first-run post commits its owner while this one waits on the settings row.
+        $raced = false;
+        DB::listen(function ($query) use (&$raced) {
+            if (! $raced && str_contains(strtolower($query->sql), 'business_settings') && str_contains(strtolower($query->sql), 'for update')) {
+                $raced = true;
+                AuthService::createUser(['username' => 'first', 'displayName' => 'First', 'password' => 'a-good-password-1', 'role' => UserRole::Owner]);
+            }
+        });
+
+        $this->post('/setup', $valid)->assertSessionHasErrors(['form' => 'Setup has already been completed. Please sign in.']);
+        expect($raced)->toBeTrue()
+            ->and(DB::table('users')->pluck('username')->all())->toBe(['first']);
+    });
+
+    it('is reachable only from the shop PC itself unless the LAN is allowed', function () use ($valid) {
+        $lan = ['REMOTE_ADDR' => '192.168.1.20'];
+        $this->withServerVariables($lan)->get('/setup')->assertForbidden()->assertSee('on the shop computer itself')
+            // The way out: the server PC's own browser, or the LAN switch for a moment.
+            ->assertSee('http://localhost')->assertSee('NUNA_SETUP_FROM_LAN=true');
+        $this->withServerVariables($lan)->post('/setup', $valid)->assertForbidden();
+        // A forged proxy header does not make a LAN caller local.
+        $this->withServerVariables($lan)->withHeader('X-Forwarded-For', '127.0.0.1')->get('/setup')->assertForbidden();
+        expect(AuthService::needsInitialSetup())->toBeTrue();
+
+        $this->withServerVariables(['REMOTE_ADDR' => '::1'])->get('/setup')->assertOk();
+        config(['nuna.setup_from_lan' => true]);
+        $this->withServerVariables($lan)->post('/setup', $valid)->assertRedirect('/login?setup=complete');
+    });
+
+    it('falls back to the peer address behind a trusted proxy that sent no client address', function () {
+        config(['nuna.trust_proxy_headers' => true]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->get('/setup')->assertOk();
+        $this->withServerVariables(['REMOTE_ADDR' => '192.168.1.20'])->get('/setup')->assertForbidden();
+        // A client address the proxy reported still decides.
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->withHeader('X-Forwarded-For', '192.168.1.20')->get('/setup')->assertForbidden();
     });
 });
 

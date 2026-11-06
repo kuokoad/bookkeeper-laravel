@@ -11,7 +11,6 @@ use App\Enums\UserRole;
 use App\Services\BackupStatusService;
 use App\Services\PreflightService;
 use App\Services\UpdateService;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -82,7 +81,7 @@ final class Health extends Component
         $lastStatus = UpdateService::readUpdateStatus();
 
         return view('livewire.settings.health', [
-            'canBackUp' => Gate::allows('settings.edit'),
+            'canBackUp' => $user?->role === UserRole::Owner,
             'backup' => $backup,
             'backupLine' => BackupStatusService::describe($backup),
             'checks' => $checks,

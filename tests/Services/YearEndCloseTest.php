@@ -200,10 +200,10 @@ describe('reopening a year', function () {
         ($this->close)(2025);
         ($this->reopen)(2025);
 
-        $closings = YearEndCloseService::listClosings();
+        $closings = DB::table('year_end_closings')->get();
         expect(YearEndCloseService::isYearClosed(2025))->toBeFalse()
             ->and($closings)->toHaveCount(1)
-            ->and($closings[0]['reversedAt'])->not->toBeNull()
+            ->and($closings[0]->reversed_at)->not->toBeNull()
             ->and(LedgerService::checkBooksIntegrity()['trialBalanced'])->toBeTrue();
     });
 
@@ -264,7 +264,7 @@ describe('reopening a year', function () {
 
         expect(($this->close)(2025)['profit'])->toBe(70_000)
             ->and(FinancialService::getBalanceSheet('2025-12-31')['balances'])->toBeTrue()
-            ->and(YearEndCloseService::listClosings())->toHaveCount(2);
+            ->and(DB::table('year_end_closings')->count())->toBe(2);
     });
 });
 

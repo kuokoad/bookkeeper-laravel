@@ -432,11 +432,6 @@ final class CashbookService
         return (int) self::postedBetween('expenses', $from, $to)->sum('expenses.amount_minor');
     }
 
-    public static function getIncomesTotal(string $from, string $to): int
-    {
-        return (int) self::postedBetween('incomes', $from, $to)->sum('incomes.amount_minor');
-    }
-
     /** The same posted rows and inclusive dates as getExpensesTotal, per day. @return list<array{businessDate: string, total: int}> */
     public static function getExpensesByDay(string $from, string $to): array
     {

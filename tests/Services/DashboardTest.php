@@ -51,8 +51,7 @@ describe('dashboard financial regression', function () {
         ReconciliationService::createReconciliation(['businessDate' => $this->today, 'paymentAccountId' => $this->cash, 'actual' => 9_700, 'adjust' => true, 'explanation' => 'Test cash short'], $this->actor);
 
         // 5000 gross - 200 cashbook - 1000 shrinkage - 100 cash short
-        expect(FinancialService::getProfitAndLoss($this->period)['netProfit'])->toBe(3_700)
-            ->and(FinancialService::getNetProfit($this->period))->toBe(3_700);
+        expect(FinancialService::getProfitAndLoss($this->period)['netProfit'])->toBe(3_700);
     });
 
     it('assigns invoices to exactly one bucket, including all overdue boundaries', function () {

@@ -17,6 +17,9 @@ declare(strict_types=1);
 |   4. A/R subledger = GL 1100, A/P subledger = GL 2000;
 |   5. a rolled-back operation leaves zero partial rows.
 |
+|   6. "outstanding", defined twice (SQL for the lists, PHP for one document),
+|      agrees for every sale and purchase.
+|
 | Invariant 3 runs again with negative stock allowed and a thin opening shelf,
 | so stock goes below zero and comes back at other prices (D26).
 */
@@ -233,6 +236,19 @@ describe('with negative stock refused', function () {
             ->and(SubledgerSplit::getReceivablesSplit()['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_RECEIVABLE))
             ->and(SubledgerSplit::getPayablesSplit()['net'])->toBe(Shop::balance(ChartOfAccounts::ACCOUNTS_PAYABLE))
             ->and(LedgerService::checkBooksIntegrity())->toMatchArray(['receivablesMatch' => true, 'payablesMatch' => true]);
+    });
+
+    it('6. agrees on what each sale and purchase still owes, list (SQL) and document (PHP)', function () {
+        foreach (['sale' => [SaleService::listSales(...), SaleService::getSaleOutstanding(...)], 'purchase' => [PurchaseService::listPurchases(...), PurchaseService::getPurchaseOutstanding(...)]] as $kind => [$list, $one]) {
+            $seen = 0;
+            for ($offset = 0; ($rows = $list(['limit' => 500, 'offset' => $offset])) !== []; $offset += 500) {
+                foreach ($rows as $row) {
+                    expect($row['outstandingMinor'])->toBe($one($row['id']), "{$kind} {$row['id']}");
+                    $seen++;
+                }
+            }
+            expect($seen)->toBe(DB::table("{$kind}s")->count());
+        }
     });
 
     it('5. leaves zero partial rows when an operation rolls back', function () {

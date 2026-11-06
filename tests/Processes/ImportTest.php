@@ -228,7 +228,7 @@ it('reconcile v2 compares every report through the new services and finds zero d
 
     $reconcile = artisan('nuna:reconcile', $copy);
     expect($reconcile->successful())->toBeTrue($reconcile->output())
-        ->and($reconcile->output())->toContain('financial years, each with its P&L, tax return, cash flow and sales by day')
+        ->and($reconcile->output())->toContain('financial years, each with its P&L, tax return, cash flow, sales by day, by product (and per product, SQL against line by line) and by category, and purchases by day')
         ->and($reconcile->output())->toContain('each with its trial balance, balance sheet and ageing')
         ->and($reconcile->output())->toMatch('/Checked [1-9]\d* report figures/')
         ->and($reconcile->output())->toContain('Zero differences.');
@@ -249,8 +249,16 @@ it('reconcile v2 reports a report figure that moved', function () {
     // A pesewa more into a till: the cash flow (per source and per account) and the balance sheet's cash line disagree.
     DB::connection('import')->statement('UPDATE journal_lines SET debit_minor = debit_minor + 1 WHERE payment_account_id IS NOT NULL AND debit_minor > 0 ORDER BY id LIMIT 1');
 
+    // A sale line's cost moved by a pesewa: sales by product and by category disagree.
+    DB::connection('import')->statement('UPDATE sale_items SET total_cost_minor = total_cost_minor + 1 ORDER BY id LIMIT 1');
+    // A delivery's total moved: purchases by day (total and net) disagree.
+    DB::connection('import')->statement("UPDATE purchases SET subtotal_minor = subtotal_minor + 1, total_minor = total_minor + 1 WHERE kind = 'PURCHASE' ORDER BY id LIMIT 1");
+
     $output = artisan('nuna:reconcile', $copy)->output();
     expect($output)->toMatch('/receivables ageing at \S+ \d+ \w+: old (-?\d+|NULL), new/')
+        ->and($output)->toMatch('/sales by product \S+ product \d+ cost: old -?\d+, new -?\d+/')
+        ->and($output)->toMatch('/sales by category \S+ category \w+ cost: old -?\d+, new -?\d+/')
+        ->and($output)->toMatch('/purchases by day \S+ \S+ net: old \d+, new \d+/')
         ->and($output)->toMatch('/tax return \S+ taxable sales: old \d+, new \d+/')
         ->and($output)->toMatch('/cash flow \S+ [A-Z_]+ in: old \d+, new \d+/')
         ->and($output)->toMatch('/cash flow \S+ account \d+ in: old \d+, new \d+/')

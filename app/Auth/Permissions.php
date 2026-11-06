@@ -43,12 +43,6 @@ final class Permissions
         };
     }
 
-    /** @return list<PermissionModule> the modules this person may open: the nav links */
-    public static function visibleModules(Principal $principal): array
-    {
-        return array_values(array_filter(PermissionModule::cases(), fn (PermissionModule $m): bool => self::can($principal, $m, 'view')));
-    }
-
     /** A new shop assistant: run the till, look up stock, nothing about money, reports, users or settings. */
     public static function defaultStaffPermissions(): array
     {

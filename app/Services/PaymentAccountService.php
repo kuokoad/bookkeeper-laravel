@@ -443,12 +443,6 @@ final class PaymentAccountService
         ];
     }
 
-    /** The narrow read: just the rows. @return list<array> */
-    public static function getAccountMovements(int $id, array $query = []): array
-    {
-        return self::getAccountStatement($id, $query)['movements'];
-    }
-
     /** How many movements match, ignoring the page. */
     public static function countAccountMovements(int $id, array $query = []): int
     {

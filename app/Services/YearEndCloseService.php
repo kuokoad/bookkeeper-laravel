@@ -60,27 +60,6 @@ final class YearEndCloseService
         return self::openClosing($startYear) !== null;
     }
 
-    /** Every close ever made, newest year first, reversed ones included. */
-    public static function listClosings(): array
-    {
-        $startMonth = (int) SettingsService::get()->financial_year_start_month;
-
-        return DB::table('year_end_closings')->orderByDesc('year_end_closings.start_year')->orderByDesc('year_end_closings.id')->get()
-            ->map(fn (object $r): array => [
-                'id' => (int) $r->id,
-                'startYear' => (int) $r->start_year,
-                'label' => FinancialYear::of((int) $r->start_year, $startMonth)->label,
-                'periodStart' => (string) $r->period_start,
-                'periodEnd' => (string) $r->period_end,
-                'journalEntryId' => (int) $r->journal_entry_id,
-                'profit' => (int) $r->profit_minor,
-                'drawings' => (int) $r->drawings_minor,
-                'closedAt' => Clock::fromStamp((string) $r->closed_at),
-                'closedByUsername' => null,
-                'reversedAt' => $r->reversed_at === null ? null : Clock::fromStamp((string) $r->reversed_at),
-            ])->all();
-    }
-
     /**
      * Refused when the year is already closed, has not finished, or an
      * earlier year is still open: each would make figures look final that are not.

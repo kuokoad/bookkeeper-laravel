@@ -264,7 +264,7 @@ describe('overview and history', function () {
         $list = ReconciliationService::listReconciliations($this->cash);
         expect($list)->toHaveCount(2)
             ->and($list[0]['businessDate'])->toBe('2026-08-15')
-            ->and(ReconciliationService::getReconciliation($list[1]['id'])['businessDate'])->toBe('2026-08-10');
+            ->and($list[1]['businessDate'])->toBe('2026-08-10');
     });
 
     it('records the count in the audit log', function () {

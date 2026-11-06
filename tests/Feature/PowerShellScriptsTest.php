@@ -75,3 +75,33 @@ it('install.ps1 registers a daily backup task the way it registers the update ta
         ->and($register)->toContain('-User "SYSTEM"')
         ->and($register)->toContain('-Force');
 });
+
+it('install.ps1 skips the backup before migrating only on a positive no-owner answer, and backs up on anything else', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $backup = strpos($script, '"nuna:backup")');
+    $before = substr($script, 0, (int) $backup);
+    $guard = substr($before, (int) strrpos($before, "\nif "));
+
+    expect($backup)->not->toBeFalse()
+        ->and($backup)->toBeLessThan(strpos($script, '"migrate", "--force"'))
+        // Only "no-owner" on a line of its own skips it (a new database, or no owner yet: nothing
+        // traded). A probe that errors (MySQL down, a broken install) runs nuna:backup, which then
+        // fails loudly rather than letting live books be migrated unprotected.
+        ->and($guard)->toContain('if (-not $noOwner)')
+        ->and($script)->toContain('$noOwner = ((& $php artisan tinker --execute=$probe 2>$null) -join "`n") -match "(?m)^no-owner\s*$"')
+        ->and($script)->toContain("Schema::hasTable(''users'')")
+        ->and($script)->toContain("where(''role'', ''OWNER'')->where(''is_active'', true)->exists()")
+        ->and($script)->not->toContain('migrate:status');
+});
+
+it('install.ps1 sets each MySQL user password even when the user already exists, and never writes root\'s', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+
+    foreach (["'nunabooks'@'localhost' IDENTIFIED BY '\$appPassword'", "'nunabooks_backup'@'localhost' IDENTIFIED BY '\$backupPassword'"] as $user) {
+        $create = strpos($script, "CREATE USER IF NOT EXISTS {$user};");
+        expect($create)->not->toBeFalse()
+            ->and(strpos($script, "ALTER USER {$user};"))->toBeGreaterThan($create);
+    }
+    expect($script)->not->toMatch('/Set-EnvValue[^\n]*rootPassword/')
+        ->and($script)->not->toMatch('/(Set-Content|Add-Content|Out-File|WriteAll\w+)[^\n]*rootPassword/');
+});

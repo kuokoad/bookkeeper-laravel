@@ -78,12 +78,6 @@ describe('document numbering', function () {
         expect(Tx::run(fn () => SequenceService::next(DocType::Expense)))->toBe('EXP-00002');
     });
 
-    it('can preview the next number without consuming it', function () {
-        expect(SequenceService::peek(DocType::Receipt))->toBe('RCP-00001')
-            ->and(SequenceService::peek(DocType::Receipt))->toBe('RCP-00001')
-            ->and(Tx::run(fn () => SequenceService::next(DocType::Receipt)))->toBe('RCP-00001');
-    });
-
     it('throws rather than guessing for an unconfigured type', function () {
         DB::table('sequences')->where('doc_type', 'RECEIPT')->delete();
         Tx::run(fn () => SequenceService::next(DocType::Receipt));
@@ -123,7 +117,7 @@ describe('posting', function () {
 
         expect(DB::table('journal_entries')->count())->toBe(0)
             ->and(DB::table('journal_lines')->count())->toBe(0)
-            ->and(SequenceService::peek(DocType::Journal))->toBe('JE-000001');
+            ->and(Tx::run(fn () => SequenceService::next(DocType::Journal)))->toBe('JE-000001');
     });
 
     it('refuses a heading account, which only sums its children', function () {
@@ -289,9 +283,7 @@ describe('managing the lock', function () {
         cashSale('2026-07-15');
         expect(PeriodLockService::status()['lockedBefore'])->toBeNull();
         PeriodLockService::setLock('2026-07-31', $this->actor);
-        expect(PeriodLockService::status('2026-06-30'))->toBe(['lockedBefore' => '2026-07-31', 'entriesLocked' => 1, 'entriesAffectedByProposal' => 0])
-            ->and(PeriodLockService::countOpenEntries('2026-07-31'))->toBe(0)
-            ->and(PeriodLockService::countOpenEntries(null))->toBe(1);
+        expect(PeriodLockService::status('2026-06-30'))->toBe(['lockedBefore' => '2026-07-31', 'entriesLocked' => 1, 'entriesAffectedByProposal' => 0]);
     });
 
     it('records closing, reopening and removal distinctly', function () {

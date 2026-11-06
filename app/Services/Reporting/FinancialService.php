@@ -293,10 +293,4 @@ final class FinancialService
             'byAccount' => $byAccount,
         ];
     }
-
-    /** Profit for a period in one number, for the dashboard. */
-    public static function getNetProfit(array $period): int
-    {
-        return self::getProfitAndLoss($period)['netProfit'];
-    }
 }

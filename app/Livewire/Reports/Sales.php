@@ -26,8 +26,9 @@ final class Sales extends ReportPage
          * swapped for line-level ones.
          */
         $byLine = isset($filters['productId']) || isset($filters['categoryId']);
-        // The lines are read once and shared by every line table on the page.
-        $lines = OperationsService::earnedLines($filters);
+        // Under a filter the lines are read once and shared by every line table on the page;
+        // without one, the stock item and group tables are summed in SQL.
+        $lines = $byLine ? OperationsService::earnedLines($filters) : null;
 
         $days = $byLine
             ? array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'revenue' => $r['revenue'], 'cost' => $r['cost'], 'profit' => $r['profit']], OperationsService::getSalesLinesByDay($filters, $lines))

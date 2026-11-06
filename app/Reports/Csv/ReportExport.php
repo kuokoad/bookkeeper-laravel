@@ -189,7 +189,7 @@ final class ReportExport
         $byLine = isset($q['productId']) || isset($q['categoryId']);
         $net = 'Revenue net of tax and discounts';
         $basis = $byLine ? $net : 'Takings with tax';
-        $lines = OperationsService::earnedLines($q);
+        $lines = $byLine ? OperationsService::earnedLines($q) : null;
 
         $byDay = $byLine
             ? array_map(fn (array $r): array => ['businessDate' => $r['businessDate'], 'saleCount' => $r['saleCount'], 'total' => $r['revenue'], 'cogs' => $r['cost'], 'profit' => $r['profit']], OperationsService::getSalesLinesByDay($q, $lines))

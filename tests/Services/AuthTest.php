@@ -282,7 +282,7 @@ describe('permissions', function () {
         expect(Permissions::can($owner, PermissionModule::Settings, 'edit'))->toBeTrue()
             ->and(Permissions::can($owner, PermissionModule::Sales, 'void'))->toBeTrue()
             ->and(Permissions::can($owner, PermissionModule::Users, 'create'))->toBeTrue()
-            ->and(count(Permissions::visibleModules($owner)))->toBeGreaterThan(10)
+            ->and(array_filter(PermissionModule::cases(), fn (PermissionModule $m): bool => ! Permissions::can($owner, $m, 'view')))->toBe([])
             ->and(DB::table('user_permissions')->count())->toBe(0);
     });
 
@@ -294,8 +294,7 @@ describe('permissions', function () {
             ->and($staff->can(PermissionModule::Settings, 'view'))->toBeFalse()
             ->and($staff->can(PermissionModule::Users, 'create'))->toBeFalse()
             ->and($staff->can(PermissionModule::Reports, 'view'))->toBeFalse()
-            ->and(Permissions::visibleModules($staff))->not->toContain(PermissionModule::Settings)
-            ->and(Permissions::visibleModules($staff))->toContain(PermissionModule::Sales);
+            ->and($staff->can(PermissionModule::Sales, 'view'))->toBeTrue();
     });
 
     it('does not let a write permission bypass a missing view permission', function () {

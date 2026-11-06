@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Settings;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
+use App\Domain\Errors\DomainError;
 use App\Http\Controllers\Controller;
 use App\Services\BackupService;
 use App\Services\SettingsService;
@@ -29,6 +31,12 @@ final class BackupController extends Controller
             return response('You do not have permission to download a backup.', 403, ['Content-Type' => 'text/plain']);
         }
         $principal = Principal::load((int) auth()->id());
+        // D31: owner only, as updates are: the file holds every customer and every figure.
+        try {
+            RoleGuard::assertActorIsOwner($principal->actor(), 'download a backup');
+        } catch (DomainError) {
+            return response('Only the shop owner can download a backup.', 403, ['Content-Type' => 'text/plain']);
+        }
         if (($throttled = HttpThrottle::check("backup:{$principal->id}", HttpThrottle::BACKUP)) !== null) {
             return $throttled;
         }

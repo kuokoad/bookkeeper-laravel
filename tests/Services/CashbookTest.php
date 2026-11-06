@@ -135,7 +135,7 @@ describe('other income', function () {
 
         // Other income must NOT inflate sales revenue.
         expect(Shop::balance(ChartOfAccounts::SALES_REVENUE))->toBe(0)
-            ->and(CashbookService::getIncomesTotal(CB_TODAY, CB_TODAY))->toBe(2_000);
+            ->and(CashbookService::getFilteredIncomesSummary(['from' => CB_TODAY, 'to' => CB_TODAY])['total'])->toBe(2_000);
     });
 
     it('refuses an expense account as an income category', function () {
@@ -148,7 +148,7 @@ describe('other income', function () {
         CashbookService::voidIncome($result['id'], 'Duplicated', $this->actor);
 
         expect(Shop::balance('1001'))->toBe(0)
-            ->and(CashbookService::getIncomesTotal(CB_TODAY, CB_TODAY))->toBe(0)
+            ->and(CashbookService::getFilteredIncomesSummary(['from' => CB_TODAY, 'to' => CB_TODAY])['total'])->toBe(0)
             ->and(DB::table('incomes')->where('id', $result['id'])->value('status'))->toBe('VOIDED');
         Shop::assertBooksHealthy('void income');
     });
@@ -212,7 +212,7 @@ describe('account movements — answering "why is the balance this?"', function 
         ($this->spend)('Transport', 3_000, ['businessDate' => '2026-08-02', 'description' => 'Taxi']);
         ($this->spend)('Rent', 2_000, ['businessDate' => '2026-08-03']);
 
-        $movements = PaymentAccountService::getAccountMovements($this->cash);
+        $movements = PaymentAccountService::getAccountStatement($this->cash)['movements'];
         expect($movements)->toHaveCount(3)
             // Newest first, and the newest running balance IS the account balance.
             ->and($movements[0]['runningBalance'])->toBe(5_000)
@@ -227,7 +227,7 @@ describe('account movements — answering "why is the balance this?"', function 
         ($this->receive)('Commission', 10_000, ['businessDate' => '2026-07-01', 'description' => 'July']);
         ($this->receive)('Commission', 5_000, ['businessDate' => '2026-08-01', 'description' => 'August']);
 
-        expect(PaymentAccountService::getAccountMovements($this->cash, ['from' => '2026-08-01']))->toHaveCount(1)
+        expect(PaymentAccountService::getAccountStatement($this->cash, ['from' => '2026-08-01'])['movements'])->toHaveCount(1)
             // Balance as at the end of July.
             ->and(PaymentAccountService::getPaymentAccountBalance($this->cash, '2026-07-31'))->toBe(10_000)
             ->and(PaymentAccountService::getPaymentAccountBalance($this->cash))->toBe(15_000);
@@ -278,7 +278,7 @@ describe('owner capital and drawings', function () {
             ->and(Shop::balance(ChartOfAccounts::OWNERS_CAPITAL))->toBe(300_000)
             // Money the owner puts in is NOT income.
             ->and(Shop::balance(ChartOfAccounts::SALES_REVENUE))->toBe(0)
-            ->and(CashbookService::getIncomesTotal(CB_TODAY, CB_TODAY))->toBe(0);
+            ->and(CashbookService::getFilteredIncomesSummary(['from' => CB_TODAY, 'to' => CB_TODAY])['total'])->toBe(0);
         Shop::assertBooksHealthy('owner capital');
     });
 

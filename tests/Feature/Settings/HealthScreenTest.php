@@ -27,6 +27,13 @@ it('refuses a backup download without the edit right', function () {
     signedIn(staff(['settings' => viewOnly()]))->post('/settings/backup')->assertForbidden();
 });
 
+it('lets only the owner download a backup, whatever settings rights a staff member holds (D31)', function () {
+    signedIn(staff(['settings' => Permissions::FULL_ACCESS]))->post('/settings/backup')->assertForbidden();
+    signedIn(staff(['settings' => Permissions::FULL_ACCESS], 'kofi'))->get('/settings/health')->assertOk()
+        ->assertSee('Only the shop owner can take a backup')
+        ->assertDontSee('Download a backup');
+});
+
 it('lets only the owner check for updates, whatever settings rights a staff member holds', function () {
     $staff = staff(['settings' => Permissions::FULL_ACCESS]);
     Livewire::actingAs(User::query()->findOrFail($staff))->test(Health::class)

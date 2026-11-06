@@ -196,9 +196,11 @@ if (-not (Test-Path $envFile)) {
     $sql = @"
 CREATE DATABASE IF NOT EXISTS ``$Database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin;
 CREATE USER IF NOT EXISTS 'nunabooks'@'localhost' IDENTIFIED BY '$appPassword';
+ALTER USER 'nunabooks'@'localhost' IDENTIFIED BY '$appPassword';
 GRANT ALL PRIVILEGES ON ``$Database``.* TO 'nunabooks'@'localhost';
 GRANT ALL PRIVILEGES ON ``${Database}\_scratch\_%``.* TO 'nunabooks'@'localhost';
 CREATE USER IF NOT EXISTS 'nunabooks_backup'@'localhost' IDENTIFIED BY '$backupPassword';
+ALTER USER 'nunabooks_backup'@'localhost' IDENTIFIED BY '$backupPassword';
 GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON ``$Database``.* TO 'nunabooks_backup'@'localhost';
 FLUSH PRIVILEGES;
 "@
@@ -233,10 +235,17 @@ if ((Get-Content $envFile -Raw) -match "(?m)^APP_KEY=\s*$") {
     Invoke-Checked "Generating the app key" $php @("artisan", "key:generate", "--force")
 }
 
-# migrate:status fails while there is no migration table: a new database has nothing to back up.
-& $php artisan migrate:status 2>$null | Out-Null
-if ($LASTEXITCODE -eq 0) {
+# Skip the backup only when the database answers that it has no active owner: a new database (no
+# users table) or one where the owner has not signed up, so nothing can have been traded (every sale,
+# purchase and import carries a user), and nuna:backup would refuse anyway. Any other answer, a probe
+# that errors included, backs up first, and a backup that cannot run stops the install here, before
+# the live books are migrated.
+$probe = 'echo Illuminate\Support\Facades\Schema::hasTable(''users'') && Illuminate\Support\Facades\DB::table(''users'')->where(''role'', ''OWNER'')->where(''is_active'', true)->exists() ? ''has-owner'' : ''no-owner'';'
+$noOwner = ((& $php artisan tinker --execute=$probe 2>$null) -join "`n") -match "(?m)^no-owner\s*$"
+if (-not $noOwner) {
     Invoke-Checked "Backing up the existing books before migrating" $php @("artisan", "nuna:backup")
+} else {
+    Write-Host "==> No owner account yet: nothing has been traded, so there is nothing to back up"
 }
 Invoke-Checked "Migrating the database" $php @("artisan", "migrate", "--force")
 # The baseline every shop needs (settings row, numbering, chart of accounts, taxes).

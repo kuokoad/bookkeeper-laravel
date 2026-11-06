@@ -56,7 +56,7 @@ final class OperationsService
      * (SaleCalculator::lineEarnings over every line of the receipt, then the
      * non-matching lines dropped).
      *
-     * @return list<array{saleId: int, kind: string, businessDate: string, customerId: ?int, customerName: ?string, productId: int, productName: string, unit: string, categoryId: ?int, categoryName: ?string, qty: int, earned: int, cost: int}>
+     * @return list<array{saleId: int, kind: string, standing: bool, businessDate: string, customerId: ?int, customerName: ?string, productId: int, productName: string, unit: string, categoryId: ?int, categoryName: ?string, qty: int, earned: int, cost: int}>
      */
     private static function earnedLines(array $query): array
     {
@@ -65,9 +65,10 @@ final class OperationsService
             ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->leftJoin('customers', 'customers.id', '=', 'sales.customer_id'), $query)
             ->orderBy('sale_items.sale_id')->orderBy('sale_items.line_no')
-            ->get(['sale_items.sale_id', 'sales.kind', 'sales.business_date', 'sales.customer_id', 'customers.name as customer_name', 'sales.total_minor', 'sales.tax_minor',
+            ->selectRaw(TaxReturnService::standingAtEndSql('sales', 'voids_sale_id').' AS standing', [$query['to']])
+            ->addSelect(['sale_items.sale_id', 'sales.kind', 'sales.business_date', 'sales.customer_id', 'customers.name as customer_name', 'sales.total_minor', 'sales.tax_minor',
                 'sale_items.product_id', 'sale_items.product_name', 'sale_items.unit', 'products.category_id', 'categories.name as category_name',
-                'sale_items.qty_milli', 'sale_items.line_total_minor', 'sale_items.total_cost_minor']);
+                'sale_items.qty_milli', 'sale_items.line_total_minor', 'sale_items.total_cost_minor'])->get();
 
         $bySale = [];
         foreach ($rows as $row) {
@@ -89,6 +90,7 @@ final class OperationsService
                 $lines[] = [
                     'saleId' => (int) $row->sale_id,
                     'kind' => $row->kind,
+                    'standing' => (bool) $row->standing,
                     'businessDate' => (string) $row->business_date,
                     'customerId' => $row->customer_id === null ? null : (int) $row->customer_id,
                     'customerName' => $row->customer_name,
@@ -109,7 +111,8 @@ final class OperationsService
 
     /**
      * Lines added up by a key, in order of first appearance; the newest line
-     * gives the names. Receipts count SALE documents only.
+     * gives the names. Receipts count SALE documents still standing at the
+     * period end (D23).
      *
      * @return list<array{line: array, qty: int, revenue: int, cost: int, receipts: int}>
      */
@@ -123,7 +126,7 @@ final class OperationsService
             $tally['qty'] += $line['qty'];
             $tally['revenue'] = Money::add($tally['revenue'], $line['earned']);
             $tally['cost'] = Money::add($tally['cost'], $line['cost']);
-            if ($line['kind'] === 'SALE') {
+            if ($line['kind'] === 'SALE' && $line['standing']) {
                 $tally['receipts'][$line['saleId']] = true;
             }
             $tallies[$key] = $tally;
@@ -137,14 +140,22 @@ final class OperationsService
         return $b['revenue'] <=> $a['revenue'];
     }
 
-    private const SALE_COUNT = "COALESCE(SUM(CASE WHEN sales.kind = 'SALE' THEN 1 ELSE 0 END), 0)";
+    /**
+     * D23 (owner decision, 2026-11-06): the sale count is D9's "as at the period end" rule, so a
+     * sale counts on its day unless a void of it is dated on or before the end ($query['to'] is
+     * bound); returns and void mirrors are not sales.
+     */
+    private static function saleCountSql(): string
+    {
+        return "COUNT(CASE WHEN sales.kind = 'SALE' AND ".TaxReturnService::standingAtEndSql('sales', 'voids_sale_id').' THEN 1 END)';
+    }
 
     /** @return list<array{businessDate: string, saleCount: int, total: int, tax: int, net: int, cogs: int, profit: int}> */
     public static function getSalesByDay(array $query): array
     {
         return self::salesDatedIn(DB::table('sales'), $query)
             ->groupBy('sales.business_date')->orderBy('sales.business_date')
-            ->selectRaw('sales.business_date, '.self::SALE_COUNT.' AS n, COALESCE(SUM(sales.total_minor), 0) AS total, COALESCE(SUM(sales.tax_minor), 0) AS tax, COALESCE(SUM(sales.cogs_minor), 0) AS cogs')
+            ->selectRaw('sales.business_date, '.self::saleCountSql().' AS n, COALESCE(SUM(sales.total_minor), 0) AS total, COALESCE(SUM(sales.tax_minor), 0) AS tax, COALESCE(SUM(sales.cogs_minor), 0) AS cogs', [$query['to']])
             ->get()->map(function (object $r): array {
                 // Tax is held for the authority: neither earnings nor profit.
                 $net = Money::subtract((int) $r->total, (int) $r->tax);
@@ -239,7 +250,7 @@ final class OperationsService
         return self::salesDatedIn(DB::table('sales')->leftJoin('customers', 'customers.id', '=', 'sales.customer_id'), $query)
             ->groupBy('sales.customer_id')
             ->orderByRaw('SUM(sales.total_minor) DESC')->orderBy('sales.customer_id')
-            ->selectRaw('sales.customer_id, MAX(customers.name) AS name, '.self::SALE_COUNT.' AS n, COALESCE(SUM(sales.total_minor), 0) AS total, COALESCE(SUM(sales.tax_minor), 0) AS tax, COALESCE(SUM(sales.cogs_minor), 0) AS cogs')
+            ->selectRaw('sales.customer_id, MAX(customers.name) AS name, '.self::saleCountSql().' AS n, COALESCE(SUM(sales.total_minor), 0) AS total, COALESCE(SUM(sales.tax_minor), 0) AS tax, COALESCE(SUM(sales.cogs_minor), 0) AS cogs', [$query['to']])
             ->get()->map(fn (object $r): array => [
                 'customerId' => $r->customer_id === null ? null : (int) $r->customer_id,
                 'customerName' => $r->name ?? 'Walk-in customers',
@@ -267,9 +278,14 @@ final class OperationsService
 
     // --- purchases ---------------------------------------------------------
 
+    /**
+     * Posted purchases AND supplier returns (D22) dated in the period, each on its own date; every
+     * other condition applies to both alike, so the Returned column and its total use the same filter
+     * as the rows. A return is never voided (PurchaseService refuses), so POSTED is all of them.
+     */
     private static function purchaseConditions(Builder $q, array $query): Builder
     {
-        $q->where('purchases.status', 'POSTED')->where('purchases.kind', 'PURCHASE')
+        $q->where('purchases.status', 'POSTED')->whereIn('purchases.kind', ['PURCHASE', 'RETURN'])
             ->whereBetween('purchases.business_date', [$query['from'], $query['to']]);
         if (isset($query['supplierId'])) {
             $q->where('purchases.supplier_id', $query['supplierId']);
@@ -295,22 +311,38 @@ final class OperationsService
         return $q;
     }
 
-    /** @return list<array{supplierId: ?int, supplierName: string, purchaseCount: int, total: int}> */
+    private const BOUGHT = "COALESCE(SUM(CASE WHEN purchases.kind = 'PURCHASE' THEN purchases.total_minor ELSE 0 END), 0)";
+
+    // A return's figures are stored negative: Returned is their size.
+    private const PURCHASE_FIGURES = "COUNT(CASE WHEN purchases.kind = 'PURCHASE' THEN 1 END) AS n, ".self::BOUGHT." AS total,
+        COALESCE(SUM(CASE WHEN purchases.kind = 'RETURN' THEN -purchases.total_minor ELSE 0 END), 0) AS returned";
+
+    /** @return array{purchaseCount: int, total: int, returned: int, net: int} */
+    private static function purchaseFigures(object $r): array
+    {
+        return ['purchaseCount' => (int) $r->n, 'total' => (int) $r->total, 'returned' => (int) $r->returned, 'net' => Money::subtract((int) $r->total, (int) $r->returned)];
+    }
+
+    /** @return list<array{supplierId: ?int, supplierName: string, purchaseCount: int, total: int, returned: int, net: int}> */
     public static function getPurchasesBySupplier(array $query): array
     {
         return self::purchasesDatedIn(DB::table('purchases')->leftJoin('suppliers', 'suppliers.id', '=', 'purchases.supplier_id'), $query)
             ->groupBy('purchases.supplier_id')
-            ->orderByRaw('SUM(purchases.total_minor) DESC')->orderBy('purchases.supplier_id')
-            ->selectRaw('purchases.supplier_id, MAX(suppliers.name) AS name, COUNT(*) AS n, COALESCE(SUM(purchases.total_minor), 0) AS total')
+            ->orderByRaw(self::BOUGHT.' DESC')->orderBy('purchases.supplier_id')
+            ->selectRaw('purchases.supplier_id, MAX(suppliers.name) AS name, '.self::PURCHASE_FIGURES)
             ->get()->map(fn (object $r): array => [
                 'supplierId' => $r->supplier_id === null ? null : (int) $r->supplier_id,
                 'supplierName' => $r->name ?? 'Unknown',
-                'purchaseCount' => (int) $r->n,
-                'total' => (int) $r->total,
+                ...self::purchaseFigures($r),
             ])->all();
     }
 
-    /** Matching purchase LINES, per product and unit. @return list<array{productId: int, productName: string, unit: string, qtyBought: int, total: int}> */
+    /**
+     * Matching purchase LINES, per product and unit; a return's lines carry the unit of the line they
+     * came back from, so they land on its row.
+     *
+     * @return list<array{productId: int, productName: string, unit: string, qtyBought: int, total: int, returned: int, net: int}>
+     */
     public static function getPurchasesByProduct(array $query): array
     {
         $q = self::purchaseConditions(DB::table('purchase_items')->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id'), $query);
@@ -324,9 +356,15 @@ final class OperationsService
         // One row per product AND the unit its lines were counted in (D7): 5 carton and 10 pcs never add up to "15".
         // shortcut: a product renamed between deliveries shows MAX(name); SQLite showed whichever row it read last.
         return $q->groupBy('purchase_items.product_id', 'purchase_items.unit')
-            ->orderByRaw('SUM(purchase_items.line_total_minor) DESC')->orderBy('purchase_items.product_id')->orderBy('purchase_items.unit')
-            ->selectRaw('purchase_items.product_id, MAX(purchase_items.product_name) AS name, purchase_items.unit, COALESCE(SUM(purchase_items.qty_milli), 0) AS qty, COALESCE(SUM(purchase_items.line_total_minor), 0) AS total')
-            ->get()->map(fn (object $r): array => ['productId' => (int) $r->product_id, 'productName' => (string) $r->name, 'unit' => (string) $r->unit, 'qtyBought' => (int) $r->qty, 'total' => (int) $r->total])->all();
+            ->orderByRaw("SUM(CASE WHEN purchases.kind = 'PURCHASE' THEN purchase_items.line_total_minor ELSE 0 END) DESC")->orderBy('purchase_items.product_id')->orderBy('purchase_items.unit')
+            ->selectRaw("purchase_items.product_id, MAX(purchase_items.product_name) AS name, purchase_items.unit,
+                COALESCE(SUM(CASE WHEN purchases.kind = 'PURCHASE' THEN purchase_items.qty_milli ELSE 0 END), 0) AS qty,
+                COALESCE(SUM(CASE WHEN purchases.kind = 'PURCHASE' THEN purchase_items.line_total_minor ELSE 0 END), 0) AS total,
+                COALESCE(SUM(CASE WHEN purchases.kind = 'RETURN' THEN -purchase_items.line_total_minor ELSE 0 END), 0) AS returned")
+            ->get()->map(fn (object $r): array => [
+                'productId' => (int) $r->product_id, 'productName' => (string) $r->name, 'unit' => (string) $r->unit, 'qtyBought' => (int) $r->qty,
+                'total' => (int) $r->total, 'returned' => (int) $r->returned, 'net' => Money::subtract((int) $r->total, (int) $r->returned),
+            ])->all();
     }
 
     /**
@@ -354,23 +392,28 @@ final class OperationsService
     }
 
     /**
-     * The purchase report's total and count, over its day rows.
+     * The purchase report's totals over its day rows: bought, returned (D22), net and the count.
      *
-     * @param  list<array{purchaseCount: int, total: int}>  $byDay
-     * @return array{total: int, count: int}
+     * @param  list<array{purchaseCount: int, total: int, returned: int, net: int}>  $byDay
+     * @return array{total: int, returned: int, net: int, count: int}
      */
     public static function getPurchasesReportTotals(array $byDay): array
     {
-        return ['total' => Money::sum(array_column($byDay, 'total')), 'count' => array_sum(array_column($byDay, 'purchaseCount'))];
+        return [
+            'total' => Money::sum(array_column($byDay, 'total')),
+            'returned' => Money::sum(array_column($byDay, 'returned')),
+            'net' => Money::sum(array_column($byDay, 'net')),
+            'count' => array_sum(array_column($byDay, 'purchaseCount')),
+        ];
     }
 
-    /** @return list<array{businessDate: string, purchaseCount: int, total: int}> */
+    /** @return list<array{businessDate: string, purchaseCount: int, total: int, returned: int, net: int}> */
     public static function getPurchasesByDay(array $query): array
     {
         return self::purchasesDatedIn(DB::table('purchases'), $query)
             ->groupBy('purchases.business_date')->orderBy('purchases.business_date')
-            ->selectRaw('purchases.business_date, COUNT(*) AS n, COALESCE(SUM(purchases.total_minor), 0) AS total')
-            ->get()->map(fn (object $r): array => ['businessDate' => (string) $r->business_date, 'purchaseCount' => (int) $r->n, 'total' => (int) $r->total])->all();
+            ->selectRaw('purchases.business_date, '.self::PURCHASE_FIGURES)
+            ->get()->map(fn (object $r): array => ['businessDate' => (string) $r->business_date, ...self::purchaseFigures($r)])->all();
     }
 
     // --- inventory ---------------------------------------------------------

@@ -117,6 +117,18 @@ it('resets a staff password and sets a PIN through UserService', function () {
     expect((bool) $row->must_change_password)->toBeTrue()->and($row->pin_hash)->not->toBeNull();
 });
 
+it('offers no till PIN for an owner account, on adding one or on its page (D17)', function () {
+    $ownerId = owner();
+    $abena = owner('abena');
+
+    usersAs($ownerId)->test(Show::class, ['user' => $abena])->assertDontSee('Save PIN')->assertSee('Not used: owners sign in with their password');
+    usersAs($ownerId)->test(Create::class)->assertSee('Till PIN (optional)')
+        ->set('role', 'OWNER')->assertDontSee('Till PIN (optional)')
+        // A PIN typed before switching to Owner is dropped, not refused.
+        ->set(['displayName' => 'Kofi', 'username' => 'kofi', 'password' => 'start-password-1', 'pin' => '8351'])->call('save')->assertHasNoErrors();
+    expect(DB::table('users')->where('username', 'kofi')->value('pin_hash'))->toBeNull();
+});
+
 it('shows the guards that stop the shop locking itself out', function () {
     $ownerId = owner();
     usersAs($ownerId)->test(Show::class, ['user' => $ownerId])

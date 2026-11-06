@@ -10,6 +10,7 @@ declare(strict_types=1);
 | time, and the demo users sign in.
 */
 
+use App\Auth\Passwords;
 use App\Auth\Permissions;
 use App\Auth\Principal;
 use App\Domain\Errors\ConflictError;
@@ -111,16 +112,17 @@ describe('login', function () {
             ->and(signIn('ghost', 'anything-at-all'))->toBe(['ok' => false, 'reason' => 'INVALID_CREDENTIALS']);
     });
 
-    it('locks the account after repeated failures and releases it after the window', function () {
+    it('locks a staff account after repeated failures and releases it after the window', function () {
+        createStaff();
         $now = Clock::now();
         for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
-            signIn('kwame', 'wrong', $now);
+            signIn('ama', 'wrong', $now);
         }
-        $locked = signIn('kwame', OWNER_INPUT['password'], $now);
+        $locked = signIn('ama', STAFF_INPUT['password'], $now);
         expect($locked['ok'])->toBeFalse()
             ->and($locked['reason'])->toBe('ACCOUNT_LOCKED')
             ->and(Clock::stamp($locked['lockedUntil']))->toBe(Clock::stamp($now->copy()->addMinutes(15)))
-            ->and(signIn('kwame', OWNER_INPUT['password'], $now->copy()->addMinutes(16))['ok'])->toBeTrue();
+            ->and(signIn('ama', STAFF_INPUT['password'], $now->copy()->addMinutes(16))['ok'])->toBeTrue();
     });
 
     it('resets the failure count after a successful sign-in', function () {
@@ -155,34 +157,121 @@ describe('login', function () {
             ->and($row->username)->toBe(str_repeat('g', 40))
             ->and($row->summary)->toContain(str_repeat('g', 60));
     });
+
+    it('refuses a name that cannot exist without looking it up, and buckets every such name together', function () {
+        DB::enableQueryLog();
+        expect(signIn('kwame ; --', OWNER_INPUT['password']))->toBe(['ok' => false, 'reason' => 'INVALID_CREDENTIALS'])
+            ->and(AuthService::loginWithPin('k', '8351'))->toBe(['ok' => false, 'reason' => 'INVALID_CREDENTIALS']);
+        $lookups = array_filter(DB::getQueryLog(), fn (array $q): bool => str_contains($q['query'], 'LOWER(`users`.`username`)'));
+        expect($lookups)->toBe([])
+            ->and(AuthService::throttleKeyFor('a b'))->toBe('login:user:invalid')
+            ->and(AuthService::throttleKeyFor(str_repeat('g', 41)))->toBe('login:user:invalid')
+            // A valid name folds as the lookup does: trimmed, any case.
+            ->and(AuthService::throttleKeyFor(" Kwame.O_1\u{00A0}"))->toBe('login:user:kwame.o_1')
+            ->and(AuthService::findByUsername('KWAME')->username)->toBe('kwame');
+    });
 });
 
 describe('after a lockout has been served', function () {
     beforeEach(function () {
-        createOwner();
+        createStaff();
         $this->start = Clock::now();
         for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
-            signIn('kwame', 'wrong', $this->start);
+            signIn('ama', 'wrong', $this->start);
         }
         $this->after = $this->start->copy()->addMinutes(16);
     });
 
     it('gives back a full set of attempts, not one', function () {
-        signIn('kwame', 'wrong-again', $this->after);
-        $user = userRow('kwame');
+        signIn('ama', 'wrong-again', $this->after);
+        $user = userRow('ama');
         expect((int) $user->failed_login_count)->toBe(1)->and($user->locked_until)->toBeNull();
     });
 
     it('still lets the right password through after a slip', function () {
-        signIn('kwame', 'wrong-again', $this->after);
-        expect(signIn('kwame', OWNER_INPUT['password'], $this->after)['ok'])->toBeTrue();
+        signIn('ama', 'wrong-again', $this->after);
+        expect(signIn('ama', STAFF_INPUT['password'], $this->after)['ok'])->toBeTrue();
     });
 
     it('still locks again after another full run of failures', function () {
         for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
-            signIn('kwame', 'wrong', $this->after);
+            signIn('ama', 'wrong', $this->after);
         }
-        expect(signIn('kwame', OWNER_INPUT['password'], $this->after)['reason'])->toBe('ACCOUNT_LOCKED');
+        expect(signIn('ama', STAFF_INPUT['password'], $this->after)['reason'])->toBe('ACCOUNT_LOCKED');
+    });
+});
+
+describe('an owner is slowed down, never locked out (D16)', function () {
+    beforeEach(function () {
+        createOwner();
+        $this->t = Carbon::parse('2026-11-06 09:00:00', 'UTC');
+    });
+
+    it('waits 1 s at the fifth failure in a row, doubling after, never more than 60 s', function () {
+        expect(array_map(AuthService::ownerDelaySeconds(...), [1, 4, 5, 6, 7, 10, 11, 500]))->toBe([0, 0, 1, 2, 4, 32, 60, 60]);
+    });
+
+    it('refuses even the right password until the delay is over, then lets it through', function () {
+        for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
+            signIn('kwame', 'wrong', $this->t);
+        }
+        signIn('kwame', 'wrong', $this->t->copy()->addSecond());
+        expect(signIn('kwame', OWNER_INPUT['password'], $this->t->copy()->addSecond()))->toBe(['ok' => false, 'reason' => 'TOO_MANY_ATTEMPTS', 'retryAfterSeconds' => 2])
+            ->and(signIn('kwame', OWNER_INPUT['password'], $this->t->copy()->addSeconds(3))['ok'])->toBeTrue();
+    });
+
+    it('never locks the owner for longer than a minute, however many guesses', function () {
+        $at = $this->t->copy();
+        for ($i = 0; $i < 20; $i++) {
+            $at = $at->copy()->addSeconds(AuthService::OWNER_DELAY_CAP_SECONDS);
+            expect(signIn('kwame', 'wrong', $at)['reason'])->toBe('INVALID_CREDENTIALS');
+        }
+        expect((int) userRow('kwame')->failed_login_count)->toBe(20)
+            ->and(signIn('kwame', OWNER_INPUT['password'], $at->copy()->addSeconds(59))['reason'])->toBe('TOO_MANY_ATTEMPTS')
+            ->and(signIn('kwame', OWNER_INPUT['password'], $at->copy()->addSeconds(60))['ok'])->toBeTrue();
+    });
+
+    it('waits no more than the cap on a lock taken before this rule', function () {
+        DB::table('users')->where('username', 'kwame')->update(['failed_login_count' => 5, 'locked_until' => Clock::stamp($this->t->copy()->addMinutes(15))]);
+        expect(signIn('kwame', OWNER_INPUT['password'], $this->t)['retryAfterSeconds'])->toBe(60);
+    });
+
+    it('tells the owner how many failed attempts there were since they last signed in, once', function () {
+        foreach (range(1, 3) as $_) {
+            signIn('kwame', 'wrong', $this->t);
+        }
+        expect(signIn('kwame', OWNER_INPUT['password'], $this->t)['failedAttemptsSinceLastSignIn'])->toBe(3)
+            ->and((int) userRow('kwame')->failed_login_count)->toBe(0)
+            ->and(signIn('kwame', OWNER_INPUT['password'], $this->t)['failedAttemptsSinceLastSignIn'])->toBe(0);
+    });
+
+    it('still refuses a switched-off owner with the right password', function () {
+        for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
+            signIn('kwame', 'wrong', $this->t);
+        }
+        DB::table('users')->where('username', 'kwame')->update(['is_active' => false]);
+        expect(signIn('kwame', OWNER_INPUT['password'], $this->t)['reason'])->toBe('TOO_MANY_ATTEMPTS')
+            ->and(signIn('kwame', OWNER_INPUT['password'], $this->t->copy()->addMinute()))->toBe(['ok' => false, 'reason' => 'ACCOUNT_INACTIVE']);
+    });
+
+    it('leaves the notice out for staff', function () {
+        createStaff();
+        signIn('ama', 'wrong', $this->t);
+        expect(signIn('ama', STAFF_INPUT['password'], $this->t)['failedAttemptsSinceLastSignIn'])->toBe(0);
+    });
+});
+
+describe('an owner and a till PIN (D17)', function () {
+    it('refuses PIN sign-in for an owner who still holds an old PIN, as a wrong PIN, and counts it', function () {
+        createOwner();
+        DB::table('users')->where('username', 'kwame')->update(['pin_hash' => Passwords::hashPin('8351')]);
+        expect(AuthService::loginWithPin('kwame', '8351'))->toBe(['ok' => false, 'reason' => 'INVALID_CREDENTIALS'])
+            ->and((int) userRow('kwame')->failed_login_count)->toBe(1);
+    });
+
+    it('refuses to create an owner account with a PIN', function () {
+        expect(fn () => createOwner(['pin' => '8351']))->toThrow(ValidationError::class, AuthService::OWNER_PIN_REFUSED)
+            ->and(DB::table('users')->count())->toBe(0);
     });
 });
 

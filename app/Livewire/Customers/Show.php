@@ -149,8 +149,7 @@ final class Show extends Component
             'sales' => $sales,
             'payments' => $payments,
             'openSales' => CustomerPaymentService::getOpenSales($this->customerId),
-            'totalBought' => Money::sum(array_map(fn (array $s): int => (int) $s['totalMinor'], array_filter($sales, fn (array $s): bool => $s['status'] === 'POSTED'))),
-            'totalPaid' => Money::sum(array_map(fn (array $p): int => (int) $p['amountMinor'], array_filter($payments, fn (array $p): bool => $p['status'] === 'POSTED'))),
+            ...CustomerService::getActivityTotals($this->customerId),
             'accounts' => PaymentAccountService::listPaymentAccounts(),
         ]);
     }

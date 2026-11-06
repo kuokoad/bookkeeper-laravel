@@ -65,7 +65,8 @@ it('gives the sales report headline from its day and payment rows', function () 
     expect($totals)->toBe(['totalSales' => 15_001, 'totalCost' => 9_000, 'totalProfit' => 6_001, 'saleCount' => 3, 'averageSale' => 5_000, 'totalTaken' => 15_001])
         // A day of returns only: no sales to average over, so the average is the total.
         ->and(OperationsService::getSalesReportTotals([['revenue' => -2_000, 'cost' => -1_200, 'profit' => -800, 'saleCount' => 0]])['averageSale'])->toBe(-2_000)
-        ->and(OperationsService::getPurchasesReportTotals([['total' => 30_000, 'purchaseCount' => 2], ['total' => 4_500, 'purchaseCount' => 1]]))->toBe(['total' => 34_500, 'count' => 3]);
+        ->and(OperationsService::getPurchasesReportTotals([['total' => 30_000, 'returned' => 0, 'net' => 30_000, 'purchaseCount' => 2], ['total' => 4_500, 'returned' => 450, 'net' => 4_050, 'purchaseCount' => 1]]))
+        ->toBe(['total' => 34_500, 'returned' => 450, 'net' => 34_050, 'count' => 3]);
 });
 
 it('agrees with the report rows the screen shows', function () {
@@ -113,7 +114,7 @@ it('totals what was bought from a supplier and paid later, posted only, and what
     Shop::capital($this->actor, $this->cash, 100_000);
     SupplierPaymentService::recordSupplierPayment(['businessDate' => '2026-08-18', 'supplierId' => $supplier, 'paymentAccountId' => $this->cash, 'amount' => 5_000], $this->actor);
 
-    $totals = SupplierService::summariseActivity(PurchaseService::listPurchases(['supplierId' => $supplier, 'limit' => 100]), SupplierPaymentService::listSupplierPayments($supplier, 100));
+    $totals = SupplierService::getActivityTotals($supplier);
     expect($totals)->toBe(['totalBought' => 60_000, 'totalPaid' => 5_000])
         ->and(PurchaseService::getPurchase($paidAtDelivery)['paidMinor'])->toBe(25_000);
 });

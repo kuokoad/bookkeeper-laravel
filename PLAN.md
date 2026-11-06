@@ -351,6 +351,7 @@ delay says "this username exists and has not signed in since the cut-over".
 Burning a full scrypt for every unknown username would close that, but would
 let anyone keep the till PC busy for seconds per guess. Kept as is (the gap
 closes as people sign in); say if you would rather pay the scrypt.
+Decided 2026-11-06: kept as is, approved by the owner. The gap closes as people sign in after the switch.
 
 **D13. Changing your own password signs you out too.** Old
 `user.service.ts` `changeOwnPassword` says "every OTHER session is ended;
@@ -359,6 +360,7 @@ the current one included (and the old test asserts zero sessions). Ported as
 the code behaves. Proposed: Phase 9's password page calls
 `Sessions::begin()` again after a successful change, so the person stays
 signed in on that screen only, as the comment intended.
+DONE 2026-11-06, approved by the owner. Now: changing your own password ends every other session; this one stays signed in under a new session id (`PasswordController`, `AuthScreensTest`).
 
 **D14. Taking over another account through its PIN or password. DONE (for
 security, without waiting).** Old `user.service.ts:312` (`resetUserPassword`)
@@ -377,16 +379,19 @@ every attempt counts against one key, so 10 wrong guesses in 10 minutes from
 anyone block every till, and one success clears the bucket for the guesser
 too. Proposed: throttle per username plus a looser shared ceiling (say 50 per
 10 minutes), and do not clear the shared count on a success.
+DONE 2026-11-06, approved by the owner. Now: 10 tries per 10 minutes per username, plus a shop-wide 50 (per address behind a trusted proxy); a success clears only that name's count, never the shared one. An owner account is counted but never refused by either bucket; only the D16 wait holds it back (the owner chose this after review) (`AuthScreensTest`). Anyone can still hold a staff username's 10 for 10 minutes.
 
 **D16. Anyone can lock the owner out for 15 minutes.** Five wrong passwords
 for the owner's username lock that account, from any till, and again as soon
 as the lock ends. Proposed: keep the lock for staff; for an owner, slow down
 instead (a growing delay per failure) and show the failed attempts on the
 owner's next sign-in.
+DONE 2026-11-06, approved by the owner. Now: an owner is never locked; from the 5th failure in a row a 1, 2, 4... second wait (at most 60 s), and "N failed sign-in attempts since your last sign-in" on the next success. The throttle, a staff lock and the owner's wait all show one message, "Too many attempts. Wait a few minutes and try again.", so the owner's name is not revealed by wording (a patient guesser can still notice the owner answers again within a minute). Staff keep 5 failures / 15 minutes (`AuthTest`, `AuthScreensTest`).
 
 **D17. Owner accounts can sign in with a till PIN.** A 4 to 6 digit PIN is
 the weakest credential in the shop, and on an owner account it opens
 everything. Proposed: refuse PIN sign-in for owners, who keep their password.
+DONE 2026-11-06, approved by the owner. Now: an owner's PIN sign-in is refused exactly as a wrong PIN and counted; a PIN cannot be set on an owner, and old owner PINs are ignored (`AuthTest`, `UsersTest`, `UsersScreensTest`).
 
 **D18. A restore drops the live database before loading the file.** If the
 load fails part way (disk full, MySQL stops), the database is empty or
@@ -394,11 +399,13 @@ partial until the owner restores the `...-before-restore` file; the error
 names it. Renaming aside is impossible (MySQL cannot move a table with
 triggers to another schema). Proposed: keep it, and have the Phase 9 restore
 screen offer the safety file in one click when a restore fails.
+DONE 2026-11-06, approved by the owner. Now: if a restore's load or check fails, the `-before-restore` copy is loaded straight back and checked, then the failure is reported; if that also fails, it says so loudly naming both files. The safety copy must be complete (checked writes and mysqldump's completion line) before anything is dropped, and a database that was empty before is left empty after a failed load (`BackupRestoreTest`).
 
 **D19. Till PINs are now rehashed on sign-in (new behaviour).** The old app
 never replaced a PIN hash; here an old scrypt PIN becomes argon2id on its
 first successful PIN sign-in, as passwords do (PLAN 6.3). Nothing changes for
 the person. Proposed: keep it.
+Decided 2026-11-06: kept, approved by the owner.
 
 The next five came out of the Phase 9 click-through. Each is old-app
 behaviour the new screens reproduce on purpose; nothing changes until you
@@ -412,6 +419,7 @@ banner reads "Sale saved — R-0001 · Payment received in full." while she
 owes GHS 30.00 on it. The figures (the sale, her balance) are right; the
 words are not. Proposed: when the sale left money owing, say "GHS 30.00 left
 on Adwoa Mensah's account." instead.
+DONE 2026-11-06, approved by the owner. Now: after a sale that leaves money owing the till says "GHS 30.00 left on Adwoa Mensah's account." (the amount is the service's `outstanding`); "Give change" and "Payment received in full." stay for the rest (`PosScreenTest`).
 
 **D21. No confirmation after a customer return or owner money in/out.** Old
 `purchase.actions.ts:456` redirects to `/sales/{id}?returned=1`, which
@@ -423,6 +431,7 @@ GHS 500.00 put in by the owner: the form clears and nothing says it was
 saved. Proposed: "Return recorded. Stock and the customer's balance were
 updated." and "Recorded. The account balance was updated.", as the other
 forms do.
+DONE 2026-11-06, approved by the owner. Now: a customer return shows "Return recorded. Stock and the customer's balance were updated." and owner money in or out shows "Recorded. The account balance was updated." (`SalesScreensTest`, `AccountScreensTest`).
 
 **D22. The purchase report ignores supplier returns.** Old
 `reporting/operations.service.ts:688` (by day), `:628` (by supplier) and
@@ -432,6 +441,7 @@ GHS 4,500.00, then goods worth GHS 450.00 sent back: the report shows
 GHS 4,500.00 bought, not GHS 4,050.00, while the supplier's balance and the
 ledger already show the return. Proposed: a "Returned" column dated by the
 return, and a net total, so the report agrees with the supplier pages.
+DONE 2026-11-06, approved by the owner. Now: the purchase report and its CSV have Returned and Net in every view (day, supplier, product per unit), summed from supplier return documents on their own date under the same filters as the rows; 4,500.00 bought and 450.00 returned reads Net 4,050.00 (`ClickThroughDecisionsTest`).
 
 **D23. The sales report's daily sale count includes voided sales.** Old
 `reporting/operations.service.ts:266` counts every `kind = 'SALE'` row dated
@@ -440,6 +450,7 @@ the money columns net out through the void's mirror row, the count does not.
 Example: three sales on 03 Nov, one of them voided: the day shows 3 sales
 and the takings of two. Proposed: count only sales still standing (POSTED),
 or show "3 (1 voided)".
+DONE 2026-11-06, approved by the owner. Now: the daily sale count uses D9's "as at the period end" rule (`TaxReturnService::standingAtEndSql`); three sales with one voided read 2 (`ClickThroughDecisionsTest`; reconcile's OldReports counts the same way).
 
 **D24. A customer's "Total bought" and "Total paid later" cover only their
 latest 100 sales and payments.** Old `customers/[id]/page.tsx:54` lists 100
@@ -448,3 +459,4 @@ Example: a regular with 150 sales of GHS 10.00 sees "Total bought 1,000.00",
 not 1,500.00; the balance owed (computed separately) stays right. Proposed:
 one SQL sum over all of the customer's posted sales and payments in
 `CustomerService`, keeping the list at 100.
+DONE 2026-11-06, approved by the owner. Now: "Total bought" and "Total paid later" on the customer and supplier pages are sums over all posted documents (`getActivityTotals`); returns subtract on both pages (the owner chose one rule after review) and a voided sale drops out, as the balances have them (the old customer page took each void off twice; the old supplier page left returns out); the lists still show 100 rows (`ClickThroughDecisionsTest`).

@@ -112,11 +112,12 @@ final class ReportExport
             case 'purchases':
                 $q = [...ListFilters::parsePurchaseReportFilters($params, $range['to'])['filters'], ...$range];
 
-                return ['headers' => ['Section', 'Name', 'Count/Qty', 'Total'], 'rows' => [
-                    ...array_map(fn (array $r): array => ['By day', $r['businessDate'], (string) $r['purchaseCount'], $m($r['total'])], OperationsService::getPurchasesByDay($q)),
-                    ...array_map(fn (array $r): array => ['By supplier', $r['supplierName'], (string) $r['purchaseCount'], $m($r['total'])], OperationsService::getPurchasesBySupplier($q)),
+                // Returned and Net (D22): supplier returns on their own date, under the same filter.
+                return ['headers' => ['Section', 'Name', 'Count/Qty', 'Total', 'Returned', 'Net'], 'rows' => [
+                    ...array_map(fn (array $r): array => ['By day', $r['businessDate'], (string) $r['purchaseCount'], $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesByDay($q)),
+                    ...array_map(fn (array $r): array => ['By supplier', $r['supplierName'], (string) $r['purchaseCount'], $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesBySupplier($q)),
                     // One row per product and unit (D7): the unit tells the rows of a product apart.
-                    ...array_map(fn (array $r): array => ['By product', "{$r['productName']} ({$r['unit']})", Csv::qty($r['qtyBought']), $m($r['total'])], OperationsService::getPurchasesByProduct($q)),
+                    ...array_map(fn (array $r): array => ['By product', "{$r['productName']} ({$r['unit']})", Csv::qty($r['qtyBought']), $m($r['total']), $m($r['returned']), $m($r['net'])], OperationsService::getPurchasesByProduct($q)),
                 ]];
 
             case 'inventory':

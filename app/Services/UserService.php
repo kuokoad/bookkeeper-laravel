@@ -202,7 +202,11 @@ final class UserService
         });
     }
 
-    /** Needs the current password, so a walked-away session cannot be turned into a takeover. */
+    /**
+     * Needs the current password, so a walked-away session cannot be turned
+     * into a takeover. Ends every session of the person; the caller starts
+     * the current one again (D13).
+     */
     public static function changeOwnPassword(int $userId, string $currentPassword, string $newPassword, ?Carbon $now = null): void
     {
         $now ??= Clock::now();
@@ -236,6 +240,10 @@ final class UserService
         Tx::run(function () use ($id, $pin, $hash, $actor, $now): void {
             $existing = DB::table('users')->where('users.id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('User', $id);
             self::assertMayTakeOver($existing, $actor, 'set this person’s PIN');
+            // Removing one an owner still holds from before D17 is allowed; it is ignored at sign-in anyway.
+            if ($pin !== null && $existing->role === UserRole::Owner->value) {
+                throw new ValidationError(AuthService::OWNER_PIN_REFUSED);
+            }
             DB::table('users')->where('users.id', $id)->update(['pin_hash' => $hash, 'updated_at' => Clock::stamp($now)]);
             AuditService::write(AuditAction::PasswordChange, 'user', $pin === null ? "Removed the till PIN for {$existing->username}" : "Set a till PIN for {$existing->username}", $id, $actor, at: $now);
         });

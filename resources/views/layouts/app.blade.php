@@ -17,7 +17,7 @@
                 <img src="/brand/nunabooks-mark.svg" alt="" width="314" height="374" class="h-full w-auto">
             </span>
             <div class="min-w-0">
-                <p class="text-xl font-bold leading-tight text-white">NunaBooks</p>
+                <p class="text-xl font-bold leading-tight text-[var(--sidebar-wordmark,#fff)]">NunaBooks</p>
                 <p class="whitespace-nowrap text-[9px] font-medium leading-tight text-sidebar-muted">Simple Books. Stronger Business.</p>
             </div>
         </a>

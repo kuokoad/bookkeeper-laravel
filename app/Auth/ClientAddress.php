@@ -32,9 +32,9 @@ final class ClientAddress
     }
 
     /**
-     * What the sign-in rate limit counts against. Without a trusted proxy
-     * there is no address worth believing, so every attempt shares ONE
-     * bucket: a nuisance one guesser can fill, but not a limit anyone can
+     * The sign-in ceiling's bucket (the looser one beside the per-username
+     * bucket, D15). Without a trusted proxy there is no address worth
+     * believing, so every attempt shares ONE bucket: not a limit anyone can
      * shrug off by sending a fresh header each time.
      */
     public static function throttleKey(string $prefix, ?string $address): string

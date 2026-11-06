@@ -8,6 +8,7 @@
         'default' => ['light' => ['#f6faff', '#ffffff', '#141d23', '#006947'], 'dark' => ['#111417', '#1a1d21', '#141d23', '#3fbe90']],
         'ledger' => ['light' => ['#eae0d1', '#faf6ee', '#36281d', '#4d744e'], 'dark' => ['#1b140f', '#282019', '#36281d', '#81b482']],
         'classic' => ['light' => ['#fbfcfd', '#ffffff', '#1b2025', '#00885e'], 'dark' => ['#1f2730', '#28313b', '#0f171f', '#65cead']],
+        'jinu' => ['light' => ['#f1f6f3', '#ffffff', '#ffffff', '#13784b'], 'dark' => ['#121a19', '#19231f', '#0e1513', '#5cc18c']],
     ];
     $basisLabel = ['NET' => 'the goods value', 'NET_PLUS_LEVIES' => 'the value plus the taxes above it'];
 @endphp

@@ -64,6 +64,22 @@ it('completes a cash sale, gives change and starts a new cart', function () {
         ->assertSet('lines', [])->assertSet('salesCompleted', 1);
 });
 
+it('says what a part-paid sale left on the customer account, not "Payment received in full."', function () {
+    $adwoa = Shop::customer($this->actor, 'Adwoa Mensah');
+    $product = Shop::product($this->actor, 'Gari 5kg', 2_000, 5_000);
+    Shop::openingStock($this->actor, $product, 10_000, 20_000, '2026-01-01');
+
+    // D20: a 50.00 sale, 20.00 cash, saved on credit to Adwoa.
+    tillAs($this->ownerId)->call('add', $product)->set('customerId', (string) $adwoa)->set('tenderAmount', '20')
+        ->call('complete')->assertHasNoErrors()
+        ->assertSee("GHS 30.00 left on Adwoa Mensah's account.", false)
+        ->assertDontSee('Payment received in full.')->assertDontSee('Give change');
+
+    // Paid exactly: the old words stay.
+    tillAs($this->ownerId)->call('add', $this->rice)->set('tenderAmount', '10')->call('complete')->assertHasNoErrors()
+        ->assertSee('Payment received in full.')->assertDontSee('left on');
+});
+
 it('names the cart once, so a retry or double submit replays the first sale', function () {
     $till = tillAs($this->ownerId)->call('add', $this->rice);
     // A refused attempt keeps the cart's name: the next attempt is the same sale.

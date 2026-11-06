@@ -16,9 +16,12 @@
                 <x-field label="Starting password" for="password" hint="They must choose their own the first time they sign in." required>
                     <x-input id="password" type="text" wire:model="password" autocomplete="off" required :invalid="$errors->has('password')" />
                 </x-field>
-                <x-field label="Till PIN (optional)" for="pin" hint="4–8 digits, for quickly switching at the till.">
-                    <x-input id="pin" wire:model="pin" inputmode="numeric" autocomplete="off" placeholder="e.g. 8351" />
-                </x-field>
+                {{-- An owner signs in with their password only (D17). --}}
+                @if ($role !== 'OWNER')
+                    <x-field label="Till PIN (optional)" for="pin" hint="4–8 digits, for quickly switching at the till.">
+                        <x-input id="pin" wire:model="pin" inputmode="numeric" autocomplete="off" placeholder="e.g. 8351" />
+                    </x-field>
+                @endif
             </div>
         </div>
 

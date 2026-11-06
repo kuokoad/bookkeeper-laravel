@@ -138,7 +138,7 @@ final class Show extends Component
             'currency' => SettingsService::get()->currency_code ?? 'GHS',
             'purchases' => $purchases,
             'payments' => $payments,
-            ...SupplierService::summariseActivity($purchases, $payments),
+            ...SupplierService::getActivityTotals($this->supplierId),
             'accounts' => PaymentAccountService::listPaymentAccounts(),
         ])->title($supplier['name']);
     }

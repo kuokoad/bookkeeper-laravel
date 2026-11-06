@@ -286,12 +286,20 @@ final class OldReports
         return $figures;
     }
 
-    /** @return array<string, int> per trading day: receipts (sales, not voids or returns), total, tax and cost */
+    /**
+     * Per trading day: receipts (sales, not voids or returns), total, tax and cost. D23 (owner
+     * decision, 2026-11-06): a receipt counts on its day unless a void of it is dated on or before
+     * the period end, as D9's tax count; the old app counted voided sales too.
+     *
+     * @return array<string, int>
+     */
     public static function salesByDay(PDO $old, string $from, string $to): array
     {
-        $statement = $old->prepare("SELECT business_date, SUM(CASE WHEN kind = 'SALE' THEN 1 ELSE 0 END), SUM(total_minor), SUM(tax_minor), SUM(cogs_minor)
-            FROM sales WHERE business_date BETWEEN ? AND ? GROUP BY business_date");
-        $statement->execute([$from, $to]);
+        $statement = $old->prepare("SELECT d.business_date,
+                SUM(CASE WHEN d.kind = 'SALE' AND NOT EXISTS (SELECT 1 FROM sales m WHERE m.voids_sale_id = d.id AND m.business_date <= ?) THEN 1 ELSE 0 END),
+                SUM(d.total_minor), SUM(d.tax_minor), SUM(d.cogs_minor)
+            FROM sales d WHERE d.business_date BETWEEN ? AND ? GROUP BY d.business_date");
+        $statement->execute([$to, $from, $to]);
         $figures = [];
         foreach ($statement->fetchAll(PDO::FETCH_NUM) as [$date, $count, $total, $tax, $cogs]) {
             $figures["{$date} receipts"] = (int) $count;

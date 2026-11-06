@@ -25,7 +25,7 @@
         </x-card>
         <x-card>
             <p class="text-sm text-content-muted">Till PIN</p>
-            <p class="mt-1 font-medium text-content">{{ $user['hasPin'] ? 'Set' : 'Not set' }}</p>
+            <p class="mt-1 font-medium text-content">{{ $role === 'OWNER' ? 'Not used: owners sign in with their password' : ($user['hasPin'] ? 'Set' : 'Not set') }}</p>
         </x-card>
         <x-card>
             <p class="text-sm text-content-muted">Status</p>
@@ -91,6 +91,7 @@
                 <div class="mt-4"><x-button type="submit" wire:loading.attr="disabled" wire:target="resetPassword">Reset password</x-button></div>
             </form>
 
+            @if ($role !== 'OWNER')
             <form wire:submit="savePin" class="rounded-xl border border-line bg-surface-raised p-4" novalidate>
                 <h2 class="mb-1 text-sm font-semibold text-content">Till PIN</h2>
                 <p class="mb-3 text-sm text-content-muted">A short PIN for switching quickly at the till. {{ $user['hasPin'] ? 'A PIN is currently set. ' : '' }}Leave it blank to remove it. Wrong PINs lock the account just as wrong passwords do.</p>
@@ -102,6 +103,7 @@
                 </div>
                 <div class="mt-4"><x-button type="submit" wire:loading.attr="disabled" wire:target="savePin">Save PIN</x-button></div>
             </form>
+            @endif
 
             <div class="rounded-xl border border-line bg-surface-raised p-4">
                 <h2 class="mb-3 text-sm font-semibold text-content">Access</h2>

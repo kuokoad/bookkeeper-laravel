@@ -80,7 +80,8 @@ final class Create extends Component
                 'displayName' => $displayName,
                 'password' => $this->password,
                 'role' => $role,
-                ...($pin !== '' ? ['pin' => $pin] : []),
+                // An owner never has a till PIN (D17); the field is hidden for one.
+                ...($pin !== '' && $role === UserRole::Staff ? ['pin' => $pin] : []),
                 ...($role === UserRole::Staff ? ['permissions' => $this->postedPermissions()] : []),
                 // They set their own on first sign-in, so whoever made the account does not keep a working password.
                 'mustChangePassword' => true,

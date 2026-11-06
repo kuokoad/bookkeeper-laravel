@@ -18,6 +18,17 @@ use Illuminate\Support\Facades\DB;
  */
 final class TaxReturnService
 {
+    /**
+     * D9 (and D23 for the sales report): SQL true while a document of $table
+     * is still standing at the period end, which the caller binds: no void of
+     * it is dated on or before that day. Leaving out the void mirrors
+     * themselves is the caller's part.
+     */
+    public static function standingAtEndSql(string $table, string $voidsColumn): string
+    {
+        return "NOT EXISTS (SELECT 1 FROM {$table} AS void_mirror WHERE void_mirror.{$voidsColumn} = {$table}.id AND void_mirror.business_date <= ?)";
+    }
+
     /** @param  array{from: string, to: string}  $period */
     public static function getTaxReturn(array $period): array
     {
@@ -57,11 +68,10 @@ final class TaxReturnService
         // The value nets every row. The count (D9) is the documents standing at the period end: a void
         // mirror never counts, and an original counts unless its void is dated on or before the end, so a
         // March sale voided in April stays "1 sale" in March and April counts nothing for the void.
-        $value = 'COALESCE(SUM(%1$s.subtotal_minor - %1$s.discount_minor), 0) AS v,
-            COUNT(CASE WHEN %1$s.kind <> \'VOID\' AND NOT EXISTS (SELECT 1 FROM %1$s AS void_mirror
-                WHERE void_mirror.%2$s = %1$s.id AND void_mirror.business_date <= ?) THEN 1 END) AS n';
-        $sales = DB::table('sales')->whereBetween('sales.business_date', $range)->selectRaw(sprintf($value, 'sales', 'voids_sale_id'), [$period['to']])->first();
-        $purchases = DB::table('purchases')->whereBetween('purchases.business_date', $range)->selectRaw(sprintf($value, 'purchases', 'voids_purchase_id'), [$period['to']])->first();
+        $value = fn (string $table, string $voids): string => "COALESCE(SUM({$table}.subtotal_minor - {$table}.discount_minor), 0) AS v,
+            COUNT(CASE WHEN {$table}.kind <> 'VOID' AND ".self::standingAtEndSql($table, $voids).' THEN 1 END) AS n';
+        $sales = DB::table('sales')->whereBetween('sales.business_date', $range)->selectRaw($value('sales', 'voids_sale_id'), [$period['to']])->first();
+        $purchases = DB::table('purchases')->whereBetween('purchases.business_date', $range)->selectRaw($value('purchases', 'voids_purchase_id'), [$period['to']])->first();
 
         $totalOutput = Money::sum(array_column($components, 'outputMinor'));
         $totalRecoverableInput = Money::sum(array_column($components, 'recoverableInputMinor'));

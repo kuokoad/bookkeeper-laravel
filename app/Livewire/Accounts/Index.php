@@ -201,6 +201,8 @@ final class Index extends Component
             return;
         }
         $this->reset('ownerAmount', 'ownerDescription');
+        // No redirect, so the flash is a toast (components/flash): the form clearing alone says nothing.
+        $this->dispatch('toast', message: 'Recorded. The account balance was updated.', tone: 'success');
     }
 
     public function setDirection(string $direction): void

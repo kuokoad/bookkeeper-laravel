@@ -10,7 +10,6 @@ use App\Auth\Sessions;
 use App\Http\Controllers\Controller;
 use App\Services\AuthService;
 use App\Services\SettingsService;
-use App\Support\Clock;
 use App\Support\RateLimit;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Http\RedirectResponse;
@@ -23,12 +22,26 @@ use Illuminate\View\View;
  * actions/auth.actions.ts login, pinLogin and logout. AuthService decides;
  * this throttles, starts or ends the session, and words the answer.
  *
- * Both doors share ONE throttle key, so a PIN is not a second set of guesses.
- * The wording is uniform: a guesser must not learn whether a username exists,
- * is switched off, or has a PIN at all.
+ * Both doors count against the same two buckets (D15), so a PIN is not a
+ * second set of guesses: 10 per 10 minutes for the typed username, and a
+ * looser 50 for every sign-in in the shop (per address instead behind a
+ * trusted proxy, ClientAddress::throttleKey). Guessing at one name never
+ * blocks another below that ceiling, and a success clears only its own
+ * name's bucket, never the shared count.
+ *
+ * An owner account is never held back by either bucket (the owner's
+ * decision on D15/D16): its attempts are counted like anyone's, so the
+ * work and the writes are the same, but only the D16 delay (60 s at most)
+ * stops them. Nobody can lock the owner out by guessing.
+ *
+ * The wording is uniform: a guesser must not learn whether a username
+ * exists, is switched off, has a PIN, or is an owner. A staff lock, the
+ * owner delay and the throttle all say TOO_MANY_ATTEMPTS.
  */
 final class LoginController extends Controller
 {
+    public const TOO_MANY_ATTEMPTS = 'Too many attempts. Wait a few minutes and try again.';
+
     public function show(Request $request): View|RedirectResponse
     {
         if (AuthService::needsInitialSetup()) {
@@ -92,30 +105,31 @@ final class LoginController extends Controller
     private function attempt(Request $request, string $mode, callable $login, string $refused): RedirectResponse
     {
         $ip = ClientAddress::fromRequest($request);
-        $key = ClientAddress::throttleKey('login', $ip);
-        $throttle = RateLimit::hit($key, AuthService::LOGIN_ATTEMPT_LIMIT, AuthService::LOGIN_WINDOW_MS);
-        if (! $throttle['allowed']) {
-            $minutes = (int) ceil($throttle['retryAfterMs'] / 60_000);
-
-            return $this->refuse($request, $mode, "Too many sign-in attempts. Please wait {$minutes} minute(s) and try again.");
+        $username = (string) $request->input('username');
+        $key = AuthService::throttleKeyFor($username);
+        // Every attempt is counted the same way; the owner is only exempt from being refused by the count.
+        $isOwner = AuthService::isOwnerUsername($username);
+        $shared = RateLimit::hit(ClientAddress::throttleKey('login', $ip), AuthService::LOGIN_SHARED_LIMIT, AuthService::LOGIN_WINDOW_MS);
+        $own = RateLimit::hit($key, AuthService::LOGIN_ATTEMPT_LIMIT, AuthService::LOGIN_WINDOW_MS);
+        if (! $isOwner && (! $shared['allowed'] || ! $own['allowed'])) {
+            return $this->refuse($request, $mode, self::TOO_MANY_ATTEMPTS);
         }
 
         $result = $login($ip, $request->userAgent());
         if (! $result['ok']) {
-            if ($result['reason'] === 'ACCOUNT_LOCKED') {
-                $minutes = max(1, (int) ceil(($result['lockedUntil']->getTimestampMs() - Clock::now()->getTimestampMs()) / 60_000));
+            $waiting = in_array($result['reason'], ['TOO_MANY_ATTEMPTS', 'ACCOUNT_LOCKED'], true);
 
-                return $this->refuse($request, $mode, "This account is temporarily locked after too many failed attempts. Try again in {$minutes} minute(s).");
-            }
-
-            return $this->refuse($request, $mode, $refused);
+            return $this->refuse($request, $mode, $waiting ? self::TOO_MANY_ATTEMPTS : $refused);
         }
 
         RateLimit::reset($key);
         Sessions::begin($request, $result['user']);
 
         // A starting password set by someone else is changed first (EnsurePasswordChosen).
-        return redirect('/dashboard');
+        $failed = $result['failedAttemptsSinceLastSignIn'];
+
+        return $failed === 0 ? redirect('/dashboard')
+            : redirect('/dashboard')->with('error', "{$failed} failed sign-in attempt".($failed === 1 ? '' : 's').' since your last sign-in.');
     }
 
     private function refuse(Request $request, string $mode, string $message): RedirectResponse

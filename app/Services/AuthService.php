@@ -37,27 +37,35 @@ use Illuminate\Support\Facades\Hash;
  */
 final class AuthService
 {
-    /** Consecutive failures before the account is locked. */
+    /** Consecutive failures before a staff account is locked, or an owner's attempts are slowed (D16). */
     public const MAX_FAILED_LOGINS = 5;
 
-    /** How long the lock lasts: long enough to stop guessing, short enough to trade. */
+    /** How long a staff lock lasts: long enough to stop guessing, short enough to trade. */
     public const LOCKOUT_MINUTES = 15;
 
-    /** The sign-in throttle in front of the lockout: per client (or one shared bucket), not per account. */
+    /** An owner is never locked; from the fifth failure in a row each one doubles the wait, up to this (D16). */
+    public const OWNER_DELAY_CAP_SECONDS = 60;
+
+    /** The sign-in throttle in front of the lockout, per typed username (D15). */
     public const LOGIN_ATTEMPT_LIMIT = 10;
 
+    /** The looser ceiling over every sign-in: shop-wide, or per address behind a trusted proxy (D15). */
+    public const LOGIN_SHARED_LIMIT = 50;
+
     public const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+
+    public const OWNER_PIN_REFUSED = 'An owner signs in with their password only, so an owner account cannot have a till PIN.';
 
     private const USERNAME_PATTERN = '/^[a-zA-Z0-9._-]{3,40}\z/';
 
     /**
-     * @return array{ok: true, user: User, principal: Principal, mustChangePassword: bool}|array{ok: false, reason: 'INVALID_CREDENTIALS'|'ACCOUNT_LOCKED'|'ACCOUNT_INACTIVE', lockedUntil?: Carbon}
+     * @return array{ok: true, user: User, principal: Principal, mustChangePassword: bool, failedAttemptsSinceLastSignIn: int}|array{ok: false, reason: 'INVALID_CREDENTIALS'|'ACCOUNT_LOCKED'|'ACCOUNT_INACTIVE'|'TOO_MANY_ATTEMPTS', lockedUntil?: Carbon, retryAfterSeconds?: int}
      */
     public static function login(string $username, string $password, ?string $ipAddress = null, ?string $userAgent = null, ?Carbon $now = null): array
     {
         $now ??= Clock::now();
         $username = JsCompat::trim($username);
-        $user = self::findByUsername($username);
+        $user = self::lookUpSignInName($username);
 
         if ($user === null) {
             // The same work as a real check, so timing does not reveal which usernames exist.
@@ -68,6 +76,12 @@ final class AuthService
         }
 
         $lockedUntil = self::lockedUntil($user, $now);
+        if ($lockedUntil !== null && self::isOwner($user)) {
+            $seconds = max(1, (int) ceil(($lockedUntil->getTimestampMs() - $now->getTimestampMs()) / 1000));
+            Tx::run(fn () => AuditService::write(AuditAction::LoginFailed, 'user', "Owner sign-in attempt refused: {$seconds} s left of the delay after repeated failures", $user->id, new Actor((int) $user->id, $user->username), at: $now, ipAddress: $ipAddress, userAgent: $userAgent));
+
+            return ['ok' => false, 'reason' => 'TOO_MANY_ATTEMPTS', 'retryAfterSeconds' => $seconds];
+        }
         if ($lockedUntil !== null) {
             Tx::run(fn () => AuditService::write(AuditAction::LoginFailed, 'user', 'Login attempt while account locked until '.self::iso($lockedUntil), $user->id, new Actor((int) $user->id, $user->username), at: $now, ipAddress: $ipAddress, userAgent: $userAgent));
 
@@ -93,17 +107,19 @@ final class AuthService
     /**
      * Fast sign-in at the till with a short PIN. The same lockout counter as
      * the password, so a PIN is not a second set of guesses; "no PIN set"
-     * answers exactly as a wrong PIN does.
+     * answers exactly as a wrong PIN does. An owner never signs in with a
+     * PIN (D17): a PIN they still hold is ignored, and the attempt answers
+     * and counts as a wrong one.
      *
-     * @return array{ok: true, user: User, principal: Principal, mustChangePassword: bool}|array{ok: false, reason: 'INVALID_CREDENTIALS'|'ACCOUNT_LOCKED'|'ACCOUNT_INACTIVE', lockedUntil?: Carbon}
+     * @return array{ok: true, user: User, principal: Principal, mustChangePassword: bool, failedAttemptsSinceLastSignIn: int}|array{ok: false, reason: 'INVALID_CREDENTIALS'|'ACCOUNT_LOCKED'|'ACCOUNT_INACTIVE', lockedUntil?: Carbon}
      */
     public static function loginWithPin(string $username, string $pin, ?string $ipAddress = null, ?string $userAgent = null, ?Carbon $now = null): array
     {
         $now ??= Clock::now();
         $username = JsCompat::trim($username);
-        $user = self::findByUsername($username);
+        $user = self::lookUpSignInName($username);
 
-        if ($user === null || $user->pin_hash === null) {
+        if ($user === null || $user->pin_hash === null || self::isOwner($user)) {
             Passwords::burn();
             self::recordFailedAttempt($user === null ? null : (int) $user->id, $username, $ipAddress, $userAgent, $now);
 
@@ -171,8 +187,11 @@ final class AuthService
             }
         }
 
-        $passwordHash = Passwords::hashPassword($input['password']);
         $pin = $input['pin'] ?? null;
+        if ($input['role'] === UserRole::Owner && $pin !== null && $pin !== '') {
+            throw new ValidationError(self::OWNER_PIN_REFUSED);
+        }
+        $passwordHash = Passwords::hashPassword($input['password']);
         $pinHash = $pin !== null && $pin !== '' ? Passwords::hashPin($pin) : null;
 
         return Tx::run(function () use ($input, $actor, $now, $username, $displayName, $passwordHash, $pinHash): int {
@@ -233,6 +252,45 @@ final class AuthService
         return DB::table('users')->whereRaw('LOWER(`users`.`username`) = LOWER(?)', [$username])->first();
     }
 
+    /** The per-username sign-in bucket, matched as findByUsername matches: trimmed, any case (D15). */
+    public static function throttleKeyFor(string $username): string
+    {
+        $username = JsCompat::trim($username);
+
+        // Only ASCII gets this far, so strtolower folds exactly as MySQL's LOWER() in the lookup.
+        return 'login:user:'.(self::isWellFormedUsername($username) ? strtolower($username) : 'invalid');
+    }
+
+    /** Whether a typed name belongs to an owner account. A lookup for every well-formed name, owner or not. */
+    public static function isOwnerUsername(string $username): bool
+    {
+        $user = self::lookUpSignInName(JsCompat::trim($username));
+
+        return $user !== null && self::isOwner($user);
+    }
+
+    /** A trimmed name that could be an account: as createUser would accept it. */
+    private static function isWellFormedUsername(string $username): bool
+    {
+        return preg_match(self::USERNAME_PATTERN, $username) === 1;
+    }
+
+    /** A sign-in's lookup: a name no account could have is not looked up at all, and fails as an unknown one. */
+    private static function lookUpSignInName(string $trimmed): ?object
+    {
+        return self::isWellFormedUsername($trimmed) ? self::findByUsername($trimmed) : null;
+    }
+
+    /** 1 s at the fifth failure in a row, doubling with each one after, never more than the cap (D16). */
+    public static function ownerDelaySeconds(int $consecutiveFailures): int
+    {
+        if ($consecutiveFailures < self::MAX_FAILED_LOGINS) {
+            return 0;
+        }
+
+        return min(self::OWNER_DELAY_CAP_SECONDS, 2 ** min(30, $consecutiveFailures - self::MAX_FAILED_LOGINS));
+    }
+
     /** @param  'password_hash'|'pin_hash'  $column */
     private static function succeed(object $user, string $column, string $secret, string $summary, ?string $ipAddress, ?string $userAgent, Carbon $now): array
     {
@@ -240,12 +298,15 @@ final class AuthService
         // Made before the write: a hash is slow, a row lock should not be.
         $rehashed = Passwords::needsRehash($verified) ? Hash::make($column === 'password_hash' ? LegacyScrypt::normalize($secret) : $secret) : null;
 
-        $ok = Tx::run(function () use ($user, $column, $verified, $rehashed, $summary, $ipAddress, $userAgent, $now): bool {
+        $failedBefore = 0;
+        $ok = Tx::run(function () use ($user, $column, $verified, $rehashed, $summary, $ipAddress, $userAgent, $now, &$failedBefore): bool {
             $current = DB::table('users')->where('users.id', $user->id)->lockForUpdate()->first();
             // Reset or changed while this check ran: what was checked is no longer the credential.
             if ($current === null || $current->{$column} !== $verified || ! (bool) $current->is_active) {
                 return false;
             }
+            // No lock ever cuts an owner's count short, so it is every failure since they last signed in (D16).
+            $failedBefore = self::isOwner($current) ? (int) $current->failed_login_count : 0;
             $changes = ['failed_login_count' => 0, 'locked_until' => null, 'last_login_at' => Clock::stamp($now), 'updated_at' => Clock::stamp($now)];
             if ($rehashed !== null) {
                 // One person at a time, on their own correct password: never a bulk rewrite.
@@ -266,6 +327,7 @@ final class AuthService
             'user' => User::query()->findOrFail($user->id),
             'principal' => Principal::load((int) $user->id),
             'mustChangePassword' => (bool) $user->must_change_password,
+            'failedAttemptsSinceLastSignIn' => $failedBefore,
         ];
     }
 
@@ -274,14 +336,22 @@ final class AuthService
         Tx::run(function () use ($userId, $username, $ipAddress, $userAgent, $now): void {
             if ($userId !== null) {
                 $current = DB::table('users')->where('users.id', $userId)->lockForUpdate()->first();
+                $owner = $current !== null && self::isOwner($current);
                 // Serving the lockout gives the attempts back, or one slip a month later re-locks at once.
+                // Not an owner's: their count runs on, for the delay and the notice at their next sign-in.
                 $lockedUntil = $current?->locked_until === null ? null : Clock::fromStamp($current->locked_until);
-                $lockHasExpired = $lockedUntil !== null && $lockedUntil->lessThanOrEqualTo($now);
+                $lockHasExpired = ! $owner && $lockedUntil !== null && $lockedUntil->lessThanOrEqualTo($now);
                 $failed = ($lockHasExpired ? 0 : (int) ($current->failed_login_count ?? 0)) + 1;
+                // An owner's locked_until is only the end of a short delay, never a lock.
+                $until = match (true) {
+                    $failed < self::MAX_FAILED_LOGINS => null,
+                    $owner => $now->copy()->addSeconds(self::ownerDelaySeconds($failed)),
+                    default => $now->copy()->addMinutes(self::LOCKOUT_MINUTES),
+                };
 
                 DB::table('users')->where('users.id', $userId)->update([
                     'failed_login_count' => $failed,
-                    'locked_until' => $failed >= self::MAX_FAILED_LOGINS ? Clock::stamp($now->copy()->addMinutes(self::LOCKOUT_MINUTES)) : null,
+                    'locked_until' => $until === null ? null : Clock::stamp($until),
                     'updated_at' => Clock::stamp($now),
                 ]);
             }
@@ -307,8 +377,17 @@ final class AuthService
             return null;
         }
         $until = Clock::fromStamp($user->locked_until);
+        // An owner locked for 15 minutes before D16 waits no longer than the cap.
+        if (self::isOwner($user)) {
+            $until = $until->min($now->copy()->addSeconds(self::OWNER_DELAY_CAP_SECONDS));
+        }
 
         return $until->greaterThan($now) ? $until : null;
+    }
+
+    private static function isOwner(object $user): bool
+    {
+        return $user->role === UserRole::Owner->value;
     }
 
     /** Date.prototype.toISOString(): UTC, milliseconds, "Z". */

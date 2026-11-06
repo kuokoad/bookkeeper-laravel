@@ -20,8 +20,9 @@ use Illuminate\View\View;
  * whose password was set by someone else: the old (account)/account/password
  * page. It sits outside EnsurePasswordChosen, so it needs no exception.
  *
- * Every session of the person ends, this one included, as the old code did
- * (PLAN D13, still open): they sign in again with the new password.
+ * Every OTHER session of the person ends; this one carries on under a fresh
+ * id and a fingerprint of the new password, so EnforceSessionLimits keeps it
+ * (PLAN D13: what the old comment intended, not what its code did).
  */
 final class PasswordController extends Controller
 {
@@ -55,8 +56,9 @@ final class PasswordController extends Controller
         } catch (DomainError $e) {
             return back()->withErrors(['form' => $e->userMessage]);
         }
-        Sessions::end($request);
+        // The service deleted every session row of theirs, this one's too; begin() saves it under a new id.
+        Sessions::begin($request, User::query()->findOrFail((int) Auth::guard('web')->id()));
 
-        return redirect('/login?passwordChanged=1');
+        return redirect('/dashboard')->with('status', 'Password changed. You were signed out everywhere else.');
     }
 }

@@ -79,7 +79,7 @@ final class Pos extends Component
 
     public string $overrideReason = '';
 
-    /** @var array{receiptNo: string, saleId: int, change: int}|null */
+    /** @var array{receiptNo: string, saleId: int, change: int, owing: int, customerName: ?string}|null */
     #[Locked]
     public ?array $saved = null;
 
@@ -338,9 +338,12 @@ final class Pos extends Component
             return;
         }
 
+        // D20: what the sale left owing, from the service, and on whose account (read before the cart clears).
+        $owing = Money::atLeastZero($result['outstanding']);
+        $customerName = $owing > 0 && $this->customerId !== '' ? CustomerService::getCustomer((int) $this->customerId)['name'] : null;
         $this->clearSale();
         $this->overrideReason = '';
-        $this->saved = ['receiptNo' => $result['receiptNo'], 'saleId' => $result['saleId'], 'change' => $result['change']];
+        $this->saved = ['receiptNo' => $result['receiptNo'], 'saleId' => $result['saleId'], 'change' => $result['change'], 'owing' => $owing, 'customerName' => $customerName];
         // A new cart needs a new name, or the next sale would replay this one.
         $this->salesCompleted++;
         // The sale may have changed what a customer owes.

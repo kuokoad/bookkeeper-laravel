@@ -9,9 +9,13 @@ declare(strict_types=1);
 */
 
 use App\Auth\Sessions;
+use App\Http\Controllers\Auth\LoginController;
 use App\Models\User;
 use App\Services\AuthService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+
+afterEach(fn () => Carbon::setTestNow());
 
 describe('first run', function () {
     it('sends the first visitor to setup, and creates the owner and the shop once', function () {
@@ -84,29 +88,123 @@ describe('signing in', function () {
         expect(DB::table('rate_limits')->count())->toBe(0);
     });
 
-    it('locks an account after five wrong passwords and says for how long', function () {
+    it('locks a staff account after five wrong passwords, worded as any other wait', function () {
         foreach (range(1, 5) as $_) {
             $this->post('/login', ['username' => 'ama', 'password' => 'wrong']);
         }
         $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])
-            ->assertSessionHasErrors(['form' => 'This account is temporarily locked after too many failed attempts. Try again in 15 minute(s).']);
+            ->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
         $this->assertGuest();
     });
 
-    it('throttles the eleventh attempt in ten minutes, password and PIN sharing one count', function () {
+    it('throttles the eleventh attempt in ten minutes on one username, password and PIN sharing one count', function () {
         foreach (range(1, 5) as $_) {
             $this->post('/login', ['username' => 'nobody', 'password' => 'wrong']);
             $this->post('/login/pin', ['username' => 'nobody', 'pin' => '0000']);
         }
-        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])
-            ->assertSessionHasErrors(['form' => 'Too many sign-in attempts. Please wait 10 minute(s) and try again.']);
+        // The name is matched as sign-in matches it: any case, trimmed.
+        $this->post('/login', ['username' => ' NoBody ', 'password' => 'wrong'])
+            ->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
         $this->assertGuest();
     });
 
-    it('clears the count on a successful sign-in', function () {
-        $this->post('/login', ['username' => 'kwame', 'password' => 'wrong']);
+    it('sends every name that cannot exist to one bucket', function () {
+        foreach (range(1, 10) as $i) {
+            $this->post('/login', ['username' => "no such {$i}", 'password' => 'wrong']);
+        }
+        $this->post('/login', ['username' => 'also/not-a-name', 'password' => 'wrong'])->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
+        expect(DB::table('rate_limits')->where('key', 'like', 'login:user:%')->pluck('key')->all())->toBe(['login:user:invalid']);
+    });
+
+    it('does not let wrong guesses on one name block another name (D15)', function () {
+        foreach (range(1, 11) as $_) {
+            $this->post('/login', ['username' => 'nobody', 'password' => 'wrong']);
+        }
+        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertRedirect('/dashboard');
+        $this->assertAuthenticatedAs(User::find($this->staffId));
+    });
+
+    it('never throttles the owner by name: after 11 wrong guesses the right password works once the delay has passed', function () {
+        $t = Carbon::parse('2026-11-06 09:00:00', 'UTC');
+        Carbon::setTestNow($t);
+        foreach (range(1, 11) as $_) {
+            $this->post('/login', ['username' => 'kwame', 'password' => 'wrong']);
+        }
+        Carbon::setTestNow($t->copy()->addSeconds(AuthService::OWNER_DELAY_CAP_SECONDS));
+        $this->post('/login', ['username' => 'KWAME', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard');
+        $this->assertAuthenticatedAs(User::find($this->ownerId));
+    });
+
+    it('lets 51 guesses across the shop block staff but not the owner, once the owner delay has passed (D15)', function () {
+        $t = Carbon::parse('2026-11-06 09:00:00', 'UTC');
+        Carbon::setTestNow($t);
+        foreach (range(1, 6) as $_) {
+            $this->post('/login', ['username' => 'kwame', 'password' => 'wrong']);
+        }
+        foreach (range(1, AuthService::LOGIN_SHARED_LIMIT - 5) as $i) {
+            $this->post('/login', ['username' => "guess{$i}", 'password' => 'wrong']);
+        }
+        $this->post('/login/pin', ['username' => 'ama', 'pin' => '8351'])->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
+        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
+        $this->assertGuest();
+
+        Carbon::setTestNow($t->copy()->addSeconds(AuthService::OWNER_DELAY_CAP_SECONDS));
         $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard');
-        expect(DB::table('rate_limits')->count())->toBe(0);
+        $this->assertAuthenticatedAs(User::find($this->ownerId));
+    });
+
+    it('clears only that name’s count on a successful sign-in, never the shared count (D15)', function () {
+        $this->post('/login', ['username' => 'ama', 'password' => 'wrong']);
+        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertRedirect('/dashboard');
+        expect(DB::table('rate_limits')->where('key', AuthService::throttleKeyFor('ama'))->exists())->toBeFalse()
+            ->and((int) DB::table('rate_limits')->where('key', 'login:shared')->value('attempts'))->toBe(2);
+    });
+
+    it('behind a trusted proxy, counts the ceiling per address, the per-name bucket still applying (D15)', function () {
+        config(['nuna.trust_proxy_headers' => true]);
+        $this->post('/login', ['username' => 'ama', 'password' => 'wrong'], ['X-Forwarded-For' => '203.0.113.9']);
+        expect(DB::table('rate_limits')->pluck('key')->sort()->values()->all())->toBe(['login:203.0.113.9', 'login:user:ama']);
+    });
+
+    it('words the owner delay, a staff lock and the throttle identically, so none reveals an owner', function () {
+        Carbon::setTestNow(Carbon::parse('2026-11-06 09:00:00', 'UTC'));
+        foreach (range(1, 5) as $_) {
+            $this->post('/login', ['username' => 'kwame', 'password' => 'wrong']);
+            $this->post('/login', ['username' => 'ama', 'password' => 'wrong']);
+        }
+        foreach (range(1, 11) as $_) {
+            $this->post('/login', ['username' => 'nobody', 'password' => 'wrong']);
+        }
+        foreach ([['kwame', 'owner-password-2026'], ['ama', 'staff-password-2026'], ['nobody', 'wrong']] as [$name, $password]) {
+            $this->post('/login', ['username' => $name, 'password' => $password])->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
+        }
+        $this->assertGuest();
+    });
+
+    it('slows the owner down instead of locking them out, then says how many attempts failed (D16)', function () {
+        $t = Carbon::parse('2026-11-06 09:00:00', 'UTC');
+        Carbon::setTestNow($t);
+        foreach (range(1, 5) as $_) {
+            $this->post('/login', ['username' => 'kwame', 'password' => 'wrong']);
+        }
+        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])
+            ->assertSessionHasErrors(['form' => LoginController::TOO_MANY_ATTEMPTS]);
+        $this->assertGuest();
+
+        Carbon::setTestNow($t->copy()->addSeconds(2));
+        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])
+            ->assertRedirect('/dashboard')->assertSessionHas('error', '5 failed sign-in attempts since your last sign-in.');
+        $this->get('/dashboard')->assertSee('5 failed sign-in attempts since your last sign-in.');
+
+        $this->post('/logout');
+        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard')->assertSessionMissing('error');
+    });
+
+    it('refuses PIN sign-in for an owner, worded as a wrong PIN (D17)', function () {
+        DB::table('users')->where('id', $this->ownerId)->update(['pin_hash' => DB::table('users')->where('id', $this->staffId)->value('pin_hash')]);
+        $this->post('/login/pin', ['username' => 'kwame', 'pin' => '8351'])->assertSessionHasErrors(['form' => 'Incorrect username or PIN.']);
+        $this->assertGuest();
+        expect((int) DB::table('users')->where('id', $this->ownerId)->value('failed_login_count'))->toBe(1);
     });
 
     it('signs out, writing the audit row, and switches user to the till PIN tab', function () {
@@ -128,17 +226,33 @@ describe('signing in', function () {
 describe('your own password', function () {
     beforeEach(fn () => $this->id = staff([], 'ama', 'staff-password-2026'));
 
-    it('changes it, ends every session including this one, and clears the must-change flag', function () {
+    it('changes it and clears the must-change flag, ending every other session but keeping this one (D13)', function () {
         DB::table('users')->where('id', $this->id)->update(['must_change_password' => true]);
-        signedIn($this->id)->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => 'a-new-password-2', 'confirmPassword' => 'a-new-password-2'])
-            ->assertRedirect('/login?passwordChanged=1');
-        $this->assertGuest();
-        expect((bool) DB::table('users')->where('id', $this->id)->value('must_change_password'))->toBeFalse();
+        DB::table('sessions')->insert(['id' => 'till-2', 'user_id' => $this->id, 'payload' => '', 'last_activity' => time()]);
+        $client = signedIn($this->id);
+        $before = session()->getId();
+        $client->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => 'a-new-password-2', 'confirmPassword' => 'a-new-password-2'])
+            ->assertRedirect('/dashboard')->assertSessionHas('status', 'Password changed. You were signed out everywhere else.');
+
+        $this->assertAuthenticatedAs(User::find($this->id));
+        expect(DB::table('sessions')->where('id', 'till-2')->exists())->toBeFalse()
+            ->and(session()->getId())->not->toBe($before)
+            ->and(session(Sessions::FINGERPRINT))->toBe(Sessions::fingerprint($this->id))
+            ->and((bool) DB::table('users')->where('id', $this->id)->value('must_change_password'))->toBeFalse();
+        // EnforceSessionLimits takes the refreshed fingerprint: this session carries on.
+        $this->get('/dashboard')->assertOk();
+        $this->assertAuthenticated();
+    });
+
+    it('still signs in with the new password afterwards', function () {
+        signedIn($this->id)->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => 'a-new-password-2', 'confirmPassword' => 'a-new-password-2']);
+        $this->post('/logout');
         $this->post('/login', ['username' => 'ama', 'password' => 'a-new-password-2'])->assertRedirect('/dashboard');
     });
 
     it('keeps spaces in a password exactly as typed', function () {
         signedIn($this->id)->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => '  spaced out  ', 'confirmPassword' => '  spaced out  ']);
+        $this->post('/logout');
         $this->post('/login', ['username' => 'ama', 'password' => 'spaced out'])->assertSessionHasErrors('form');
         $this->post('/login', ['username' => 'ama', 'password' => '  spaced out  '])->assertRedirect('/dashboard');
     });
@@ -162,4 +276,9 @@ it('wears the shop’s look on every screen, sign-in included', function () {
     $this->get('/setup')->assertDontSee('data-look', false);
     DB::table('business_settings')->update(['look' => 'ledger']);
     $this->get('/setup')->assertSee('data-look="ledger"', false);
+});
+
+it('accepts the Jinu look in the database and wears it', function () {
+    DB::table('business_settings')->update(['look' => 'jinu']);
+    $this->get('/setup')->assertSee('data-look="jinu"', false);
 });

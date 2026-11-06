@@ -229,6 +229,23 @@ describe('till PIN', function () {
         expect(UserService::getUser($staffId)['hasPin'])->toBeFalse();
     });
 
+    it('refuses to set a PIN on an owner account, but lets an old one be removed (D17)', function () {
+        $ownerId = makeOwner();
+        expect(fn () => UserService::setUserPin($ownerId, '8351', $this->owner))->toThrow(ValidationError::class, AuthService::OWNER_PIN_REFUSED)
+            ->and(UserService::getUser($ownerId)['hasPin'])->toBeFalse();
+        DB::table('users')->where('id', $ownerId)->update(['pin_hash' => 'left-from-before']);
+        UserService::setUserPin($ownerId, null, $this->owner);
+        expect(UserService::getUser($ownerId)['hasPin'])->toBeFalse();
+    });
+
+    it('ignores a PIN an owner already holds: promoted staff sign in with their password only (D17)', function () {
+        $staffId = makeStaff();
+        UserService::setUserPin($staffId, '8351', $this->owner);
+        UserService::updateUser($staffId, ['displayName' => 'Ama Serwaa', 'role' => UserRole::Owner], $this->owner);
+        expect(AuthService::loginWithPin('ama', '8351'))->toBe(['ok' => false, 'reason' => 'INVALID_CREDENTIALS'])
+            ->and(AuthService::login('ama', 'staff-password-2026')['ok'])->toBeTrue();
+    });
+
     it('a switched-off account cannot sign in with a PIN either', function () {
         $staffId = makeStaff();
         makeOwner();

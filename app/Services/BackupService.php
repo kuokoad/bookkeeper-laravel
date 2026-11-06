@@ -113,9 +113,14 @@ final class BackupService
 
     /**
      * Restores the live database from a backup file. The file is verified in
-     * a scratch database before anything is touched; a verified safety
-     * backup of the live books is taken next; only then is the live database
-     * emptied and loaded, and checked again.
+     * a scratch database before anything is touched; a safety backup of the
+     * live books is taken next and must be complete (the dump finished and
+     * every byte reached the .gz), though its books are not checked for
+     * soundness, since they may be what is being replaced; only then is the live database
+     * emptied and loaded, and checked again. If that load or check fails, the
+     * safety backup is loaded straight back and checked before the failure is
+     * reported (D18), so the shop is never left on an empty or partial
+     * database without being told so in capitals.
      *
      * @return array{entries: int, safetyBackup: ?string}
      */
@@ -133,7 +138,7 @@ final class BackupService
 
         // Restoring is done in a hurry; restoring the wrong file must not lose the shop.
         // An empty database (a new PC after a disk failure) has nothing to keep.
-        // Not verified against the live books: those may be the broken thing being replaced.
+        // Complete, or dump() throws and nothing is dropped; not checked for soundness: those books may be the broken thing.
         $live = self::connectionConfig();
         $hasTables = DB::selectOne('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()')->n > 0;
         $safety = null;
@@ -147,18 +152,32 @@ final class BackupService
         }
 
         $database = $live['database'];
-        DB::statement("DROP DATABASE `{$database}`");
-        DB::statement("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin");
-        DB::purge();
+        $liveTriggers = self::triggers($database);
         try {
-            self::load($live, $file, $database);
-            DB::purge();
+            self::replaceWith($live, $file, $triggers, 'the backup');
             self::assertSound();
-            if (self::triggers($database) !== $triggers) {
-                throw new RuntimeException('the triggers that guard the books did not load as they are in the backup');
-            }
         } catch (Throwable $e) {
-            throw new RuntimeException('The restore did not complete: '.$e->getMessage().'. '.($safety === null ? 'The database was empty before.' : "The books as they were before are in {$safety}; restore that file."), 0, $e);
+            $failure = 'The restore did not complete: '.$e->getMessage().'.';
+            if ($safety === null) {
+                // Nothing to put back, but a half-loaded database must not look like books.
+                DB::statement("DROP DATABASE IF EXISTS `{$database}`");
+                DB::statement("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin");
+                DB::purge();
+                throw new RuntimeException("{$failure} The database was empty before; it has been left empty.", 0, $e);
+            }
+            try {
+                self::replaceWith($live, $safety, $liveTriggers, 'the safety copy');
+            } catch (Throwable $back) {
+                throw new RuntimeException("{$failure} PUTTING THE LIVE BOOKS BACK FROM {$safety} ALSO FAILED: {$back->getMessage()}. THE DATABASE MAY BE EMPTY OR PARTIAL. Do not trade: restore {$safety} again (or the backup {$file}) once the cause is fixed.", 0, $e);
+            }
+            // The books replaced may have been the broken thing, so a failed check here is reported, not a failed put-back.
+            try {
+                self::assertSound();
+                $checked = 'and checked; nothing was lost.';
+            } catch (Throwable $unsound) {
+                $checked = 'as they were, but they fail the checks: '.$unsound->getMessage().'.';
+            }
+            throw new RuntimeException("{$failure} The live books were put back from {$safety} {$checked}", 0, $e);
         }
 
         return ['entries' => $entries, 'safetyBackup' => $safety];
@@ -235,17 +254,43 @@ final class BackupService
         // Gzip, and drop each trigger's DEFINER so the copy loads under whichever user restores it.
         $in = fopen($sql, 'rb');
         $out = gzopen($target, 'wb6');
+        $complete = false;
+        $written = true;
         try {
             while (($line = fgets($in)) !== false) {
                 if (str_starts_with($line, '/*!50003 CREATE*/ /*!50017 DEFINER=')) {
                     $line = (string) preg_replace('/^\/\*!50003 CREATE\*\/ \/\*!50017 DEFINER=`[^`]*`@`[^`]*`\*\//', '/*!50003 CREATE*/', $line);
                 }
-                gzwrite($out, $line);
+                // mysqldump's last line: a dump without it stopped part way.
+                $complete = $complete || str_starts_with($line, '-- Dump completed');
+                $written = $written && gzwrite($out, $line) === strlen($line);
             }
         } finally {
             fclose($in);
-            gzclose($out);
+            $written = gzclose($out) && $written;
             unlink($sql);
+        }
+        if (! $complete || ! $written) {
+            @unlink($target);
+            throw new RuntimeException($complete ? "could not write all of {$target} (is the disk full?)" : 'mysqldump stopped before the end of the dump (no "-- Dump completed" line)');
+        }
+    }
+
+    /**
+     * Empties the live database, loads the file into it, and checks its triggers.
+     *
+     * @param  list<string>  $triggers  what the triggers must be once loaded
+     */
+    private static function replaceWith(array $live, string $file, array $triggers, string $what): void
+    {
+        $database = $live['database'];
+        DB::statement("DROP DATABASE IF EXISTS `{$database}`");
+        DB::statement("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin");
+        DB::purge();
+        self::load($live, $file, $database);
+        DB::purge();
+        if (self::triggers($database) !== $triggers) {
+            throw new RuntimeException("the triggers that guard the books did not load as they are in {$what}");
         }
     }
 

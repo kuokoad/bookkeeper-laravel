@@ -26,17 +26,19 @@ use Illuminate\Support\Facades\DB;
 final class SupplierService
 {
     /**
-     * The supplier page's "Total bought" (posted purchases, not returns) and
-     * "Total paid later" (posted payments), summed over the rows given: the
-     * old page summed the 100 of each it showed, and so does this.
+     * The supplier page's "Total bought" (posted purchases net of supplier returns, as the purchase
+     * report's Net and the customer page; the old page left returns in) and
+     * "Total paid later" (posted payments) over all time (D24, as for customers): the old page
+     * summed only the 100 of each it listed.
      *
      * @return array{totalBought: int, totalPaid: int}
      */
-    public static function summariseActivity(array $purchases, array $payments): array
+    public static function getActivityTotals(int $supplierId): array
     {
         return [
-            'totalBought' => Money::sum(array_column(array_filter($purchases, fn (array $p): bool => $p['status'] === 'POSTED' && $p['kind'] === 'PURCHASE'), 'totalMinor')),
-            'totalPaid' => Money::sum(array_column(array_filter($payments, fn (array $p): bool => $p['status'] === 'POSTED'), 'amountMinor')),
+            // A return's total is negative, so this is net of returns, as the purchase report's Net (D24).
+            'totalBought' => (int) DB::table('purchases')->where('purchases.supplier_id', $supplierId)->where('purchases.status', 'POSTED')->whereIn('purchases.kind', ['PURCHASE', 'RETURN'])->sum('purchases.total_minor'),
+            'totalPaid' => (int) DB::table('supplier_payments')->where('supplier_payments.supplier_id', $supplierId)->where('supplier_payments.status', 'POSTED')->sum('supplier_payments.amount_minor'),
         ];
     }
 

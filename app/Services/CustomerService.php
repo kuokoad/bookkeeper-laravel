@@ -36,6 +36,21 @@ final class CustomerService
         FROM `journal_lines` `jl` JOIN `accounts` `a` ON `a`.`id` = `jl`.`account_id`
         WHERE `jl`.`customer_id` = `customers`.`id` AND `a`.`code` = \''.ChartOfAccounts::ACCOUNTS_RECEIVABLE.'\')';
 
+    /**
+     * The customer page's "Total bought" and "Total paid later" over all time (D24): every posted
+     * sale less every posted return, netted as the balance nets them (a voided sale and its void
+     * mirror both drop out), and every posted payment. The old page summed only the 100 it listed.
+     *
+     * @return array{totalBought: int, totalPaid: int}
+     */
+    public static function getActivityTotals(int $customerId): array
+    {
+        return [
+            'totalBought' => (int) DB::table('sales')->where('sales.customer_id', $customerId)->where('sales.status', 'POSTED')->where('sales.kind', '<>', 'VOID')->sum('sales.total_minor'),
+            'totalPaid' => (int) DB::table('customer_payments')->where('customer_payments.customer_id', $customerId)->where('customer_payments.status', 'POSTED')->sum('customer_payments.amount_minor'),
+        ];
+    }
+
     /** What this customer owes right now: A/R debits less credits tagged to them. */
     public static function getCustomerBalance(int $customerId): int
     {

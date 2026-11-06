@@ -21,7 +21,9 @@
                 @if ($saved)
                     <x-alert tone="success" :title="'Sale saved — '.$saved['receiptNo']">
                         @if ($saved['change'] > 0)
-                            <p class="text-base font-semibold text-content">Give change: {{ $currency }} {{ $fmt($saved['change']) }}</p>
+                            <p class="text-base font-semibold text-content">Give change: {{ Format::money($saved['change']) }}</p>
+                        @elseif ($saved['owing'] > 0)
+                            <p class="text-base font-semibold text-content">{{ Format::money($saved['owing']) }} left on {{ $saved['customerName'] ?? 'the customer' }}'s account.</p>
                         @else
                             <p>Payment received in full.</p>
                         @endif

@@ -140,6 +140,41 @@ it('keeps a verified copy of the books it replaces, so a wrong restore is undoab
     rmdir($safetyDir);
 });
 
+it('puts the live books back from the safety copy when the load fails part way (D18)', function () {
+    expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
+    [$file] = BackupService::existingBackups($this->dir);
+    // A file that loads cleanly into the scratch check, then stops half way into the live database.
+    $lines = explode("\n", gzdecode((string) file_get_contents($this->dir.DIRECTORY_SEPARATOR.$file)));
+    $tables = array_keys(array_filter($lines, fn (string $l): bool => str_starts_with($l, '-- Table structure for table')));
+    $middle = $tables[intdiv(count($tables), 2)];
+    array_splice($lines, $middle, 0, [
+        "SET @d18 = IF(DATABASE() = '".BACKUP_SOURCE."', 'SELECT * FROM no_such_table_d18', 'DO 0');",
+        'PREPARE d18 FROM @d18;', 'EXECUTE d18;', 'DEALLOCATE PREPARE d18;',
+    ]);
+    $failing = $this->dir.DIRECTORY_SEPARATOR.'fails-mid-load.sql.gz';
+    file_put_contents($failing, gzencode(implode("\n", $lines)));
+    DB::connection('source')->table('customers')->insert(['name' => 'After The Backup', 'created_at' => now(), 'updated_at' => now()]);
+    $before = figures('source');
+
+    $safetyDir = $this->dir.DIRECTORY_SEPARATOR.'safety';
+    $restore = Process::env(['DB_DATABASE' => BACKUP_SOURCE, 'APP_ENV' => 'testing', 'NUNA_BACKUP_DIR' => $safetyDir])
+        ->path(base_path())->timeout(600)->run([PHP_BINARY, 'artisan', 'nuna:restore', $failing, '--force']);
+    $safety = BackupService::existingBackups($safetyDir);
+    DB::purge('source');
+
+    expect($restore->successful())->toBeFalse()
+        ->and($safety)->toHaveCount(1)
+        ->and($restore->output())->toContain('The restore did not complete')
+        ->and($restore->output())->toContain('no_such_table_d18')
+        ->and($restore->output())->toContain('The live books were put back from')
+        ->and($restore->output())->toContain($safety[0])
+        ->and($restore->output())->toContain('nothing was lost')
+        ->and(DB::connection('source')->table('customers')->where('name', 'After The Backup')->exists())->toBeTrue()
+        ->and(figures('source'))->toBe($before);
+    array_map('unlink', glob($safetyDir.DIRECTORY_SEPARATOR.'*'));
+    rmdir($safetyDir);
+});
+
 it('restores over live books that are themselves broken, keeping them in an unverified safety copy', function () {
     expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
     [$file] = BackupService::existingBackups($this->dir);

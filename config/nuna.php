@@ -16,7 +16,8 @@ return [
     /*
     | Read the caller's address from X-Forwarded-For / X-Real-IP. Only for a
     | reverse proxy that OVERWRITES those headers; otherwise callers write them,
-    | and the sign-in throttle counts one shared bucket instead.
+    | and the sign-in ceiling (50 per 10 minutes, beside 10 per username)
+    | counts one shop-wide bucket instead of one per address.
     */
     'trust_proxy_headers' => filter_var(env('NUNA_TRUST_PROXY_HEADERS', false), FILTER_VALIDATE_BOOL),
 

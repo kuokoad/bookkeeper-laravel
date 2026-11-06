@@ -130,9 +130,20 @@ it('records a customer return with a cash refund through the service', function 
         ->set("returnQty.{$item}", '1')->assertSee('Value of goods being returned: GHS 10.00')
         ->set('refundAmount', '10.00')->set('returnReason', 'Torn bag')
         ->call('recordReturn')->assertHasNoErrors()->assertRedirect("/sales/{$sale['saleId']}");
+    // D21: the page it lands on says the return was saved; a walk-in sale has no customer balance to mention.
+    expect(session('status'))->toBe('Return recorded. Stock was updated.');
 
     expect(Shop::productRow($this->rice)->qty_on_hand_milli)->toBe(98_000)
         ->and((int) DB::table('sale_items')->where('id', $item)->value('returned_qty_milli'))->toBe(1_000);
+});
+
+it('says the customer balance was updated only when the sale had a customer', function () {
+    stockRice($this);
+    $sale = Shop::sell($this->actor, [[$this->rice, 3_000]], [], ['businessDate' => $this->today, 'customerId' => Shop::customer($this->actor, 'Adwoa Mensah')]);
+    $item = (int) DB::table('sale_items')->where('sale_id', $sale['saleId'])->value('id');
+
+    salesAs($this->ownerId, Show::class, ['id' => $sale['saleId']])->set("returnQty.{$item}", '1')->call('recordReturn')->assertHasNoErrors();
+    expect(session('status'))->toBe("Return recorded. Stock and the customer's balance were updated.");
 });
 
 it('prints a receipt with change, and says a cash sale has no invoice', function () {

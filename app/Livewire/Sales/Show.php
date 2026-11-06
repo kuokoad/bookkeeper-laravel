@@ -147,6 +147,8 @@ final class Show extends Component
 
             return;
         }
+        // A walk-in sale has no customer balance to update.
+        session()->flash('status', $this->sale()['customerId'] !== null ? "Return recorded. Stock and the customer's balance were updated." : 'Return recorded. Stock was updated.');
         $this->redirect("/sales/{$this->saleId}");
     }
 

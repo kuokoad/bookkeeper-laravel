@@ -123,11 +123,20 @@ The command does it properly, in this order:
    backups, so a restore made in a panic is itself undoable. That copy is not checked
    against itself, on purpose: the books being replaced may be the broken thing.
 4. Empties the database and loads the backup.
-5. Checks the result again, triggers included, and says where the replaced books are
-   if anything does not match.
+5. Checks the result again, triggers included.
+6. If the load stops part way (disk full, MySQL stopped) or the check fails, it loads
+   the `...-before-restore.sql.gz` copy straight back, checks it, and then reports what
+   went wrong, saying the live books were put back from that file. If putting them
+   back fails too, it says so in capitals, naming both files: restore the
+   `...-before-restore` file by hand before anyone trades.
 
 Restoring onto a brand-new computer with an empty database skips step 3: there is
-nothing to keep.
+nothing to keep. If that load fails, the database is emptied again rather than left
+half full, and the message says so.
+
+Step 3 refuses to go on unless the safety copy is complete (the dump reached its last
+line and all of it was written to disk), so nothing is emptied on the strength of a
+cut-short copy.
 
 ## Practise it once
 
@@ -161,6 +170,10 @@ database itself: `php artisan nuna:preflight`.
 
 **"The web server (NunaBooksApache) is running."** Stop it as the message says
 (`Stop-Service NunaBooksApache`), then restore.
+
+**"The restore did not complete … the live books were put back from …"** Nothing was
+lost: the books are as they were before you ran it. Fix the cause the message names
+(often disk space) and try again.
 
 **I restored and the books do not balance.** Restore the `...-before-restore.sql.gz`
 file to get back to where you were, then investigate before trying again.

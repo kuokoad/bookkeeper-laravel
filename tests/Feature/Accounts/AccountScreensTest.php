@@ -95,9 +95,13 @@ it('records a transfer and reports its number', function () {
 it('records owner money in and out through the cashbook', function () {
     accountsAs($this->ownerId, Index::class)
         ->set('ownerAccountId', (string) $this->cash)->set('ownerAmount', 'abc')->call('recordOwnerMoney')->assertHasErrors('ownerAmount')
+        ->assertNotDispatched('toast')
         ->set('ownerAmount', '100')->call('recordOwnerMoney')->assertHasNoErrors()
+        // D21: the form clears AND says it was saved.
+        ->assertDispatched('toast', message: 'Recorded. The account balance was updated.', tone: 'success')
         ->call('setDirection', 'OUT')->assertSee('Record money out')
-        ->set('ownerAmount', '30')->call('recordOwnerMoney')->assertHasNoErrors();
+        ->set('ownerAmount', '30')->call('recordOwnerMoney')->assertHasNoErrors()
+        ->assertDispatched('toast', message: 'Recorded. The account balance was updated.', tone: 'success');
     expect(PaymentAccountService::getPaymentAccountBalance($this->cash))->toBe(7_000);
 });
 

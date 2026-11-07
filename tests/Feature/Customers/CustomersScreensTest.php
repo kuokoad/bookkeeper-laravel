@@ -141,6 +141,32 @@ it('lists every unpaid invoice on the statement and totals the ledger balance', 
     signedIn($this->ownerId)->get("/customers/{$clear}/statement")->assertOk()->assertSee('Nothing outstanding');
 });
 
+it('prints the statement as at a chosen earlier day, showing what was owed then (D33)', function () {
+    $rice = Shop::product($this->actor, 'Rice 5kg', 6_000, 10_000, ['unit' => 'bag']);
+    Shop::openingStock($this->actor, $rice, 10_000, 60_000, '2026-01-01');
+    $customer = Shop::customer($this->actor, 'Mensah Provisions');
+    // An invoice of 100.00 on 5 Jan, 60.00 paid on 20 Jan.
+    $sale = Shop::sell($this->actor, [[$rice, 1_000]], [], ['businessDate' => '2026-01-05', 'customerId' => $customer])['saleId'];
+    CustomerPaymentService::recordCustomerPayment([
+        'customerId' => $customer, 'businessDate' => '2026-01-20', 'paymentAccountId' => $this->cash, 'amount' => 6_000,
+        'allocations' => [['saleId' => $sale, 'amount' => 6_000]],
+    ], $this->actor);
+    $url = "/customers/{$customer}/statement";
+
+    signedIn($this->ownerId)->get("{$url}?asAt=2026-01-15")->assertOk()
+        ->assertSee('value="2026-01-15"', false)->assertSee('As at '.Format::date('2026-01-15'))
+        ->assertSee('GHS 100.00')->assertDontSee('GHS 40.00');
+    signedIn($this->ownerId)->get("{$url}?asAt=2026-01-20")->assertOk()->assertSee('GHS 40.00')->assertDontSee('GHS 100.00');
+    signedIn($this->ownerId)->get($url)->assertOk()->assertSee("value=\"{$this->today}\"", false)->assertSee('GHS 40.00');
+});
+
+it('falls back to today for a statement date that is not a real day or is still to come, and shows the date used', function (string $asAt) {
+    ['customer' => $customer] = owingCustomer($this);
+
+    signedIn($this->ownerId)->get("/customers/{$customer}/statement?asAt={$asAt}")->assertOk()
+        ->assertSee("value=\"{$this->today}\"", false)->assertSee('As at '.Format::date($this->today))->assertSee('GHS 30.00');
+})->with(['not a day' => ['2026-02-30'], 'not a date' => ['soon'], 'after today' => ['2999-01-01']]);
+
 it('checks payment ownership with one query, so a payment of any age can be voided but not one of another customer', function () {
     ['customer' => $customer] = owingCustomer($this);
     $other = Shop::customer($this->actor, 'Kofi Boateng');

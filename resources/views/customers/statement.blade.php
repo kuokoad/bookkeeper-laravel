@@ -6,7 +6,12 @@
     <div class="mx-auto max-w-2xl">
         <div class="no-print mb-4 flex flex-wrap items-center justify-between gap-2">
             <x-button variant="secondary" size="sm" href="/customers/{{ $customer['id'] }}">Back to {{ $customer['name'] }}</x-button>
-            <x-button size="sm" x-data x-on:click="window.print()">Print</x-button>
+            <form method="GET" class="flex flex-wrap items-center gap-2">
+                <label for="asAt" class="text-xs text-content-muted">As at</label>
+                <x-date-input id="asAt" name="asAt" :value="$asAt" :max="$today" />
+                <x-button variant="secondary" size="sm" type="submit">Show</x-button>
+                <x-button size="sm" x-data x-on:click="window.print()">Print</x-button>
+            </form>
         </div>
 
         @unless ($agrees)
@@ -29,7 +34,7 @@
                 </div>
                 <div class="shrink-0 text-right">
                     <p class="text-[11px] font-semibold uppercase tracking-wider text-content-subtle">Statement</p>
-                    <p class="text-xs text-content-muted">As at @date($today)</p>
+                    <p class="text-xs text-content-muted">As at @date($asAt)</p>
                 </div>
             </header>
 
@@ -40,7 +45,7 @@
             </section>
 
             @if ($rows === [])
-                <x-empty-state title="Nothing outstanding" :description="$customer['name'].' owes nothing as at '.Format::date($today).'.'" />
+                <x-empty-state title="Nothing outstanding" :description="$customer['name'].' owes nothing as at '.Format::date($asAt).'.'" />
             @else
                 <table class="mb-4 w-full text-sm">
                     <thead>
@@ -77,7 +82,7 @@
             @endif
 
             <footer class="mt-6 border-t border-line pt-4 text-xs text-content-muted">
-                <p>This statement covers everything unpaid as at @date($today). Payments made after that date are not included.</p>
+                <p>This statement covers everything unpaid as at @date($asAt). Payments made after that date are not included.</p>
             </footer>
         </article>
     </div>

@@ -276,15 +276,19 @@ final class CustomerPaymentService
      * dated on or before it, oldest first, each with its document number
      * (the invoice number, else the receipt) and due date, in one read. The
      * total is getCustomerBalance, the ledger's figure, not a sum of the
-     * rows; `agrees` says whether the rows add up to it.
+     * rows; `agrees` says whether the rows add up to it. With $asAt (D33)
+     * both are as they stood that day, by ageing's rule (D32); without it,
+     * as they stand today.
      *
      * @return array{rows: list<array{id: int, document: string, businessDate: string, dueDate: ?string, overdueBy: int, outstanding: int}>, balance: int, rowsTotal: int, agrees: bool}
      */
-    public static function getCustomerStatement(int $customerId, string $asAt): array
+    public static function getCustomerStatement(int $customerId, ?string $asAt = null): array
     {
-        $outstanding = SaleService::getOutstandingBySale(['customerId' => $customerId]);
-        $rows = DB::table('sales')->where('sales.customer_id', $customerId)->where('sales.status', 'POSTED')
-            ->where('sales.business_date', '<=', $asAt)
+        $outstanding = SaleService::getOutstandingBySale(['customerId' => $customerId, 'asAt' => $asAt]);
+        $cutoff = $asAt ?? Clock::today();
+        // As at a day, a sale voided later still stood; getOutstandingBySale leaves out the rest.
+        $rows = DB::table('sales')->where('sales.customer_id', $customerId)->when($asAt === null, fn ($q) => $q->where('sales.status', 'POSTED'))
+            ->where('sales.business_date', '<=', $cutoff)
             ->orderBy('sales.business_date')->orderBy('sales.id')
             ->get(['sales.id', 'sales.receipt_no', 'sales.invoice_no', 'sales.business_date', 'sales.due_date'])
             ->filter(fn (object $r): bool => ($outstanding[(int) $r->id] ?? 0) > 0)
@@ -293,10 +297,10 @@ final class CustomerPaymentService
                 'document' => (string) ($r->invoice_no ?? $r->receipt_no),
                 'businessDate' => (string) $r->business_date,
                 'dueDate' => $r->due_date === null ? null : (string) $r->due_date,
-                'overdueBy' => $r->due_date ? BusinessDate::daysOverdue((string) $r->due_date, $asAt) : 0,
+                'overdueBy' => $r->due_date ? BusinessDate::daysOverdue((string) $r->due_date, $cutoff) : 0,
                 'outstanding' => $outstanding[(int) $r->id],
             ])->values()->all();
-        $balance = CustomerService::getCustomerBalance($customerId);
+        $balance = CustomerService::getCustomerBalance($customerId, $asAt);
         $rowsTotal = Money::sum(array_column($rows, 'outstanding'));
 
         return ['rows' => $rows, 'balance' => $balance, 'rowsTotal' => $rowsTotal, 'agrees' => $rowsTotal === $balance];

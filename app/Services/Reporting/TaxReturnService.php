@@ -35,7 +35,14 @@ final class TaxReturnService
         $range = [$period['from'], $period['to']];
 
         // shortcut: the name is MAX(name) per code; SQLite took any row's. Codes keep one name in practice.
-        $output = DB::table('sale_taxes')->join('sales', 'sales.id', '=', 'sale_taxes.sale_id')
+        // Over more than a quarter (as in OperationsService), a hash join of the period's sales against one
+        // scan of sale_taxes beats one index probe per sale: a year 0.66 s -> 0.29 s at a year of trading,
+        // 0.78 s -> 0.55 s at three. Over a month the probes win (0.08 s against 0.15 s at three years).
+        // The IGNORE INDEX sits in the table expression, so no builder change can move it out of place.
+        $long = (new \DateTimeImmutable($period['from']))->diff(new \DateTimeImmutable($period['to']))->days > 92;
+        $output = ($long
+            ? DB::table('sales')->straightJoin(DB::raw('`sale_taxes` IGNORE INDEX (`uq_sale_taxes_sale_code`)'), 'sales.id', '=', 'sale_taxes.sale_id')
+            : DB::table('sale_taxes')->join('sales', 'sales.id', '=', 'sale_taxes.sale_id'))
             ->whereBetween('sales.business_date', $range)
             ->groupBy('sale_taxes.code')->orderBy('sale_taxes.code')
             ->selectRaw('sale_taxes.code, MAX(sale_taxes.name) AS name, COALESCE(SUM(sale_taxes.amount_minor), 0) AS amount')->get();
@@ -68,10 +75,20 @@ final class TaxReturnService
         // The value nets every row. The count (D9) is the documents standing at the period end: a void
         // mirror never counts, and an original counts unless its void is dated on or before the end, so a
         // March sale voided in April stays "1 sale" in March and April counts nothing for the void.
-        $value = fn (string $table, string $voids): string => "COALESCE(SUM({$table}.subtotal_minor - {$table}.discount_minor), 0) AS v,
-            COUNT(CASE WHEN {$table}.kind <> 'VOID' AND ".self::standingAtEndSql($table, $voids).' THEN 1 END) AS n';
-        $sales = DB::table('sales')->whereBetween('sales.business_date', $range)->selectRaw($value('sales', 'voids_sale_id'), [$period['to']])->first();
-        $purchases = DB::table('purchases')->whereBetween('purchases.business_date', $range)->selectRaw($value('purchases', 'voids_purchase_id'), [$period['to']])->first();
+        // Counted as every original minus those voided by the end: the same number as standingAtEndSql per
+        // row, but the voided ones are found from the few void mirrors instead of one probe per document.
+        $value = function (string $table, string $voids) use ($range, $period): object {
+            $totals = DB::table($table)->whereBetween("{$table}.business_date", $range)
+                ->selectRaw("COALESCE(SUM({$table}.subtotal_minor - {$table}.discount_minor), 0) AS v, COUNT(CASE WHEN {$table}.kind <> 'VOID' THEN 1 END) AS n")->first();
+            $voided = DB::table("{$table} AS void_mirror")->join($table, "{$table}.id", '=', "void_mirror.{$voids}")
+                ->whereNotNull("void_mirror.{$voids}")->where('void_mirror.business_date', '<=', $period['to'])
+                ->whereBetween("{$table}.business_date", $range)->where("{$table}.kind", '<>', 'VOID')
+                ->selectRaw("COUNT(DISTINCT {$table}.id) AS n")->value('n');
+
+            return (object) ['v' => $totals->v, 'n' => (int) $totals->n - (int) $voided];
+        };
+        $sales = $value('sales', 'voids_sale_id');
+        $purchases = $value('purchases', 'voids_purchase_id');
 
         $totalOutput = Money::sum(array_column($components, 'outputMinor'));
         $totalRecoverableInput = Money::sum(array_column($components, 'recoverableInputMinor'));

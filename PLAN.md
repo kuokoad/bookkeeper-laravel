@@ -538,3 +538,22 @@ their mirror's date. The example reads 0.00 as at 31 Jan, agreeing with the
 balance sheet and subledger, and 100.00 as at 3 Feb
 (`VoidedPaymentAgeingTest`; reconcile's `OldReports::ageing` works out the
 same rule from the old copy on its own).
+
+**D33. A customer statement as at a past date shows what was owed that day.
+DONE (2026-11-07, approved by the owner).** Old
+`(app)/customers/[id]/statement/page.tsx` printed only as at today: it cut
+the invoices off at the date but took each one's amount from
+`getOutstandingBySale` with no date and the total from `getCustomerBalance`
+with no date, so the same code as at an earlier day would count later
+payments. The port's `CustomerPaymentService::getCustomerStatement` took an
+`asAt` with that gap. Example: an invoice of 100.00 on 5 Jan, 60.00 paid on
+20 Jan: as at 15 Jan the statement showed 40.00 owed.
+Proposed: as it stood that day, by ageing's rule (D32).
+Now: with `asAt`, each invoice's amount is `SaleService::getOutstandingBySale`
+with `asAt` (later payments, allocations, returns and credits left out; a
+payment voided after the day still counts), a sale voided after the day
+still shows, and the total is `CustomerService::getCustomerBalance` with
+`asAt` (A/R entries dated on or before it). The example reads 100.00 as at
+15 Jan and 40.00 as at 20 Jan, and the total equals that customer's
+receivables ageing as at the same day (`CustomerStatementAsAtTest`). Without
+`asAt` (the Statement page) nothing changes.

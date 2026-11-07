@@ -33,7 +33,7 @@ final class StatementController extends Controller
             'customer' => $customer,
             'settings' => SettingsService::get(),
             'today' => $today,
-            ...CustomerPaymentService::getCustomerStatement($id, $today),
+            ...CustomerPaymentService::getCustomerStatement($id),
         ]);
     }
 }

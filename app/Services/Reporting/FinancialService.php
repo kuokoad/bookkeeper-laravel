@@ -220,30 +220,50 @@ final class FinancialService
      */
     public static function getCashFlow(array $period, ?int $paymentAccountId = null): array
     {
+        // Two passes over the payment-account lines, not four: before the period per account (their sum is
+        // the opening balance), and during it per account and source (summed one way for the flow lines,
+        // the other way for byAccount). Same lines, same sums, so the same figures.
         $lines = fn () => DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
             ->whereNotNull('journal_lines.payment_account_id')
             ->when($paymentAccountId !== null, fn ($q) => $q->where('journal_lines.payment_account_id', $paymentAccountId));
         $sums = 'COALESCE(SUM(journal_lines.debit_minor), 0) AS d, COALESCE(SUM(journal_lines.credit_minor), 0) AS c';
 
-        $opening = $lines()->where('journal_entries.entry_date', '<', $period['from'])->selectRaw($sums)->first();
-        $openingBalance = (int) $opening->d - (int) $opening->c;
+        $before = [];
+        $openingBalance = 0;
+        foreach ($lines()->where('journal_entries.entry_date', '<', $period['from'])->groupBy('journal_lines.payment_account_id')
+            ->selectRaw("journal_lines.payment_account_id AS id, {$sums}")->get() as $r) {
+            $before[(int) $r->id] = (int) $r->d - (int) $r->c;
+            $openingBalance = Money::add($openingBalance, $before[(int) $r->id]);
+        }
 
-        $rows = $lines()->whereBetween('journal_entries.entry_date', [$period['from'], $period['to']])
-            ->groupBy('journal_entries.source_type')->orderBy('journal_entries.source_type')
-            ->selectRaw("journal_entries.source_type, {$sums}")->get();
+        $during = [];
+        $bySource = [];
+        $add = function (array &$into, int|string $key, object $r): void {
+            $into[$key] ??= ['d' => 0, 'c' => 0];
+            $into[$key]['d'] = Money::add($into[$key]['d'], (int) $r->d);
+            $into[$key]['c'] = Money::add($into[$key]['c'], (int) $r->c);
+        };
+        foreach ($lines()->whereBetween('journal_entries.entry_date', [$period['from'], $period['to']])
+            ->groupBy('journal_lines.payment_account_id', 'journal_entries.source_type')
+            ->selectRaw("journal_lines.payment_account_id AS id, journal_entries.source_type, {$sums}")->get() as $r) {
+            $add($during, (int) $r->id, $r);
+            $add($bySource, (string) $r->source_type, $r);
+        }
+        // The order the old ORDER BY source_type gave (binary collation), before the stable sort by net.
+        ksort($bySource, SORT_STRING);
 
         $shopWide = $paymentAccountId === null;
         $flow = [];
-        foreach ($rows as $row) {
-            if ($shopWide && $row->source_type === 'TRANSFER') {
+        foreach ($bySource as $sourceType => $sum) {
+            $sourceType = (string) $sourceType;
+            if ($shopWide && $sourceType === 'TRANSFER') {
                 continue;
             }
-            $in = (int) $row->d;
-            $out = (int) $row->c;
+            [$in, $out] = [$sum['d'], $sum['c']];
             if ($in === 0 && $out === 0) {
                 continue;
             }
-            $flow[] = ['sourceType' => $row->source_type, 'label' => self::FLOW_LABELS[$row->source_type] ?? $row->source_type, 'inMinor' => $in, 'outMinor' => $out, 'net' => $in - $out];
+            $flow[] = ['sourceType' => $sourceType, 'label' => self::FLOW_LABELS[$sourceType] ?? $sourceType, 'inMinor' => $in, 'outMinor' => $out, 'net' => $in - $out];
         }
         usort($flow, fn (array $a, array $b): int => $b['net'] <=> $a['net']);
 
@@ -252,29 +272,15 @@ final class FinancialService
         $netMovement = Money::subtract($totalIn, $totalOut);
         $closingBalance = Money::add($openingBalance, $netMovement);
 
-        // Per account, in two grouped queries rather than two per account.
-        $before = [];
-        $during = [];
-        $perAccount = fn () => DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
-            ->whereNotNull('journal_lines.payment_account_id')
-            ->when($paymentAccountId !== null, fn ($q) => $q->where('journal_lines.payment_account_id', $paymentAccountId))
-            ->groupBy('journal_lines.payment_account_id')->selectRaw("journal_lines.payment_account_id AS id, {$sums}");
-        foreach ($perAccount()->where('journal_entries.entry_date', '<', $period['from'])->get() as $r) {
-            $before[(int) $r->id] = $r;
-        }
-        foreach ($perAccount()->whereBetween('journal_entries.entry_date', [$period['from'], $period['to']])->get() as $r) {
-            $during[(int) $r->id] = $r;
-        }
-
         $byAccount = DB::table('payment_accounts')
             ->when($paymentAccountId !== null, fn ($q) => $q->where('payment_accounts.id', $paymentAccountId))
             ->orderBy('payment_accounts.sort_order')->orderBy('payment_accounts.id')
             ->get(['payment_accounts.id', 'payment_accounts.name'])
             ->map(function (object $a) use ($before, $during): array {
                 $id = (int) $a->id;
-                $opening = isset($before[$id]) ? (int) $before[$id]->d - (int) $before[$id]->c : 0;
-                $in = isset($during[$id]) ? (int) $during[$id]->d : 0;
-                $out = isset($during[$id]) ? (int) $during[$id]->c : 0;
+                $opening = $before[$id] ?? 0;
+                $in = $during[$id]['d'] ?? 0;
+                $out = $during[$id]['c'] ?? 0;
 
                 return ['id' => $id, 'name' => (string) $a->name, 'opening' => $opening, 'in' => $in, 'out' => $out, 'closing' => $opening + $in - $out];
             })->all();
@@ -288,7 +294,9 @@ final class FinancialService
             'netMovement' => $netMovement,
             'closingBalance' => $closingBalance,
             // Shop-wide totals leave transfers out and the per-account balances include them, so this
-            // proves transfers net to zero and the two queries agree. It does not prove the opening balance.
+            // proves the shop-wide transfer legs in the period net to zero, and that the by-source and
+            // by-account groupings of the same lines agree. Both sides share one opening balance, so it
+            // proves nothing about that: nuna:reconcile does.
             'reconciles' => Money::sum(array_column($byAccount, 'closing')) === $closingBalance,
             'byAccount' => $byAccount,
         ];

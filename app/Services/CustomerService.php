@@ -51,13 +51,14 @@ final class CustomerService
         ];
     }
 
-    /** What this customer owes right now: A/R debits less credits tagged to them. */
-    public static function getCustomerBalance(int $customerId): int
+    /** What this customer owes right now (or at the end of $asAt): A/R debits less credits tagged to them. */
+    public static function getCustomerBalance(int $customerId, ?string $asAt = null): int
     {
         $row = DB::table('journal_lines')
             ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
             ->where('journal_lines.customer_id', $customerId)
             ->where('accounts.code', ChartOfAccounts::ACCOUNTS_RECEIVABLE)
+            ->when($asAt !== null, fn ($q) => $q->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')->where('journal_entries.entry_date', '<=', $asAt))
             ->selectRaw('COALESCE(SUM(`journal_lines`.`debit_minor`), 0) AS d, COALESCE(SUM(`journal_lines`.`credit_minor`), 0) AS c')
             ->first();
 

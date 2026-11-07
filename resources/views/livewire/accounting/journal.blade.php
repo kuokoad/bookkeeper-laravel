@@ -9,7 +9,7 @@
         </x-alert>
     @endif
 
-    <x-filter-bar :list="$list" :fields="[
+    <x-filter-bar compact :list="$list" :fields="[
         ['kind' => 'date', 'key' => 'from', 'label' => 'From', 'value' => $from],
         ['kind' => 'date', 'key' => 'to', 'label' => 'To', 'value' => $to],
         ['kind' => 'select', 'key' => 'source', 'label' => 'Kind', 'allLabel' => 'Everything', 'options' => \App\Livewire\Accounting\Journal::KINDS, 'value' => $source],

@@ -34,7 +34,7 @@
     set 'chip' => false, and `active` adds chips for keys no field owns:
     [['key' => 'expiring', 'label' => 'Expiring', 'value' => 'within 30 days', 'alsoClears' => []]].
 --}}
-@props(['list', 'fields' => [], 'dates' => false, 'presets' => ['today', 'yesterday', 'week', 'last-week', 'month', 'last-month', 'year', 'all'], 'quick' => [], 'active' => [], 'defaultPreset' => 'month'])
+@props(['list', 'fields' => [], 'dates' => false, 'presets' => ['today', 'yesterday', 'week', 'last-week', 'month', 'last-month', 'year', 'all'], 'quick' => [], 'active' => [], 'defaultPreset' => 'month', 'compact' => false, 'all' => null])
 @php
     $labels = ['today' => 'Today', 'yesterday' => 'Yesterday', 'week' => 'This week', 'last-week' => 'Last week', 'month' => 'This month', 'last-month' => 'Last month', 'year' => 'This year', 'all' => 'Everything', 'custom' => 'Custom range'];
     $owned = $dates ? ['period', 'from', 'to', 'page'] : ['page'];
@@ -85,13 +85,144 @@
             'select' => (string) ($field['options'][$value] ?? $value),
             'date' => \App\View\Format::date($value),
             default => $value,
-        }, 'alsoClears' => []];
+        }, 'alsoClears' => isset($field['sourceKey']) ? [$field['sourceKey']] : []];
     }
     $chips = [...$chips, ...$active];
     $hasControls = $fields !== [] || $dates;
+
+    // Compact (the old compact-sales-filters.tsx): search and date range up top, the rest behind "Filters (n)".
+    $search = collect($fields)->firstWhere('kind', 'search');
+    // Plain date fields (From/To, As at) stay in view with their own Apply: on a ledger the date is the main control.
+    $dateFields = array_values(array_filter($fields, fn (array $f): bool => $f['kind'] === 'date'));
+    $advanced = array_values(array_filter($fields, fn (array $f): bool => ! in_array($f['kind'], ['search', 'date'], true)));
+    $grid = $search && $dateFields === [];
+    $advancedKeys = array_merge([], ...array_map(fn (array $f): array => $f['kind'] === 'amount-range' ? [$f['minKey'], $f['maxKey']] : [$f['key']], $advanced));
+    // A field's `sourceKey` (e.g. statusSource=quick) marks a value a quick button set: not counted here, and dropped when the panel sets it.
+    $sourceKeys = array_values(array_filter(array_map(fn (array $f): ?string => $f['sourceKey'] ?? null, $advanced)));
+    $quickSet = array_column(array_filter($advanced, fn (array $f): bool => isset($f['sourceKey']) && ($carried[$f['sourceKey']] ?? null) === 'quick'), 'key');
+    $advancedCount = count(array_filter($advancedKeys, fn (string $k): bool => ($carried[$k] ?? '') !== '' && ! in_array($k, $quickSet, true)));
+    // Submit without the empty fields, as the old app did; without JavaScript the form still submits normally.
+    $clean = "window.location.search = new URLSearchParams([...new FormData(\$el)].filter(e => e[1] !== '')).toString()";
+    $keep = fn (array $own): array => \Illuminate\Support\Arr::except($list['carried'] ?? [], [...$own, 'page']);
+    $allChip = $all === null ? null : ['label' => $all['label'], 'on' => array_intersect_key($carried, array_flip($all['clears'])) === [], 'href' => $href(array_fill_keys($all['clears'], null))];
+    $uid = 'filters'; // shortcut: one filter bar per page, so fixed ids; make it a prop if a page ever needs two.
 @endphp
 <section aria-label="Filters" {{ $attributes->class('no-print mb-4 space-y-3') }}>
-    @if ($quickChips !== [])
+    @if ($compact)
+        <div class="space-y-3" x-data="{ open: false, custom: @js($preset === 'custom') }">
+            <div @class(['grid grid-cols-2 items-end gap-2' => $grid, 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' => $grid && $dates, 'sm:grid-cols-[minmax(0,1fr)_auto]' => $grid && ! $dates, 'flex flex-wrap items-end gap-2' => ! $grid])>
+                @if ($search)
+                    <form method="GET" @class(['flex min-w-0 items-end gap-2', 'col-span-2 sm:col-span-1' => $grid, 'min-w-64 flex-1' => ! $grid]) x-on:submit.prevent="{{ $clean }}">
+                        @foreach ($keep([$search['key']]) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
+                        <div class="min-w-0 flex-1">
+                            <label for="{{ $uid }}-search" class="mb-1 block text-xs text-content-muted">Search</label>
+                            <x-input id="{{ $uid }}-search" type="search" autocomplete="off" :name="$search['key']" :value="$search['value']" :placeholder="$search['placeholder'] ?? ''" />
+                        </div>
+                        <x-button type="submit" variant="secondary">Search</x-button>
+                    </form>
+                @endif
+                @if ($dates)
+                    {{-- A preset applies at once; "Custom range" opens the From/To row below, which submits this same form. --}}
+                    <form method="GET" id="{{ $uid }}-dates" x-on:submit.prevent="{{ $clean }}">
+                        @foreach ($keep(['period', 'from', 'to']) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
+                        <label for="{{ $uid }}-period" class="mb-1 block text-xs text-content-muted">Date range</label>
+                        <select id="{{ $uid }}-period" name="period" x-on:change="custom = $event.target.value === 'custom'; custom || $nextTick(() => $el.form.requestSubmit())"
+                                class="block h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-sm text-content">
+                            @foreach ([...$presets, 'custom'] as $key)
+                                <option value="{{ $key }}" @selected($preset === $key)>{{ $labels[$key] }}</option>
+                            @endforeach
+                        </select>
+                    </form>
+                @endif
+                @if ($dateFields !== [])
+                    <form method="GET" class="flex flex-wrap items-end gap-2" x-on:submit.prevent="{{ $clean }}">
+                        @foreach ($keep(array_column($dateFields, 'key')) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
+                        @foreach ($dateFields as $field)
+                            <div>
+                                <label for="{{ $uid }}-{{ $field['key'] }}" class="mb-1 block text-xs text-content-muted">{{ $field['label'] }}</label>
+                                <x-date-input id="{{ $uid }}-{{ $field['key'] }}" :name="$field['key']" :value="$field['value']" :max="$field['max'] ?? null" />
+                            </div>
+                        @endforeach
+                        <x-button type="submit" variant="secondary">Apply</x-button>
+                    </form>
+                @endif
+                @if ($advanced !== [])
+                    <x-button type="button" variant="secondary" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-expanded="false" aria-controls="{{ $uid }}-panel">
+                        Filters{{ $advancedCount > 0 ? " ({$advancedCount})" : '' }}
+                    </x-button>
+                @endif
+            </div>
+
+            @if ($dates)
+                <div class="flex flex-wrap items-end gap-2" x-show="custom" x-cloak>
+                    <div>
+                        <label for="{{ $uid }}-from" class="mb-1 block text-xs text-content-muted">From</label>
+                        <x-date-input id="{{ $uid }}-from" name="from" form="{{ $uid }}-dates" x-bind:disabled="! custom" :value="$list['range']['from'] === $earliest ? null : $list['range']['from']" />
+                    </div>
+                    <div>
+                        <label for="{{ $uid }}-to" class="mb-1 block text-xs text-content-muted">To</label>
+                        <x-date-input id="{{ $uid }}-to" name="to" form="{{ $uid }}-dates" x-bind:disabled="! custom" :value="$list['range']['to']" />
+                    </div>
+                    <x-button type="submit" variant="secondary" form="{{ $uid }}-dates">Apply dates</x-button>
+                </div>
+            @endif
+
+            @if ($allChip || $quickChips !== [])
+                <div class="flex flex-wrap gap-1.5" aria-label="Quick filters">
+                    @foreach (array_filter([$allChip, ...$quickChips]) as $chip)
+                        <x-button size="sm" :variant="$chip['on'] ? 'primary' : 'secondary'" :href="$chip['href']" :aria-pressed="$chip['on'] ? 'true' : 'false'">{{ $chip['label'] }}</x-button>
+                    @endforeach
+                </div>
+            @endif
+
+            @if ($advanced !== [])
+                <div id="{{ $uid }}-panel" x-show="open" x-cloak class="rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised p-3">
+                    <form method="GET" x-on:submit.prevent="{{ $clean }}">
+                        @foreach ($keep([...$advancedKeys, ...$sourceKeys]) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
+                        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            @foreach ($advanced as $field)
+                                @switch($field['kind'])
+                                    @case('select')
+                                        <div>
+                                            <label for="{{ $uid }}-{{ $field['key'] }}" class="mb-1 block text-xs text-content-muted">{{ $field['label'] }}</label>
+                                            <select id="{{ $uid }}-{{ $field['key'] }}" name="{{ $field['key'] }}" class="block h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-sm text-content">
+                                                <option value="">{{ $field['allLabel'] }}</option>
+                                                @foreach ($field['options'] as $value => $label)
+                                                    <option value="{{ $value }}" @selected((string) $field['value'] === (string) $value)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        @break
+                                    @case('amount-range')
+                                        @foreach ([[$field['minKey'], 'Minimum', $field['min'] ?? ''], [$field['maxKey'], 'Maximum', $field['max'] ?? '']] as [$key, $word, $value])
+                                            <div>
+                                                <label for="{{ $uid }}-{{ $key }}" class="mb-1 block text-xs text-content-muted">{{ $word }} {{ mb_strtolower($field['label']) }} ({{ \App\View\Format::shopCurrency() }})</label>
+                                                <x-input amount id="{{ $uid }}-{{ $key }}" :name="$key" :value="$value" />
+                                            </div>
+                                        @endforeach
+                                        @break
+                                @endswitch
+                            @endforeach
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <x-button type="submit">Apply Filters</x-button>
+                            <x-button variant="ghost" href="?">Clear Filters</x-button>
+                        </div>
+                    </form>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    @if (! $compact && $quickChips !== [])
         <div class="flex flex-wrap gap-1.5" aria-label="Quick filters">
             @foreach ($quickChips as $chip)
                 <x-button size="sm" :variant="$chip['on'] ? 'primary' : 'secondary'" :href="$chip['href']" :aria-pressed="$chip['on'] ? 'true' : 'false'">{{ $chip['label'] }}</x-button>
@@ -99,7 +230,7 @@
         </div>
     @endif
 
-    @if ($hasControls)
+    @if (! $compact && $hasControls)
     <form method="GET" class="flex flex-wrap items-end gap-3 rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised p-3" x-data>
         @foreach ($hidden as $key => $value)
             <input type="hidden" name="{{ $key }}" value="{{ $value }}">

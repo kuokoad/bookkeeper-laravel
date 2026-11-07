@@ -20,7 +20,7 @@
         <x-stat icon="users" label="People" :value="(string) count($users)" />
     </div>
 
-    <x-filter-bar :list="$list" :fields="[
+    <x-filter-bar compact :list="$list" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'What happened, or who', 'value' => $resolved['q'] ?? ''],
         ['kind' => 'select', 'key' => 'user', 'label' => 'Person', 'allLabel' => 'Anyone', 'options' => array_column($users, 'displayName', 'id'), 'value' => $resolved['user'] ?? null],
         ['kind' => 'select', 'key' => 'action', 'label' => 'Action', 'allLabel' => 'Anything', 'options' => array_combine(AuditAction::values(), array_map(fn ($v) => $labels[$v] ?? $v, AuditAction::values())), 'value' => $resolved['action'] ?? null],

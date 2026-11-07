@@ -13,9 +13,7 @@
     <x-page-header title="Sales" description="Every sale, what it earned and what is still owed.">
         <x-slot:actions>
             <x-csv-button list="sales" :query="$list['carried']" />
-            @can('sales.create')
-                <x-button size="sm" href="/sales/new">New sale</x-button>
-            @endcan
+            <x-create-menu size="sm" primary="Sale" label="New sale" />
         </x-slot:actions>
     </x-page-header>
 
@@ -39,18 +37,18 @@
         ['label' => 'Credit sales', 'params' => ['paid' => 'unpaid'], 'match' => ['paid' => 'unpaid']],
         ['label' => 'Cash sales', 'params' => ['method' => 'CASH'], 'match' => ['method' => 'CASH']],
         ['label' => 'MoMo sales', 'params' => ['method' => 'MOBILE_MONEY'], 'match' => ['method' => 'MOBILE_MONEY']],
-        ['label' => 'Voided', 'params' => ['status' => 'VOIDED'], 'match' => ['status' => 'VOIDED']],
+        ['label' => 'Voided', 'params' => ['status' => 'VOIDED', 'statusSource' => 'quick'], 'match' => ['status' => 'VOIDED']],
     ];
     @endphp
 
-    <x-filter-bar :quick="$quick" :list="$list" :dates="true" :fields="[
+    <x-filter-bar compact :all="['label' => 'All Sales', 'clears' => ['paid', 'method', ...(($list['carried']['statusSource'] ?? null) === 'quick' ? ['status', 'statusSource'] : [])]]" :quick="$quick" :list="$list" :dates="true" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Receipt, customer, phone, stock item or SKU', 'wide' => true, 'value' => $f['search'] ?? ''],
         ['kind' => 'select', 'key' => 'customer', 'label' => 'Customer', 'allLabel' => 'All customers', 'options' => $options($customers), 'value' => $f['customerId'] ?? null],
         ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => $options($categories), 'value' => $f['categoryId'] ?? null],
         ['kind' => 'select', 'key' => 'product', 'label' => 'Stock item', 'allLabel' => 'All stock items', 'options' => $options($products), 'value' => $f['productId'] ?? null],
         ['kind' => 'select', 'key' => 'account', 'label' => 'Paid into', 'allLabel' => 'Any account', 'options' => $options($accounts), 'value' => $f['paymentAccountId'] ?? null],
         ['kind' => 'select', 'key' => 'staff', 'label' => 'Served by', 'allLabel' => 'Anyone', 'options' => $options($staff, 'displayName'), 'value' => $f['staffId'] ?? null],
-        ['kind' => 'select', 'key' => 'status', 'label' => 'Status', 'allLabel' => 'All', 'options' => ['POSTED' => 'Posted', 'VOIDED' => 'Voided'], 'value' => $f['status'] ?? null],
+        ['kind' => 'select', 'key' => 'status', 'label' => 'Status', 'allLabel' => 'All', 'options' => ['POSTED' => 'Posted', 'VOIDED' => 'Voided'], 'value' => $f['status'] ?? null, 'sourceKey' => 'statusSource'],
         ['kind' => 'amount-range', 'minKey' => 'min', 'maxKey' => 'max', 'label' => 'Total', 'min' => isset($f['minAmount']) ? Money::toInputString($f['minAmount']) : '', 'max' => isset($f['maxAmount']) ? Money::toInputString($f['maxAmount']) : ''],
     ]" />
 

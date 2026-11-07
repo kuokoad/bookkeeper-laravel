@@ -8,7 +8,7 @@ That is a quotation. It sells nothing.
 
 ## Write one
 
-**Quotations → New quote.**
+**Create Transaction → Quotation.**
 
 - **Customer.** Type any name. They do not have to be on your customer list, and
   most people asking for a price are not on it yet. If they already are, start

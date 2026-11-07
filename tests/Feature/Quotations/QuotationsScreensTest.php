@@ -66,7 +66,7 @@ it('refuses somebody without the right', function () {
         signedIn($kofi)->get($path)->assertRedirect('/no-access?area=quotations');
     }
     $viewer = staff(['quotations' => viewOnly()], 'yaw');
-    signedIn($viewer)->get('/quotations')->assertOk()->assertDontSee('New quote');
+    signedIn($viewer)->get('/quotations')->assertOk()->assertDontSee('/quotations/new', false);
     quotesAs($viewer, Form::class)->call('save')->assertForbidden();
     signedIn($this->ownerId)->get('/quotations/999999')->assertNotFound();
 });

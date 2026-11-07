@@ -13,7 +13,7 @@
         <x-stat icon="accounts" label="Balance" :value="\App\View\Format::money($closingBalance)" :tone="$closingBalance < 0 ? 'danger' : 'default'" />
     </div>
 
-    <x-filter-bar :list="$list" :fields="[
+    <x-filter-bar compact :list="$list" :fields="[
         ['kind' => 'date', 'key' => 'from', 'label' => 'From', 'value' => $from ?? ''],
         ['kind' => 'date', 'key' => 'to', 'label' => 'To', 'value' => $toShown],
     ]" />

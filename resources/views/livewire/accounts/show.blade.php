@@ -57,7 +57,7 @@
 
     <h2 class="mb-3 text-sm font-semibold text-content">Movements</h2>
 
-    <x-filter-bar :list="$list" :dates="true" :fields="[
+    <x-filter-bar compact :list="$list" :dates="true" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Entry number, memo or description', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
         ['kind' => 'select', 'key' => 'type', 'label' => 'Transaction type', 'allLabel' => 'All types', 'options' => array_combine($sourceTypes, array_map(fn ($t) => $labels[$t] ?? $t, $sourceTypes)), 'value' => $list['filters']['sourceType'] ?? null],
         ['kind' => 'select', 'key' => 'flow', 'label' => 'Direction', 'allLabel' => 'In and out', 'options' => ['in' => 'Money in', 'out' => 'Money out'], 'value' => $list['filters']['flow'] ?? null],

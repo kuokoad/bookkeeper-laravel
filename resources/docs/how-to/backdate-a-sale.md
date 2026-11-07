@@ -19,7 +19,7 @@ Anyone else does not see the date field. Every sale they ring up is dated today.
 
 ## Record a backdated sale
 
-1. Go to **Sales → New sale**.
+1. Go to **Create Transaction → Sale**.
 2. In the **Sale date** box above **Customer**, choose the day. Days after today and
    days inside the books lock are greyed out.
 3. A warning appears: *This sale will be recorded on …, not today.* Check the date.

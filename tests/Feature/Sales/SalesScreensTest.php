@@ -59,13 +59,24 @@ it('renders the list, a sale, its receipt and invoice over the demo shop', funct
     signedIn($this->ownerId)->get("/sales/{$credit}/invoice")->assertOk()->assertSee($sale['invoiceNo'])->assertSee('Amount due');
 });
 
+it('offers the Create Transaction menu on the sales list only to someone who may create', function () {
+    signedIn(staff(['sales' => viewOnly()], 'abena'))->get('/sales')->assertOk()->assertDontSee('Create Transaction')->assertDontSee('New sale');
+    signedIn($this->ownerId)->get('/sales')->assertOk()->assertSee('New sale')->assertDontSee('Create Transaction')->assertSee('/sales/new', false);
+});
+
+it('falls back to the generic Create Transaction menu on the sales list for someone who may not start a sale', function () {
+    $create = ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false];
+    signedIn(staff(['sales' => viewOnly(), 'purchases' => $create], 'yaw'))->get('/sales')->assertOk()
+        ->assertDontSee('New sale')->assertSee('Create Transaction')->assertSee('/purchases/new', false);
+});
+
 it('refuses somebody without the right, and 404s a sale that does not exist', function () {
     $this->get('/sales')->assertRedirect('/login');
     $kofi = staff(['customers' => viewOnly()], 'kofi');
     foreach (['/sales', '/sales/new', '/sales/1', '/sales/1/receipt', '/sales/1/invoice'] as $path) {
         signedIn($kofi)->get($path)->assertRedirect('/no-access?area=sales');
     }
-    signedIn(staff(['sales' => viewOnly()], 'yaw'))->get('/sales')->assertOk()->assertDontSee('New sale');
+    signedIn(staff(['sales' => viewOnly()], 'yaw'))->get('/sales')->assertOk()->assertDontSee('/sales/new', false);
     signedIn($this->ownerId)->get('/sales/999999')->assertNotFound();
     signedIn($this->ownerId)->get('/sales/999999/receipt')->assertNotFound();
 });
@@ -162,4 +173,34 @@ it('asks for payment on a credit invoice and credits what was already paid', fun
         ->assertSee('Billed to')->assertSee('Adwoa Mensah')
         ->assertSee('Already paid')->assertSee('−10.00')
         ->assertSee('Please pay GHS 20.00');
+});
+
+it('filters sales the old compact way: search and dates up top, the rest behind Filters with a count', function () {
+    $html = fn (string $query): string => signedIn($this->ownerId)->get('/sales'.$query)->assertOk()->getContent();
+    $pressed = fn (string $page, string $label): bool => (bool) preg_match('#aria-pressed="true"[^>]*>\s*'.preg_quote($label, '#').'\s*<#', $page);
+
+    $plain = $html('');
+    expect($plain)->toContain('Date range')->toContain('>Search<')->toContain('Apply Filters')
+        ->and($pressed($plain, 'All Sales'))->toBeTrue();
+
+    // Two panel filters set: the button counts them, and a quick filter turns All Sales off.
+    $filtered = $html('?status=POSTED&min=100&paid=unpaid&q=RCP');
+    expect($filtered)->toContain('Filters (2)')
+        ->and($pressed($filtered, 'All Sales'))->toBeFalse()
+        ->and($pressed($filtered, 'Credit sales'))->toBeTrue()
+        // The search form carries every other filter, so searching keeps them.
+        ->and($filtered)->toMatch('#<input type="hidden" name="status" value="POSTED">#')
+        ->toMatch('#<input type="hidden" name="paid" value="unpaid">#');
+
+    // All Sales clears the quick filters, and Voided only when the Voided button set it (the old statusSource=quick).
+    $allHref = function (string $query) use ($html): string {
+        preg_match('#href="([^"]*)"[^>]*>\s*All Sales#', $html($query), $all);
+
+        return html_entity_decode($all[1]);
+    };
+    expect($allHref('?status=VOIDED&statusSource=quick&method=CASH&q=RCP'))->toBe('?q=RCP')
+        ->and($allHref('?status=VOIDED&method=CASH&q=RCP'))->toBe('?q=RCP&status=VOIDED')
+        // A Voided the quick button set is not counted as a panel filter.
+        ->and($html('?status=VOIDED&statusSource=quick'))->not->toContain('Filters (1)')
+        ->and($html('?status=VOIDED'))->toContain('Filters (1)');
 });

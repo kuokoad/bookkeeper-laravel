@@ -75,6 +75,10 @@ final class Index extends Component
         if ($key === 'businessType' && ($type = BusinessType::tryFrom((string) $value)) !== null) {
             $this->form['features'] = Feature::defaults($type);
         }
+        if ($key === 'look') {
+            $this->authorize('settings.edit');
+            SettingsService::setLook(Look::tryFrom((string) $value) ?? Look::Default, $this->actor());
+        }
     }
 
     public function save(): void

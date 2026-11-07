@@ -30,7 +30,7 @@ it('lists purchases for somebody with the right and refuses everyone else', func
     signedIn(staff(['products' => viewOnly()]))->get('/purchases')->assertRedirect('/no-access?area=purchases');
     signedIn(staff(['purchases' => viewOnly()], 'efua'))->get('/purchases?period=all')->assertOk()
         ->assertSee('What you bought, from whom, and what you still owe.')
-        ->assertSee($this->credit['purchaseNo'])->assertSee('Makola Depot')->assertDontSee('New purchase');
+        ->assertSee($this->credit['purchaseNo'])->assertSee('Makola Depot')->assertDontSee('/purchases/new', false);
 });
 
 it('narrows rows and totals together and shows the resolved filters', function () {

@@ -44,7 +44,7 @@
     ]));
     @endphp
 
-    <x-filter-bar :quick="$quick" :list="$list" :fields="[
+    <x-filter-bar compact :quick="$quick" :list="$list" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Name, SKU or barcode', 'wide' => true, 'value' => $f['search'] ?? ''],
         ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => collect($categories)->mapWithKeys(fn ($c) => [$c->id => $c->name])->all(), 'value' => $f['categoryId'] ?? null],
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => collect($suppliers)->mapWithKeys(fn ($s) => [$s['id'] => $s['name']])->all(), 'value' => $f['supplierId'] ?? null],

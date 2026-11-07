@@ -78,7 +78,7 @@ you can click **History** to see it.
 
 ## Step 4: Sell something
 
-**Sales → New sale.**
+**Create Transaction → Sale.**
 
 Type the stock item name or scan its barcode. Set a quantity. Choose how the customer
 paid — cash, mobile money, bank. Complete the sale.

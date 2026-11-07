@@ -14,7 +14,7 @@ goes against. The screens do not let you pick which invoice a payment settles.
 
 ### Record the delivery
 
-1. Go to **Purchases → New purchase**.
+1. Go to **Create Transaction → Purchase**.
 2. Pick the **Supplier**. A new supplier has to be added under **Suppliers** first.
 3. Set the **Delivery date** and, if you have it, the supplier's invoice number.
    If the supplier gave you time to pay, set the **Due date** (up to a year after
@@ -65,7 +65,7 @@ You owe GHS 300 (1 Oct), GHS 500 (10 Oct) and GHS 400 (20 Oct), and pay GHS 1,00
 
 ### Ring up the sale
 
-1. Ring the sale up on **Sales → New sale** as usual.
+1. Ring the sale up on **Create Transaction → Sale** as usual.
 2. Choose the **Customer**. A sale that is not fully paid needs one, and the till
    marks the field *(required)* until you do.
 3. Take whatever they pay now, or nothing.

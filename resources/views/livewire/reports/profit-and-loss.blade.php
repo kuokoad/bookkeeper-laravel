@@ -4,7 +4,7 @@
         <x-slot:actions>@include('livewire.reports.actions', ['report' => 'profit-and-loss', 'query' => \App\Livewire\Reports\Report::csvQuery($list)])</x-slot:actions>
     </x-page-header>
 
-    <x-filter-bar :list="$list" :dates="true" />
+    <x-filter-bar compact :list="$list" :dates="true" />
 
     <div class="mb-6 grid gap-3 sm:grid-cols-3">
         <x-stat icon="income" label="Net sales" :value="\App\View\Format::money($pl['netSales'])" />

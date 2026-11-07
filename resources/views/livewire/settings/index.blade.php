@@ -10,6 +10,7 @@
         'classic' => ['light' => ['#fbfcfd', '#ffffff', '#1b2025', '#00885e'], 'dark' => ['#1f2730', '#28313b', '#0f171f', '#65cead']],
         'jinu' => ['light' => ['#f1f6f3', '#ffffff', '#ffffff', '#13784b'], 'dark' => ['#121a19', '#19231f', '#0e1513', '#5cc18c']],
         'quikbooks' => ['light' => ['#f4f5f8', '#ffffff', '#ffffff', '#108000'], 'dark' => ['#1b1c1f', '#232427', '#151618', '#53b700']],
+        'mamut' => ['light' => ['#eef1f4', '#ffffff', '#f8fafc', '#2a4a9e'], 'dark' => ['#121826', '#1a2233', '#0f1420', '#8fa8ea']],
     ];
     $basisLabel = ['NET' => 'the goods value', 'NET_PLUS_LEVIES' => 'the value plus the taxes above it'];
 @endphp
@@ -128,12 +129,12 @@
 
                 <x-card>
                     <h2 class="mb-1 text-sm font-semibold text-content">Look</h2>
-                    <p class="mb-4 text-sm text-content-muted">How every screen in the shop is painted. This changes nothing about your figures, and applies to whichever screen anyone signs in on.</p>
+                    <p class="mb-4 text-sm text-content-muted">How every screen in the shop is painted. This changes nothing about your figures, and applies to whichever screen anyone signs in on. A look applies as soon as you pick it.</p>
                     <fieldset class="grid gap-3 sm:grid-cols-2">
                         <legend class="sr-only">Look</legend>
                         @foreach (Look::cases() as $option)
                             <label class="flex cursor-pointer gap-3 rounded-xl border border-line p-3 has-checked:border-accent has-checked:bg-accent-soft">
-                                <input type="radio" value="{{ $option->value }}" wire:model="form.look" class="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]">
+                                <input type="radio" value="{{ $option->value }}" wire:model.live="form.look" x-on:change="$event.target.value === 'default' ? delete document.documentElement.dataset.look : document.documentElement.dataset.look = $event.target.value" class="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]">
                                 <span class="min-w-0">
                                     <span class="block text-sm font-medium text-content">{{ $option->label() }}</span>
                                     <span class="mt-0.5 block text-xs text-content-muted">{{ $option->blurb() }}</span>

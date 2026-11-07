@@ -5,6 +5,7 @@
             @can('suppliers.create')
                 <x-button size="sm" href="/suppliers/new">Add supplier</x-button>
             @endcan
+            <x-create-menu size="sm" primary="Supplier payment" label="Pay supplier" />
         </x-slot:actions>
     </x-page-header>
 
@@ -22,7 +23,7 @@
     ];
     @endphp
 
-    <x-filter-bar :quick="$quick" :list="$list" :fields="[
+    <x-filter-bar compact :quick="$quick" :list="$list" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Name, contact, phone or email', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
         ['kind' => 'select', 'key' => 'balance', 'label' => 'Balance', 'allLabel' => 'Any balance', 'options' => \App\Livewire\Suppliers\Index::BALANCE_LABELS, 'value' => $list['filters']['balanceState'] ?? null],
         ['kind' => 'select', 'key' => 'archived', 'label' => 'Status', 'allLabel' => 'Active only', 'options' => ['active' => 'Active', 'archived' => 'Archived'], 'value' => $list['filters']['supplierStatus'] ?? null],

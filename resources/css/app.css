@@ -15,6 +15,73 @@
   font-display: swap;
 }
 @font-face {
+  font-family: 'Nuna Atkinson';
+  src: url('/fonts/AtkinsonHyperlegibleNext-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nuna Atkinson';
+  src: url('/fonts/AtkinsonHyperlegibleNext-ext-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Nuna Atkinson';
+  src: url('/fonts/AtkinsonHyperlegibleNext-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nuna Atkinson';
+  src: url('/fonts/AtkinsonHyperlegibleNext-ext-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Nuna Atkinson';
+  src: url('/fonts/AtkinsonHyperlegibleNext-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nuna Atkinson';
+  src: url('/fonts/AtkinsonHyperlegibleNext-ext-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Figtree, the Quikbooks look's type: a free stand-in for the Avenir Next
+   that look was drawn with, which Windows does not ship. One variable file
+   per subset, split the way Google Fonts serves it. */
+@font-face {
+  font-family: 'Nuna Figtree';
+  src: url('/fonts/FigtreeVariable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nuna Figtree';
+  src: url('/fonts/FigtreeVariable-ext.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
   font-family: 'Nuna Material Symbols';
   src: url('/fonts/MaterialSymbolsOutlined.ttf') format('truetype');
   font-weight: 400;
@@ -593,21 +660,7 @@
     font-size: 2rem;
   }
 }
-/* Create Transaction: Jinu's one menu in place of the row of quick-action
-   buttons. Other looks keep the buttons; both are rendered, CSS picks one. */
-.create-menu {
-  display: none;
-}
-:root[data-look='jinu'] .create-menu {
-  display: block;
-}
-:root[data-look='jinu'] [aria-label='Quick actions'] {
-  display: none;
-}
-.create-menu[open] .create-menu-chevron {
-  transform: rotate(180deg);
-}
-:root[data-look='jinu'] .create-menu ul {
+:root[data-look='jinu'] .dropdown-panel {
   border-radius: 8px;
   box-shadow: 0 12px 35px rgb(37 74 52 / 0.13);
 }
@@ -751,13 +804,234 @@
 }
 
 :root[data-look='quikbooks'] .app-shell {
-  font-family: 'Avenir Next', Avenir, 'Segoe UI', Arial, sans-serif;
+  font-family: 'Nuna Figtree', 'Segoe UI', Arial, sans-serif;
 }
 /* The selected menu item: a green vertical marker on a square edge. */
 :root[data-look='quikbooks'] .stitch-sidebar a[aria-current='page'] {
   border-radius: 0 4px 4px 0;
   box-shadow: inset 4px 0 0 var(--accent);
   color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   The Mamut look.
+
+   After the SumDesk rebuild of Mamut Business Software: navy (#2a4a9e) on a
+   cool grey page, a pale menu whose selection is a soft blue fill with a navy
+   edge, flat white sheets with a 1px blue-grey rule and 6px corners, no
+   shadows, and Atkinson Hyperlegible Next type (OFL, shipped in /fonts, so
+   nothing is downloaded; latin + latin-ext). The font has no ɛ ɔ ŋ ɖ ʋ, so
+   Twi and Ewe names take those letters from Segoe UI. Colours and shape only: no Mamut logo or artwork.
+
+   The navy clears 8.6:1 with white text. The reference has no dark mode, so
+   dark is ours (the same blues on midnight); same three states as Ledger.
+   --------------------------------------------------------------------------- */
+
+:root[data-look='mamut'] {
+  --surface: #eef1f4;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f6f8fa;
+  --border: #d9e1ec;
+  --border-strong: #c5d3e6;
+  --text: #15213b;
+  --text-muted: #4a5672;
+  --text-subtle: #5d6982;
+
+  --accent: #2a4a9e;
+  --accent-text: #ffffff;
+  --accent-soft: #e4eaf7;
+
+  --sidebar: #f8fafc;
+  --sidebar-raised: #e4eaf7;
+  --sidebar-border: #d9e1ec;
+  --sidebar-text: #15213b;
+  --sidebar-muted: #4a5672;
+  --sidebar-subtle: #5d6982;
+  --sidebar-wordmark: #15213b;
+
+  --danger: #b3261e;
+  --danger-soft: #fcebea;
+  --warning: #8a5a00;
+  --warning-soft: #fbf0d9;
+  --success: #1e6b45;
+  --success-soft: #e3f1e8;
+
+  --card-radius: 6px;
+  --panel-radius: var(--card-radius);
+  --card-shadow: none;
+
+  --chart-1: #2a4a9e;
+  --chart-2: #9aabcf;
+  --chart-3: #1e6b45;
+  --chart-4: #c5d3e6;
+  --chart-5: #8a5a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-look='mamut']:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: #121826;
+    --surface-raised: #1a2233;
+    --surface-sunken: #0f1420;
+    --border: #2b3549;
+    --border-strong: #3d4a63;
+    --text: #e8edf6;
+    --text-muted: #b3bdd0;
+    --text-subtle: #8d99b0;
+
+    --accent: #8fa8ea;
+    --accent-text: #0f1730;
+    --accent-soft: #1f2c4d;
+
+    --sidebar: #0f1420;
+    --sidebar-raised: #1f2c4d;
+    --sidebar-border: #232c3e;
+    --sidebar-text: #e8edf6;
+    --sidebar-muted: #b3bdd0;
+    --sidebar-subtle: #8d99b0;
+    --sidebar-wordmark: #e8edf6;
+
+    --danger: #f28b82;
+    --danger-soft: #3a1c1b;
+    --warning: #f2c46b;
+    --warning-soft: #3a2c10;
+    --success: #6fcf97;
+    --success-soft: #16301f;
+  }
+}
+
+:root[data-look='mamut'][data-theme='dark'] {
+  color-scheme: dark;
+    --surface: #121826;
+    --surface-raised: #1a2233;
+    --surface-sunken: #0f1420;
+    --border: #2b3549;
+    --border-strong: #3d4a63;
+    --text: #e8edf6;
+    --text-muted: #b3bdd0;
+    --text-subtle: #8d99b0;
+
+    --accent: #8fa8ea;
+    --accent-text: #0f1730;
+    --accent-soft: #1f2c4d;
+
+    --sidebar: #0f1420;
+    --sidebar-raised: #1f2c4d;
+    --sidebar-border: #232c3e;
+    --sidebar-text: #e8edf6;
+    --sidebar-muted: #b3bdd0;
+    --sidebar-subtle: #8d99b0;
+    --sidebar-wordmark: #e8edf6;
+
+    --danger: #f28b82;
+    --danger-soft: #3a1c1b;
+    --warning: #f2c46b;
+    --warning-soft: #3a2c10;
+    --success: #6fcf97;
+    --success-soft: #16301f;
+}
+
+:root[data-look='mamut'] :is(.app-shell, .auth-main) {
+  font-family: 'Nuna Atkinson', 'Segoe UI', Arial, sans-serif;
+}
+/* Flat sheets: the card is drawn by its rule, not a shadow. */
+:root[data-look='mamut'] .app-shell .rounded-lg {
+  border-radius: 4px;
+}
+:root[data-look='mamut'] :is(.create-menu summary, .app-shell select) {
+  border-radius: 4px;
+}
+:root[data-look='mamut'] .dropdown-panel {
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(21 33 59 / 0.14);
+}
+:root[data-look='mamut'] .app-main h1.text-2xl {
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+/* The selected menu item: soft blue fill, navy text and a navy edge. */
+:root[data-look='mamut'] .stitch-sidebar a[aria-current='page'] {
+  border-radius: 4px;
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   Dropdowns, on every look: select boxes wear the Create Transaction button's
+   chevron (in the accent) and focus ring, and the list a select opens on a
+   desktop (resources/js/app.js) is the same panel as that menu. Unlayered, so
+   it beats the px-3 the selects carry; the chevron is drawn with gradients so
+   it can read --accent. Multi-line selects keep the native look.
+   --------------------------------------------------------------------------- */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+    linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+  background-position:
+    right 1.05rem center,
+    right 0.75rem center;
+  background-size: 0.32rem 0.32rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+select:not([multiple]):not([size]):hover:not(:disabled) {
+  border-color: var(--accent);
+}
+select:not([multiple]):not([size]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.dropdown-panel {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+.create-menu[open] .create-menu-chevron {
+  transform: rotate(180deg);
+}
+.select-list {
+  position: fixed;
+  z-index: 60;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.375rem;
+  list-style: none;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+.select-list:focus {
+  outline: none;
+}
+.select-list [role='option'] {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.select-list [role='option'][aria-selected='true'] {
+  font-weight: 600;
+  color: var(--accent);
+}
+.select-list [role='option'].is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.select-list [role='option'][aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
+}
+.select-list .select-list-group {
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 /* ---------------------------------------------------------------------------
@@ -824,6 +1098,11 @@
 @layer base {
   * {
     border-color: var(--border);
+  }
+  /* Tailwind v4 dropped the pointer from buttons; in base so cursor-* utilities still override. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
   }
 }
 

@@ -123,7 +123,7 @@
         ];
         @endphp
 
-        <x-filter-bar :quick="$quick" :list="$list" :dates="true" :fields="[
+        <x-filter-bar compact :quick="$quick" :list="$list" :dates="true" :fields="[
             ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Stock item, SKU, reference or note', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
             ['kind' => 'select', 'key' => 'product', 'label' => 'Stock item', 'allLabel' => 'All stock items', 'options' => collect($products)->pluck('name', 'id')->all(), 'value' => $list['filters']['productId'] ?? null],
             ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => collect($categories)->pluck('name', 'id')->all(), 'value' => $list['filters']['categoryId'] ?? null],

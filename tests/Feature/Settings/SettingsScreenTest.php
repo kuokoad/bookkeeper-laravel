@@ -60,6 +60,21 @@ it('saves the settings through the service and records the change', function () 
         ->and(DB::table('audit_logs')->where('entity_type', 'business_settings')->value('summary'))->toContain('Shop name:');
 });
 
+it('applies a look the moment it is picked, without saving the rest of the form', function () {
+    settingsAs(owner())
+        ->set('form.businessName', 'Unsaved name')
+        ->set('form.look', 'ledger')
+        ->assertHasNoErrors()
+        ->assertNoRedirect();
+
+    $s = SettingsService::get();
+    expect($s->look)->toBe('ledger')
+        ->and($s->business_name)->not->toBe('Unsaved name')
+        ->and(DB::table('audit_logs')->where('entity_type', 'business_settings')->value('summary'))->toContain('Look:');
+    settingsAs(staff(['settings' => viewOnly()]))->set('form.look', 'classic')->assertForbidden();
+    expect(SettingsService::get()->look)->toBe('ledger');
+});
+
 it('shows the old messages for what the form cannot accept', function () {
     settingsAs(owner())
         ->set('form.businessName', 'A')

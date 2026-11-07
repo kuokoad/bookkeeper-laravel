@@ -44,7 +44,7 @@ it('groups the approved layout without losing independently dated charts', funct
     expect($xpath->query('//section[@aria-label="Primary financial figures"]/section')->length)->toBe(4)
         ->and($xpath->query('//section[@aria-labelledby="trends-heading"]/div/section')->length)->toBe(2)
         ->and($xpath->query('//section[@aria-labelledby="summaries-heading"]/div/section')->length)->toBe(3)
-        ->and($xpath->query('//*[@aria-label="Quick actions"]/a')->item(0)->getAttribute('href'))->toBe('/sales/new');
+        ->and($xpath->query('//*[@aria-label="Create transaction"]//a')->item(0)->getAttribute('href'))->toBe('/sales/new');
     expect($html)->toContain('Daily sales')->toContain('Daily expenses')->toContain('Top selling stock item')
         ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
         ->toContain('Account reconciliation')->toContain('reconciliation not verified')
@@ -106,7 +106,12 @@ it('opens for any signed-in person inside the shell, and not for anyone else', f
 });
 
 it('offers in Create Transaction only the entries a person may start', function () {
-    $menu = fn (int $id): array => array_map(fn (array $item): string => $item['label'], dashboardAs($id)->viewData('createMenu'));
+    $menu = function (int $id): array {
+        $dom = new DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8"?>'.dashboardAs($id)->html());
+
+        return array_map(fn (DOMNode $a): string => trim($a->textContent), iterator_to_array((new DOMXPath($dom))->query('//*[@aria-label="Create transaction"]//a')));
+    };
     $create = ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false];
 
     expect($menu($this->ownerId))->toContain('Sale', 'Purchase', 'Expense', 'Other income', 'Customer payment received', 'Supplier payment', 'Transfer between accounts', 'Stock adjustment')

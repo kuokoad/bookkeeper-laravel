@@ -5,6 +5,7 @@
     <x-page-header title="Accounts" description="Every pot of money the shop holds — cash, mobile money, bank.">
         <x-slot:actions>
             <x-button variant="secondary" size="sm" href="/accounts/transfers">Transfers</x-button>
+            <x-create-menu size="sm" primary="Transfer between accounts" label="Transfer" />
         </x-slot:actions>
     </x-page-header>
 

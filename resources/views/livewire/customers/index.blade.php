@@ -11,6 +11,7 @@
             @can('customers.create')
                 <x-button size="sm" href="/customers/new">Add customer</x-button>
             @endcan
+            <x-create-menu size="sm" primary="Customer payment received" label="Receive payment" />
         </x-slot:actions>
     </x-page-header>
 
@@ -28,7 +29,7 @@
     ];
     @endphp
 
-    <x-filter-bar :quick="$quick" :list="$list" :fields="[
+    <x-filter-bar compact :quick="$quick" :list="$list" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Name, phone or email', 'wide' => true, 'value' => $f['search'] ?? ''],
         ['kind' => 'select', 'key' => 'balance', 'label' => 'Balance', 'allLabel' => 'Any balance', 'options' => ['owing' => 'Owes money', 'zero' => 'Nothing owing', 'credit' => 'In credit'], 'value' => $f['balanceState'] ?? null],
         ['kind' => 'select', 'key' => 'archived', 'label' => 'Status', 'allLabel' => 'Active only', 'options' => ['active' => 'Active', 'archived' => 'Archived'], 'value' => $f['customerStatus'] ?? null],

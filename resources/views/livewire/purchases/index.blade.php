@@ -7,9 +7,7 @@
     <x-page-header title="Purchases" description="What you bought, from whom, and what you still owe.">
         <x-slot:actions>
             <x-csv-button list="purchases" :query="$list['carried']" />
-            @can('purchases.create')
-                <x-button size="sm" href="/purchases/new">New purchase</x-button>
-            @endcan
+            <x-create-menu size="sm" primary="Purchase" label="New purchase" />
         </x-slot:actions>
     </x-page-header>
 
@@ -31,7 +29,7 @@
     ];
     @endphp
 
-    <x-filter-bar :quick="$quick" :list="$list" :dates="true" :fields="[
+    <x-filter-bar compact :all="['label' => 'All Purchases', 'clears' => ['paid']]" :quick="$quick" :list="$list" :dates="true" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Purchase or invoice no, supplier, stock item', 'wide' => true, 'value' => $f['search'] ?? ''],
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => $options($suppliers), 'value' => $f['supplierId'] ?? null],
         ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => $options($categories), 'value' => $f['categoryId'] ?? null],

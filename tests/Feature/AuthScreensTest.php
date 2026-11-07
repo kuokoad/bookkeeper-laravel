@@ -339,3 +339,8 @@ it('accepts the Quikbooks look in the database and wears it', function () {
     DB::table('business_settings')->update(['look' => 'quikbooks']);
     $this->get('/setup')->assertSee('data-look="quikbooks"', false);
 });
+
+it('accepts the Mamut look in the database and wears it', function () {
+    DB::table('business_settings')->update(['look' => 'mamut']);
+    $this->get('/setup')->assertSee('data-look="mamut"', false);
+});

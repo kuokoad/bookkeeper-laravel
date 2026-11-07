@@ -140,6 +140,23 @@ final class SettingsService
         });
     }
 
+    /** The look alone, applied the moment it is picked: nothing else on the form is saved with it. */
+    public static function setLook(Look $look, Actor $actor): void
+    {
+        Tx::run(function () use ($look, $actor): void {
+            $before = DB::table('business_settings')->where('id', 1)->lockForUpdate()->first();
+            if ($before === null) {
+                throw new NotFoundError('Business settings', 1);
+            }
+            if ($before->look === $look->value) {
+                return;
+            }
+            $now = Carbon::now();
+            DB::table('business_settings')->where('id', 1)->update(['look' => $look->value, 'updated_at' => $now->format('Y-m-d H:i:s.v')]);
+            AuditService::write(AuditAction::SettingsChange, 'business_settings', self::describeChange('Look', Look::from($before->look)->label(), $look->label()), entityId: 1, actor: $actor, at: $now);
+        });
+    }
+
     /**
      * First-run setup's half of the old setupOwnerAction, after the owner
      * account exists: the shop's name and type, the type's feature switches

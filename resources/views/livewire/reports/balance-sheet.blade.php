@@ -10,7 +10,7 @@
         </x-alert>
     @endunless
 
-    <x-filter-bar :list="['carried' => []]" :fields="[['kind' => 'date', 'key' => 'asAt', 'label' => 'As at', 'value' => $asAt]]" />
+    <x-filter-bar compact :list="['carried' => []]" :fields="[['kind' => 'date', 'key' => 'asAt', 'label' => 'As at', 'value' => $asAt]]" />
 
     <div class="mb-6 grid gap-3 sm:grid-cols-3">
         <x-stat icon="accounts" label="What you own" :value="\App\View\Format::money($sheet['totalAssets'])" />

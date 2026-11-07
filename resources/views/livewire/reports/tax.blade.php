@@ -5,7 +5,7 @@
         <x-slot:actions>@include('livewire.reports.actions', ['report' => 'tax', 'query' => \App\Livewire\Reports\Report::csvQuery($list)])</x-slot:actions>
     </x-page-header>
 
-    <x-filter-bar :list="$list" :dates="true" />
+    <x-filter-bar compact :list="$list" :dates="true" />
 
     @unless ($enabled)
         <x-alert tone="info" title="Tax is switched off" class="mb-4">

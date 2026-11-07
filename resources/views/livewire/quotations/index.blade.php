@@ -6,9 +6,7 @@
     <x-page-header title="Quotations" description="Prices offered to customers. Nothing here has been sold.">
         <x-slot:actions>
             <x-csv-button list="quotations" :query="$list['carried']" />
-            @can('quotations.create')
-                <x-button size="sm" href="/quotations/new">New quote</x-button>
-            @endcan
+            <x-create-menu size="sm" primary="Quotation" label="New quotation" />
         </x-slot:actions>
     </x-page-header>
 
@@ -20,7 +18,7 @@
     ];
     @endphp
 
-    <x-filter-bar :quick="$quick" :list="$list" :dates="true" :fields="[
+    <x-filter-bar compact :quick="$quick" :list="$list" :dates="true" :fields="[
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Quote number, customer or job', 'wide' => true, 'value' => $f['search'] ?? ''],
         ['kind' => 'select', 'key' => 'customer', 'label' => 'Customer', 'allLabel' => 'Everyone', 'options' => collect($customers)->pluck('name', 'id')->all(), 'value' => $f['customerId'] ?? null],
     ]" />

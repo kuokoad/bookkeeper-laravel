@@ -36,32 +36,7 @@
                 <h1 class="text-2xl font-semibold text-content">Dashboard</h1>
                 <p class="mt-1 text-sm text-content-muted">{{ $user->display_name }}, your financial overview · @date($today)</p>
             </div>
-            <div class="flex flex-wrap gap-2" aria-label="Quick actions">
-                @foreach ($actions as $action)
-                    <a href="{{ $action['href'] }}" @class(['inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-accent',
-                        'border-accent bg-accent text-accent-text hover:opacity-90' => $action['href'] === '/sales/new',
-                        'border-line bg-surface-raised text-accent hover:bg-accent-soft' => $action['href'] !== '/sales/new'])>
-                        <x-icon :name="$action['icon']" class="h-4 w-4" />
-                        {{ $action['label'] }}
-                    </a>
-                @endforeach
-            </div>
-            {{-- Jinu's Create Transaction menu (shown by that look only; the quick actions above serve the others).
-                 A native <details>: opens with Enter or Space, no JavaScript needed; Alpine only closes it on Escape or a click elsewhere. --}}
-            @if ($createMenu !== [])
-                <details class="create-menu relative" x-data x-on:click.outside="$el.open = false" x-on:keydown.escape="$el.open = false; $refs.summary.focus()">
-                    <summary x-ref="summary" class="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-accent bg-accent px-4 py-2 text-sm font-semibold text-accent-text hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
-                        <x-icon name="add" class="h-4 w-4" />
-                        Create Transaction
-                        <svg aria-hidden="true" viewBox="0 0 16 16" class="create-menu-chevron h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6 4 4 4-4"/></svg>
-                    </summary>
-                    <ul class="absolute z-30 mt-2 w-[17.5rem] max-w-[calc(100vw-2rem)] max-sm:left-0 sm:right-0 rounded-lg border border-line bg-surface-raised p-1.5 shadow-lg" aria-label="Create transaction">
-                        @foreach ($createMenu as $item)
-                            <li><a href="{{ $item['href'] }}" class="block rounded px-3 py-2 text-sm text-content hover:bg-accent-soft hover:text-accent focus-visible:bg-accent-soft focus-visible:text-accent focus-visible:outline-none">{{ $item['label'] }}</a></li>
-                        @endforeach
-                    </ul>
-                </details>
-            @endif
+            <x-create-menu />
         </div>
     </header>
 

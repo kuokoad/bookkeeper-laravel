@@ -11,7 +11,7 @@
         @endforeach
     </nav>
 
-    <x-filter-bar :list="$list" :dates="true" :fields="[
+    <x-filter-bar compact :list="$list" :dates="true" :fields="[
         ['kind' => 'select', 'key' => 'category', 'label' => 'Stock group', 'allLabel' => 'All stock groups', 'options' => $categories, 'value' => $list['filters']['categoryId'] ?? null],
         ['kind' => 'select', 'key' => 'supplier', 'label' => 'Supplier', 'allLabel' => 'All suppliers', 'options' => $suppliers, 'value' => $list['filters']['supplierId'] ?? null],
         ['kind' => 'select', 'key' => 'stock', 'label' => 'Stock status', 'allLabel' => 'Any stock level', 'options' => $stockOptions, 'value' => $list['filters']['stockStatus'] ?? null],

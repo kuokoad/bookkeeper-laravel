@@ -5,6 +5,7 @@
             @if ($side['otherIncomeLink'])
                 <x-button variant="secondary" size="sm" href="/income">Other income</x-button>
             @endif
+            <x-create-menu size="sm" />
         </x-slot:actions>
     </x-page-header>
 
@@ -17,7 +18,7 @@
         <x-stat :label="$side['averageLabel']" :value="\App\View\Format::money($summary['average'], currencyCode: $currency)" />
     </div>
 
-    <x-filter-bar :list="$list" :dates="true" :fields="array_values(array_filter([
+    <x-filter-bar compact :list="$list" :dates="true" :fields="array_values(array_filter([
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Description, reference or note', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
         ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => array_column($categories, 'name', 'id'), 'value' => $list['filters']['categoryAccountId'] ?? null],
         ['kind' => 'select', 'key' => 'account', 'label' => $side['accountLabel'], 'allLabel' => 'Any account', 'options' => array_column($accounts, 'name', 'id'), 'value' => $list['filters']['paymentAccountId'] ?? null],

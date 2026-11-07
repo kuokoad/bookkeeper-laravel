@@ -4,7 +4,7 @@
         <x-slot:actions>@include('livewire.reports.actions', ['report' => 'cash-flow', 'query' => \App\Livewire\Reports\Report::csvQuery($list)])</x-slot:actions>
     </x-page-header>
 
-    <x-filter-bar :list="$list" :dates="true" :fields="[
+    <x-filter-bar compact :list="$list" :dates="true" :fields="[
         ['kind' => 'select', 'key' => 'account', 'label' => 'Account', 'allLabel' => 'All accounts', 'options' => $accounts, 'value' => $list['accountId']],
     ]" />
 

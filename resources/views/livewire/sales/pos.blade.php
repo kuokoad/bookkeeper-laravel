@@ -3,8 +3,8 @@
     use App\View\Format;
     $fmt = fn (int $v) => Format::money($v, bare: true);
 @endphp
-<div class="mx-auto max-w-6xl" x-data x-on:pos-focus-search.window="$nextTick(() => document.getElementById('pos-search')?.focus())">
-    <x-page-header title="New sale" description="Search or scan, take payment, done.">
+<div x-data x-on:pos-focus-search.window="$nextTick(() => document.getElementById('pos-search')?.focus())">
+    <x-page-header :title="$editingId ? 'Edit '.$editingNo : ($invoiceMode ? 'New invoice' : 'New sale')" :description="$editingId ? 'On the day it was recorded, the old sale is reversed and its goods go back; this one is posted in its place under the same receipt number. What it said before is kept in its edit history.' : ($invoiceMode ? 'Choose the customer, add the items, save on credit.' : 'Search or scan, take payment, done.')">
         <x-slot:actions>
             <x-button variant="secondary" size="sm" href="/sales">All sales</x-button>
         </x-slot:actions>
@@ -29,6 +29,9 @@
                         @endif
                         <p class="mt-2 flex items-center gap-3">
                             <x-button size="sm" href="/sales/{{ $saved['saleId'] }}/receipt?print=1">Print receipt</x-button>
+                            @if ($saved['owing'] > 0 && $saved['customerName'])
+                                <x-button size="sm" variant="secondary" href="/sales/{{ $saved['saleId'] }}/invoice">Open invoice</x-button>
+                            @endif
                             <a href="/sales/{{ $saved['saleId'] }}" class="text-accent hover:underline">View sale</a>
                         </p>
                     </x-alert>
@@ -50,7 +53,7 @@
                 <div class="rounded-xl border border-line bg-surface-raised p-4">
                     <label for="pos-search" class="mb-1.5 block text-sm font-medium text-content">Find a stock item</label>
                     <x-input id="pos-search" wire:model.live.debounce.150ms="search" wire:keydown.enter.prevent="scan($event.target.value)"
-                        placeholder="Type a name, or scan a barcode" autocomplete="off" autofocus class="h-12 text-base" />
+                        placeholder="Type a name, or scan a barcode" autocomplete="off" :autofocus="! $invoiceMode" class="h-12 text-base" />
 
                     @if ($matches !== [])
                         <ul class="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line">
@@ -245,8 +248,8 @@
                             </div>
                         @endif
 
-                        <label for="customer" class="mb-1 block text-xs text-content-muted">Customer @if ($totals['outstanding'] > 0)<span class="text-danger">(required)</span>@endif</label>
-                        <select id="customer" wire:model.live="customerId" class="h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content">
+                        <label for="customer" class="mb-1 block text-xs text-content-muted">Customer @if ($invoiceMode || $totals['outstanding'] > 0)<span class="text-danger">(required)</span>@endif</label>
+                        <select id="customer" wire:model.live="customerId" @if ($invoiceMode) autofocus @endif class="h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content">
                             <option value="">Walk-in customer</option>
                             @foreach ($customers as $customer)
                                 <option value="{{ $customer['id'] }}">{{ $customer['name'] }}{{ $customer['balance'] > 0 ? ' — owes '.$fmt($customer['balance']) : '' }}</option>
@@ -255,6 +258,13 @@
 
                         <label for="note" class="mt-3 mb-1 block text-xs text-content-muted">Note (optional)</label>
                         <x-input id="note" class="h-10" wire:model="note" />
+                        @if ($editingId)
+                            <div class="mt-3">
+                                <x-field label="Why are you editing it?" for="edit-reason" name="editReason" required>
+                                    <x-input id="edit-reason" class="h-10" wire:model="editReason" placeholder="e.g. Rang up 3, sold 2" :invalid="$errors->has('editReason')" />
+                                </x-field>
+                            </div>
+                        @endif
                     </div>
 
                     @if ($needsCustomer)
@@ -291,7 +301,7 @@
                     @endif
 
                     <x-button type="submit" size="lg" class="w-full" :disabled="! $canSubmit" wire:loading.attr="disabled">
-                        <span wire:loading.remove wire:target="complete">{{ $totals['outstanding'] > 0 ? 'Save on credit' : 'Complete sale' }} — {{ $currency }} {{ $fmt($totals['total']) }}</span>
+                        <span wire:loading.remove wire:target="complete">{{ $editingId ? 'Save changes' : ($totals['outstanding'] > 0 ? 'Save on credit' : 'Complete sale') }} — {{ $currency }} {{ $fmt($totals['total']) }}</span>
                         <span wire:loading wire:target="complete">Saving…</span>
                     </x-button>
                 </div>

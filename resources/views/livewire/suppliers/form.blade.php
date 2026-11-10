@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-3xl">
+<div>
     @if ($supplierId === null)
         <x-page-header title="Add supplier" description="Someone you buy stock from." />
     @else

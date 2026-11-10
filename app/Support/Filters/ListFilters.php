@@ -405,9 +405,9 @@ final class ListFilters
      * One account's ledger: from (default the 1st of this month, as the
      * journal; the opening balance carries the earlier lines) and an optional
      * to. With no valid `to` the ledger runs to today, which `toShown` says
-     * (never the junk typed).
+     * (never the junk typed), and the query ends there too.
      *
-     * @return array{filters: array{from: string, to?: string}, from: string, to: ?string, toShown: string, carried: array<string, string>}
+     * @return array{filters: array{from: string, to: string}, from: string, to: ?string, toShown: string, carried: array<string, string>}
      */
     public static function parseLedgerFilters(array $params, ?string $today = null): array
     {
@@ -415,10 +415,15 @@ final class ListFilters
         $rawFrom = Filters::parseDate(self::one($params, 'from'));
         $rawTo = Filters::parseDate(self::one($params, 'to'));
         ['from' => $from, 'to' => $toShown] = self::monthByDefault($rawFrom, $rawTo, $today);
+        // Only a From later than today: run to that day, never a To before the From.
+        if ($rawTo === null && $from > $toShown) {
+            $toShown = $from;
+        }
         $to = $rawTo === null ? null : $toShown;
 
         return [
-            'filters' => array_filter(['from' => $from, 'to' => $to]), 'from' => $from, 'to' => $to, 'toShown' => $toShown,
+            // The query ends where the To box says: a future-dated payment is not in today's balance.
+            'filters' => ['from' => $from, 'to' => $toShown], 'from' => $from, 'to' => $to, 'toShown' => $toShown,
             'carried' => array_filter(['from' => $rawFrom === null ? null : $from, 'to' => $to]),
         ];
     }

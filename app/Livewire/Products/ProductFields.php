@@ -15,7 +15,7 @@ use App\Services\UnitsService;
 
 /**
  * The old product-form.tsx fields and catalog.actions.ts readProductForm /
- * parseProductNumbers, shared by add, edit and replace. Text in, the
+ * parseProductNumbers, shared by edit and replace. Text in, the
  * service's product input out; money and quantities go through the domain
  * parsers, never by hand.
  */

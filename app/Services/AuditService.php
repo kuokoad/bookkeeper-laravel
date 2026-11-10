@@ -90,6 +90,30 @@ final class AuditService
         return self::filtered($query)->count();
     }
 
+    /**
+     * Every edit of one document, newest first: who, when, why, and what it
+     * said before and after (D34).
+     *
+     * @return list<array{at: string, username: ?string, reason: string, before: array, after: array}>
+     */
+    public static function editHistory(string $entityType, int $entityId): array
+    {
+        return DB::table('audit_logs')
+            ->where('audit_logs.entity_type', $entityType)
+            ->where('audit_logs.entity_id', (string) $entityId)
+            ->where('audit_logs.action', AuditAction::Update->value)
+            ->whereRaw('JSON_EXTRACT(`audit_logs`.`metadata`, ?) = true', ['$.edit'])
+            ->orderByDesc('audit_logs.created_at')
+            ->orderByDesc('audit_logs.id')
+            ->get(['audit_logs.created_at', 'audit_logs.username', 'audit_logs.metadata'])
+            ->map(function (object $row): array {
+                $meta = json_decode((string) $row->metadata, true, flags: JSON_THROW_ON_ERROR);
+
+                return ['at' => (string) $row->created_at, 'username' => $row->username, 'reason' => (string) $meta['reason'], 'before' => $meta['before'], 'after' => $meta['after']];
+            })
+            ->all();
+    }
+
     /** @return list<string> */
     public static function entityTypes(): array
     {

@@ -9,26 +9,29 @@
 
     $attention = [];
     if ($aged !== null && $aged['overdue'] > 0) {
-        $attention[] = ['title' => Format::money($aged['overdue']).' overdue receivables', 'note' => 'Includes amounts 1–30 days overdue and all older buckets. Customer credits can reduce bucket totals.', 'href' => '/customers?balance=owing'];
+        $attention[] = ['tone' => 'danger', 'title' => Format::money($aged['overdue']).' overdue receivables', 'note' => 'Includes amounts 1–30 days overdue and all older buckets. Customer credits can reduce bucket totals.', 'href' => '/customers?balance=owing'];
     }
     foreach ($paymentAccounts as $account) {
         if ($account['balance'] < 0) {
-            $attention[] = ['negativeBalance' => true, 'title' => $account['name'].': '.Format::money($account['balance']), 'note' => 'Negative ledger balance. This may be an overdraft; it is not a confirmed reconciliation error.', 'href' => Dashboard::accountHref($account['id'])];
+            $attention[] = ['tone' => 'danger', 'negativeBalance' => true, 'title' => $account['name'].': '.Format::money($account['balance']), 'note' => 'Negative ledger balance. This may be an overdraft; it is not a confirmed reconciliation error.', 'href' => Dashboard::accountHref($account['id'])];
         }
     }
     if ($stock !== null && ($stock['lowStockCount'] > 0 || $stock['outOfStockCount'] > 0)) {
-        $attention[] = ['title' => "{$stock['lowStockCount']} low-stock and {$stock['outOfStockCount']} out-of-stock stock items", 'note' => 'Review stock levels before recording the next sale.', 'href' => '/inventory'];
+        $attention[] = ['tone' => 'warning', 'title' => "{$stock['lowStockCount']} low-stock and {$stock['outOfStockCount']} out-of-stock stock items", 'note' => 'Review stock levels before recording the next sale.', 'href' => '/inventory'];
     }
     foreach ($differences as $account) {
-        $attention[] = ['title' => $account['accountName'].': '.Format::money($account['unresolvedDifference']).' unresolved count difference', 'note' => 'Recorded counts differ from the books and have not been adjusted.', 'href' => '/reconciliation'];
+        $attention[] = ['tone' => 'warning', 'title' => $account['accountName'].': '.Format::money($account['unresolvedDifference']).' unresolved count difference', 'note' => 'Recorded counts differ from the books and have not been adjusted.', 'href' => '/reconciliation'];
     }
     foreach ($failedChecks as $check) {
-        $attention[] = ['title' => $check['label'], 'note' => 'This integrity check needs investigation.', 'href' => '/accounting'];
+        $attention[] = ['tone' => 'danger', 'title' => $check['label'], 'note' => 'This integrity check needs investigation.', 'href' => '/accounting'];
     }
     if ($aged !== null && ! $aged['reconciles']) {
-        $attention[] = ['title' => Format::money($aged['unaged']).' outside invoice ageing', 'note' => 'Ledger balances include amounts without an invoice due-date bucket. Review allocations and opening balances.', 'href' => '/customers'];
+        $attention[] = ['tone' => 'warning', 'title' => Format::money($aged['unaged']).' outside invoice ageing', 'note' => 'Ledger balances include amounts without an invoice due-date bucket. Review allocations and opening balances.', 'href' => '/customers'];
     }
 @endphp
+@if ($modern)
+    @include('livewire.dashboard-modern')
+@else
 <div class="stitch-dashboard w-full space-y-4">
     <header class="space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -283,4 +286,9 @@
             </div>
         </section>
     @endif
+
+    @if ($shows['money'])
+        @include('livewire.dashboard-activity')
+    @endif
 </div>
+@endif

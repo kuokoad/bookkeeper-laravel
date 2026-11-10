@@ -106,21 +106,23 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [x] Validate the client address taken from proxy headers before it reaches `rate_limits.key` / `audit_logs.ip_address` (the old app took it unchecked)
 - [x] `LegacyScrypt`: RFC 7914 vectors, the old app's own hashes in `tests/Fixtures/old-demo.db`, and hashes made by running the old `hashPassword`/`hashPin` under Node (`tests/Fixtures/legacy-scrypt.json`, NFKC case included); rehash on first sign-in, password and PIN. Measured on the dev PC: 6.2 s plain PHP, 0.87 s with the opcache JIT; still to measure on the shop PC
 - [x] Route guard test (replaces `page-guards`, `action-guards`): `tests/Feature/RouteGuardTest.php` over the real route list (Phase 9a)
-- [ ] Settings screen, logo upload (port `tests/lib/image`), looks and light/dark (port `look`, `theme`, `motion`)
+- [x] Settings screen, logo upload (port `tests/lib/image`: `tests/Feature/Settings/LogoImageTest`, with the old encoder-made fixtures), looks and light/dark (port `look`, `theme`, `motion`: `AuthScreensTest`, `SettingsScreenTest`, `tests/Feature/MotionTest`)
 - [x] Port `search`, `notifications` (the notices; its write-off and per-product window cases are inventory and catalog behaviour, ported in Phase 3), `backup-status`, `update`, `preflight-money`
-- [ ] Help pages from `resources/docs` (port `tests/lib/help`, `markdown`); carry over `docs/how-to`, `reference`, `explanation`, `tutorials`
+- [x] Help pages from `resources/docs` (port `tests/lib/help`, `markdown`); carry over `docs/how-to`, `reference`, `explanation`, `tutorials`. In-app Help serves the same 10 shop-owner guides as the old app; `reference/` and `explanation/` are carried over and rewritten for this app but, as before, not served in-app. `tutorials/developer-setup` is not carried over (Node-only). The old `markdown` test covered a hand-written parser that league/commonmark replaces, so only the constructs the guides use are tested (`tests/Feature/Help/HelpScreenTest`)
 - [x] `nuna:backup` / `nuna:restore` / `nuna:preflight` (port `tests/db/backup`, `restore`, `preflight`: `tests/Processes/BackupRestoreTest`, `tests/Services/PreflightTest`)
-- [ ] Rewrite `how-to/back-up-and-restore.md`: waits for the Help pages
+- [x] Rewrite `how-to/back-up-and-restore.md`: describes `nuna:backup` / `nuna:restore` / `.sql.gz`; `HelpScreenTest` checks it no longer describes the old SQLite file
 - [x] Windows installer and update scripts (PLAN Q1): `scripts/install.ps1`, `scripts/update.ps1`; ASCII and parse-checked (`tests/Feature/PowerShellScriptsTest`), not yet run on a shop PC
 
 ## Phase 9: Proof and cut-over
-- [ ] `nuna:reconcile` reports zero differences on a copy of the real shop data
-- [ ] Backup → restore into an empty DB → reports match
+- [x] `nuna:reconcile` reports zero differences on a copy of the real shop data (Jocee Global backup 2026-11-09T14:57, 4,202 rows, 611 report figures, into `nunabooks_jocee`)
+- [x] Backup → restore into an empty DB → reports match (Jocee Global data: `nuna:backup` of `nunabooks_jocee`, `nuna:restore` into empty `nunabooks_jocee_restore`, `nuna:reconcile` zero differences on 4,202 rows and 611 report figures)
 - [x] Playwright CLI click-through of every module, screenshots in `screenshots/`, figures match the old app: done, 96 screenshots in `screenshots/final/`, every module passed, the figure checks agree with the old app
 - [x] README and ARCHITECTURE list every behaviour difference and why (README table; ARCHITECTURE §4.1 links it; open owner decisions in PLAN §10, D1 to D24)
 
 ## Backlog
 - [ ] HTTPS on the LAN
 - [ ] Off-site backup copy
+- [x] Receivables and payables CSVs (`/export/report/receivables`, `/payables`) need `accounts` view as well as `reports` view, matching their screens (owner decision 2026-11-07; README difference table; `tests/Feature/ExportsTest`)
+- [x] Owner edits a saved stock adjustment, expense, income, purchase or sale in place (PLAN D34): reversed on its own day and re-posted under the same number, reason required, edit history from the audit log; `tests/Services/DocumentEditTest`, `tests/Feature/DocumentEditScreensTest`; Playwright click-through of the four edit screens on demo data, screenshots in `screenshots/edit/`
 
 Phases defined in [ROADMAP.md](ROADMAP.md).

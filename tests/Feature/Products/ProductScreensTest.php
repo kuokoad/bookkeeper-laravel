@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Livewire\Products\Categories;
+use App\Livewire\Products\Create;
 use App\Livewire\Products\Form;
 use App\Livewire\Products\Import;
 use App\Livewire\Products\Index;
@@ -51,24 +52,30 @@ it('adds a product through the service and shows its validation messages', funct
     signedIn(staff(['products' => viewOnly()]))->get('/products/new')->assertRedirect('/no-access?area=products');
     signedIn($this->ownerId)->get('/products/new')->assertOk()->assertSee('Something new to sell.');
 
-    Livewire::actingAs($this->owner)->test(Form::class)->assertSet('unit', 'pcs')
-        ->set('name', '')->call('save')->assertHasErrors(['name' => 'Enter a stock item name.']);
-    Livewire::actingAs($this->owner)->test(Form::class)
-        ->set('name', 'Sugar')->set('costPrice', 'abc')->set('warnDays', '2.5')->call('save')
-        ->assertHasErrors(['costPrice', 'warnDays' => 'Enter a whole number of days, or leave it blank.']);
-    Livewire::actingAs($this->owner)->test(Form::class)
-        ->set('name', 'Sugar')->set('sku', 'RICE5')->call('save')->assertHasErrors('form');
-    Livewire::actingAs($this->owner)->test(Form::class)
-        ->set('name', 'Sugar')->set('costPrice', '12.50')->set('sellingPrice', '15')->call('save')
+    Livewire::actingAs($this->owner)->test(Create::class)->assertSet('rows.0.unit', 'pcs')
+        ->set('rows.0.name', 'Sugar')->set('rows.0.costPrice', 'abc')->call('save')
+        ->assertHasErrors('rows.0.costPrice');
+    Livewire::actingAs($this->owner)->test(Create::class)
+        ->set('rows.0.name', 'Sugar')->set('rows.0.costPrice', '12.50')->set('rows.0.sellingPrice', '15')->call('save')
         ->assertHasNoErrors()->assertRedirect('/products');
 
     $sugar = CatalogService::listProducts(['search' => 'Sugar'])[0];
     expect([$sugar['costPrice'], $sugar['sellingPrice'], $sugar['qtyOnHand']])->toBe([1_250, 1_500, 0]);
+
+    // The fields only Edit has keep their messages there.
+    Livewire::actingAs($this->owner)->test(Form::class, ['id' => (string) $this->malt])
+        ->set('name', '')->call('save')->assertHasErrors(['name' => 'Enter a stock item name.']);
+    Livewire::actingAs($this->owner)->test(Form::class, ['id' => (string) $this->malt])
+        ->set('costPrice', 'abc')->set('warnDays', '2.5')->call('save')
+        ->assertHasErrors(['costPrice', 'warnDays' => 'Enter a whole number of days, or leave it blank.']);
+    Livewire::actingAs($this->owner)->test(Form::class, ['id' => (string) $this->malt])
+        ->set('sku', 'RICE5')->call('save')->assertHasErrors('form');
 });
 
 it('refuses the product writes without the right', function () {
     $viewer = User::query()->findOrFail(staff(['products' => viewOnly()]));
-    Livewire::actingAs($viewer)->test(Form::class)->set('name', 'Sneaky')->call('save')->assertForbidden();
+    Livewire::actingAs($viewer)->test(Create::class)->set('rows.0.name', 'Sneaky')->call('save')->assertForbidden();
+    Livewire::actingAs($viewer)->test(Form::class, ['id' => (string) $this->malt])->set('name', 'Sneaky')->call('save')->assertForbidden();
     Livewire::actingAs($viewer)->test(Form::class, ['id' => (string) $this->malt])->call('setActive', false)->assertForbidden();
     Livewire::actingAs($viewer)->test(Form::class, ['id' => (string) $this->malt])->call('delete')->assertForbidden();
     Livewire::actingAs($viewer)->test(Categories::class)->set('name', 'X')->call('add')->assertForbidden();
@@ -171,4 +178,34 @@ it('refuses to switch stock tracking on a product with history, and says why on 
         ->set('trackInventory', false)->call('save')
         ->assertHasErrors('form')->assertSee('whether it tracks stock cannot change');
     expect(Shop::productRow($this->rice)->track_inventory)->toBeTruthy();
+});
+
+it('adds several stock items from the grid, all or none', function () {
+    $before = count(CatalogService::listProducts([]));
+
+    // A bad row stops every row, and says which one.
+    Livewire::actingAs($this->owner)->test(Create::class)
+        ->set('rows.0.name', 'Sugar 1kg')
+        ->call('addRow')->set('rows.1.name', 'Salt')->set('rows.1.unit', 'no-such-unit')
+        ->call('save')->assertHasErrors('form')->assertSee('Row 2:');
+    expect(count(CatalogService::listProducts([])))->toBe($before);
+
+    Livewire::actingAs($this->owner)->test(Create::class)
+        ->set('rows.0.name', '')->set('rows.0.costPrice', '3')->call('save')
+        ->assertHasErrors(['rows.0.name' => 'Enter a stock item name.']);
+
+    // The second row inherits the first row's stock group; a spare empty row is ignored.
+    Livewire::actingAs($this->owner)->test(Create::class)
+        ->set('rows.0.categoryId', (string) $this->drinks)
+        ->set('rows.0.name', 'Sugar 1kg')->set('rows.0.costPrice', '12.50')->set('rows.0.sellingPrice', '15')
+        ->call('addRow')->set('rows.1.name', 'Delivery')->set('rows.1.trackInventory', false)
+        ->call('addRow')
+        ->call('save')->assertHasNoErrors()->assertRedirect('/products');
+
+    $sugar = CatalogService::listProducts(['search' => 'Sugar 1kg'])[0];
+    $delivery = CatalogService::listProducts(['search' => 'Delivery'])[0];
+    expect([$sugar['costPrice'], $sugar['sellingPrice'], $sugar['qtyOnHand'], $sugar['categoryId']])->toBe([1_250, 1_500, 0, $this->drinks])
+        ->and([$delivery['categoryId'], $delivery['trackInventory']])->toBe([$this->drinks, false])
+        ->and(count(CatalogService::listProducts([])))->toBe($before + 2);
+
 });

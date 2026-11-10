@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Livewire\Purchases;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
 use App\Domain\Quantity;
+use App\Services\AuditService;
 use App\Services\PaymentAccountService;
 use App\Services\PurchaseService;
 use App\Services\Reporting\LedgerService;
@@ -143,6 +145,7 @@ final class Show extends Component
     public function render(): View
     {
         $purchase = PurchaseService::getPurchase($this->purchaseId);
+        $isOwner = RoleGuard::actorIsOwner((int) auth()->id());
         $returnable = $purchase['kind'] === 'PURCHASE' && $purchase['status'] === 'POSTED' ? ReturnsService::getReturnablePurchaseItems($this->purchaseId) : [];
 
         // The return form's estimate, as the old one: each typed quantity × the supplier's unit cost.
@@ -164,6 +167,9 @@ final class Show extends Component
             'returnable' => $returnable,
             'estimate' => $estimate,
             'accounts' => PaymentAccountService::listPaymentAccounts(),
+            // D34: only the owner edits, and only a live purchase.
+            'canEdit' => $isOwner && $purchase['kind'] === 'PURCHASE' && $purchase['status'] === 'POSTED',
+            'history' => $isOwner ? AuditService::editHistory('purchase', $this->purchaseId) : [],
         ])->title($purchase['purchaseNo']);
     }
 }

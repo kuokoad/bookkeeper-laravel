@@ -321,6 +321,31 @@ $daily = New-ScheduledTaskTrigger -Daily -At "21:00"
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
 Register-ScheduledTask -TaskName "NunaBooksBackup" -Action $backup -Trigger $daily -Settings $settings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 
+# The tasks, MySQL and Apache all run as SYSTEM from these folders (the app, the data, and the PHP,
+# Apache and MySQL programs with their config), and .env holds the database password: only
+# Administrators and SYSTEM may read or change them, or a cashier's Windows account could edit
+# artisan or php.ini and have it run as SYSTEM. SIDs, so a French or German Windows works too.
+function Lock-Folder([string]$Dir) {
+    $full = [IO.Path]::GetFullPath($Dir).TrimEnd('\')
+    # Never a whole drive: /reset /T would rewrite every file on it.
+    if ([IO.Path]::GetPathRoot("$full\") -eq "$full\") { Write-Warning "Not restricting $full`: it is a whole drive. Move it into a folder."; return }
+    # A USB stick (FAT32/exFAT) or a network share has no NTFS rights to set.
+    $fs = (Get-Volume -FilePath $full -ErrorAction SilentlyContinue).FileSystemType
+    if ($fs -ne 'NTFS') { Write-Warning "Not restricting $full`: it is not on a local NTFS drive. Keep that drive somewhere only the owner can reach."; return }
+    Invoke-Checked "Restricting $full to Administrators and SYSTEM" "icacls.exe" @($full, "/inheritance:r", "/grant:r", "*S-1-5-32-544:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F", "/Q")
+    # Everything inside takes the folder's rules, dropping any rights a file was given of its own.
+    # A file it cannot reset is a warning, not a reason to stop half-installed.
+    Write-Host "==> Applying them to everything in $full"
+    & icacls.exe "$full\*" /reset /T /C /Q | Out-Host
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Some files in $full kept their own rights (icacls exit code $LASTEXITCODE). Check with: icacls `"$full`" /T /C" }
+}
+foreach ($dir in @($AppDir, (Split-Path $DataDir -Parent), $PhpDir, $ApacheDir, $MysqlDir)) { Lock-Folder $dir }
+$backupDir = [regex]::Match((Get-Content $envFile -Raw), "(?m)^NUNA_BACKUP_DIR=(.+?)\s*$").Groups[1].Value.Trim('"')
+if ($backupDir) {
+    if (Test-Path $backupDir) { Lock-Folder $backupDir }
+    else { Write-Warning "The backup folder $backupDir is not there (drive unplugged?), so its rights were not restricted. Run this again once it is." }
+}
+
 [IO.File]::WriteAllText((Join-Path $AppDir "storage\app\install.json"), (@{
     php = $php; composer = $composer; mysqlBin = (Join-Path $MysqlDir "bin"); apacheService = $ApacheService; port = $Port
 } | ConvertTo-Json))

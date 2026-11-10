@@ -165,6 +165,16 @@ describe('passwords', function () {
             ->and(AuthService::login('ama', 'staff-password-2026')['ok'])->toBeTrue();
     });
 
+    it('stops guessing the current password after the sign-in limit, and records each wrong guess', function () {
+        $staffId = makeStaff();
+        for ($i = 0; $i < AuthService::LOGIN_ATTEMPT_LIMIT; $i++) {
+            expect(fn () => UserService::changeOwnPassword($staffId, "guess-{$i}", 'a-new-password-2026'))->toThrow('current password is not correct');
+        }
+        // Even the right password is refused until the window passes.
+        expect(fn () => UserService::changeOwnPassword($staffId, 'staff-password-2026', 'a-new-password-2026'))->toThrow('Too many wrong passwords')
+            ->and(DB::table('audit_logs')->where('entity_id', (string) $staffId)->where('action', 'LOGIN_FAILED')->count())->toBe(AuthService::LOGIN_ATTEMPT_LIMIT);
+    });
+
     it('refuses reusing the same password', function () {
         expect(fn () => UserService::changeOwnPassword(makeStaff(), 'staff-password-2026', 'staff-password-2026'))->toThrow('different from the current one');
     });

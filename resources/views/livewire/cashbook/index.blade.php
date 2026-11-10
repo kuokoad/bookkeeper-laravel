@@ -11,6 +11,7 @@
 
     @if ($created)<x-alert tone="success" class="mb-4">{{ $side['created'] }}</x-alert>@endif
     @if ($voided)<x-alert tone="success" class="mb-4">{{ $side['voided'] }}</x-alert>@endif
+    @if ($edited)<x-alert tone="success" class="mb-4">{{ $side['edited'] }}</x-alert>@endif
 
     <div class="mb-6 grid gap-3 sm:grid-cols-3">
         <x-stat :label="$side['countLabel']" :icon="$side['icon']" :value="(string) $summary['count']" :hint="$periodHint" />
@@ -49,6 +50,7 @@
                             <x-td><span class="whitespace-nowrap text-content-muted">@date($row['businessDate'])</span></x-td>
                             <x-td>
                                 <span class="font-medium text-content">{{ $row['description'] }}</span>
+                                @if ($row['editedAt'])<x-badge tone="accent" class="ml-2">Edited</x-badge>@endif
                                 @if ($row['reference'])<span class="ml-2 text-xs text-content-subtle">{{ $row['reference'] }}</span>@endif
                             </x-td>
                             <x-td><span class="text-content-muted">{{ $row['categoryName'] }}</span></x-td>
@@ -57,11 +59,23 @@
                             <x-td>
                                 @if ($row['status'] === 'VOIDED')
                                     <x-badge tone="danger">Voided</x-badge>
-                                @elseif ($canVoid)
-                                    @include('livewire.cashbook.row-void', ['id' => $row['id'], 'what' => $row['description']])
+                                @else
+                                    <div class="flex items-start gap-1">
+                                        @if ($canEdit && $editId !== (int) $row['id'])
+                                            <x-button variant="ghost" size="sm" wire:click="startEdit({{ $row['id'] }})" aria-label="Edit {{ $row['description'] }}">Edit</x-button>
+                                        @endif
+                                        @if ($canVoid)
+                                            @include('livewire.cashbook.row-void', ['id' => $row['id'], 'what' => $row['description']])
+                                        @endif
+                                    </div>
                                 @endif
                             </x-td>
                         </tr>
+                        @if ($editId === (int) $row['id'])
+                            <tr wire:key="edit-{{ $row['id'] }}"><td colspan="6" class="p-3">
+                                @include('livewire.cashbook.row-edit', ['what' => $row['documentNo']])
+                            </td></tr>
+                        @endif
                     @endforeach
                 </x-table>
                 <x-pagination :list="$list" :total="$total" :noun="$side['noun']" :noun-plural="$side['nounPlural']" />
@@ -92,8 +106,10 @@
         </div>
 
         <div>
-            @if ($canCreate)
-                <h2 id="record-{{ $side['noun'] === 'expense' ? 'expense' : 'income' }}" class="mb-3 scroll-mt-20 text-sm font-semibold text-content">{{ $side['formHeading'] }}</h2>
+            @if ($canCreate && ($side['recordPage'] ?? null))
+                <x-button size="lg" :href="$side['recordPage']">Record expenses</x-button>
+            @elseif ($canCreate)
+                <h2 id="record-income" class="mb-3 scroll-mt-20 text-sm font-semibold text-content">{{ $side['formHeading'] }}</h2>
                 <form wire:submit="record" class="space-y-4" novalidate>
                     @error('form')<x-alert tone="danger">{{ $message }}</x-alert>@enderror
                     <div class="rounded-xl border border-line bg-surface-raised p-4">
@@ -137,7 +153,8 @@
                         <span wire:loading wire:target="record">Saving…</span>
                     </x-button>
                 </form>
-
+            @endif
+            @if ($canCreate)
                 <div class="mt-3" x-data="{ open: false }" x-on:category-added.window="open = false">
                     <x-button variant="ghost" size="sm" x-show="! open" x-on:click="open = true">+ Add a category</x-button>
                     <form x-show="open" x-cloak wire:submit="addCategory" class="flex flex-wrap items-end gap-2" novalidate>

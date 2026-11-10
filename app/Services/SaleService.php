@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\Accounting\PeriodLock;
 use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ForbiddenError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
+use App\Domain\Inventory\Costing;
+use App\Domain\Inventory\StockState;
 use App\Domain\JsCompat;
 use App\Domain\Money;
+use App\Domain\Quantity;
 use App\Domain\Sales\SaleCalculator;
 use App\Domain\Tax\TaxComponent;
 use App\Domain\Tax\TaxLine;
@@ -141,6 +146,106 @@ final class SaleService
 
         $settings = DB::table('business_settings')->where('id', 1)->first() ?? throw new NotFoundError('Business settings', 1);
 
+        ['resolved' => $resolved, 'taxProfile' => $taxProfile, 'totals' => $totals, 'tender' => $tender] = self::priceSale($input, $settings);
+
+        $customerId = self::checkCredit($input, $tender);
+
+        // --- write the sale ---------------------------------------------
+        // Lock order (Tx 3a): the tender accounts, shared, so archiving one waits for this sale.
+        $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
+        JournalService::readLockDate();
+        $receiptNo = SequenceService::next(DocType::Receipt);
+
+        // Unpaid becomes an invoice with its own number and due date. Settled at
+        // the counter gets neither, or the invoice sequence would show gaps.
+        $isCredit = $tender['outstanding'] !== 0 && $customerId !== null;
+        $termsDays = $isCredit ? ($input['termsDays'] ?? (int) ($settings->default_terms_days ?? 30)) : null;
+        $dueDate = $termsDays === null ? null : BusinessDate::dueDateFor($input['businessDate'], $termsDays);
+        $invoiceNo = $isCredit ? SequenceService::next(DocType::Invoice) : null;
+
+        $at = Clock::stamp($occurredAt);
+        $isDemo = $input['isDemo'] ?? false;
+        $saleId = (int) DB::table('sales')->insertGetId([
+            'receipt_no' => $receiptNo,
+            'invoice_no' => $invoiceNo,
+            'terms_days' => $termsDays,
+            'due_date' => $dueDate,
+            'business_date' => $input['businessDate'],
+            'occurred_at' => $at,
+            'customer_id' => $customerId,
+            // Net of tax however the shelves are priced, so subtotal − discount + tax = total.
+            'subtotal_minor' => $totals->subtotalExTax,
+            'discount_minor' => $totals->invoiceDiscountExTax,
+            'tax_minor' => $totals->tax,
+            'total_minor' => $totals->total,
+            'tax_inclusive' => (bool) $settings->tax_inclusive,
+            'cogs_minor' => 0,
+            'status' => 'POSTED',
+            'client_ref' => $clientRef,
+            'note' => $input['note'] ?? null,
+            'created_by' => $actor->id,
+            'is_demo' => $isDemo,
+            'created_at' => $at,
+            'updated_at' => $at,
+        ]);
+
+        ['cogs' => $cogs, 'posted' => $posted, 'expiredSold' => $expiredSold] = self::writeSaleBody($saleId, $receiptNo, $input, $resolved, $taxProfile, $totals, $tender, $settings, $tenderAccounts, $occurredAt, $actor, $isDemo);
+
+        // A sale put on another day than the one it was rung up says so.
+        AuditService::write(
+            AuditAction::Create,
+            'sale',
+            "{$receiptNo}: ".count($input['items']).' item(s), total '.Money::format($totals->total, $settings->currency_code)
+                .($input['businessDate'] !== Clock::dateOf($occurredAt) ? ', dated '.InventoryService::formatDate($input['businessDate']) : ''),
+            $saleId,
+            $actor,
+            [
+                'businessDate' => $input['businessDate'],
+                'totalMinor' => $totals->total,
+                'cogsMinor' => $cogs,
+                'outstandingMinor' => $tender['outstanding'],
+                'customerId' => $customerId,
+                'entryNo' => $posted['entryNo'],
+            ],
+            $occurredAt,
+        );
+
+        // Its own row, findable by action: who let expired stock go out, and which crate.
+        if ($expiredSold !== []) {
+            AuditService::write(
+                AuditAction::Create,
+                'expiry_override',
+                "{$receiptNo}: sold expired stock from ".implode(', ', $expiredSold),
+                $saleId,
+                $actor,
+                [
+                    'batchRefs' => $expiredSold,
+                    'businessDate' => $input['businessDate'],
+                    ...(isset($input['overrideReason']) ? ['reason' => $input['overrideReason']] : []),
+                ],
+                $occurredAt,
+            );
+        }
+
+        return [
+            'saleId' => $saleId,
+            'receiptNo' => $receiptNo,
+            'total' => $totals->total,
+            'cogs' => $cogs,
+            'change' => $tender['change'],
+            'outstanding' => $tender['outstanding'],
+            'journalEntryId' => $posted['entryId'],
+        ];
+    }
+
+    /**
+     * The products, prices, totals and tender of a sale, read from the
+     * (already locked) products. Shared by create and edit.
+     *
+     * @return array{resolved: list<array>, taxProfile: array, totals: object, tender: array}
+     */
+    private static function priceSale(array $input, object $settings): array
+    {
         // --- resolve products and prices ---------------------------------
         $resolved = [];
         foreach ($input['items'] as $item) {
@@ -192,6 +297,12 @@ final class SaleService
 
         $tender = SaleCalculator::tender($totals->total, $input['tenders']);
 
+        return compact('resolved', 'taxProfile', 'totals', 'tender');
+    }
+
+    /** Who the sale is to, held to the credit rules: an unpaid balance needs a customer, inside their limit. */
+    private static function checkCredit(array $input, array $tender): ?int
+    {
         // --- credit rules -----------------------------------------------
         $customerId = $input['customerId'] ?? null;
         if ($tender['outstanding'] !== 0 && $customerId === null) {
@@ -214,45 +325,27 @@ final class SaleService
             }
         }
 
-        // --- write the sale ---------------------------------------------
-        // Lock order (Tx 3a): the tender accounts, shared, so archiving one waits for this sale.
-        $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
-        JournalService::readLockDate();
-        $receiptNo = SequenceService::next(DocType::Receipt);
+        return $customerId;
+    }
 
-        // Unpaid becomes an invoice with its own number and due date. Settled at
-        // the counter gets neither, or the invoice sequence would show gaps.
-        $isCredit = $tender['outstanding'] !== 0 && $customerId !== null;
-        $termsDays = $isCredit ? ($input['termsDays'] ?? (int) ($settings->default_terms_days ?? 30)) : null;
-        $dueDate = $termsDays === null ? null : BusinessDate::dueDateFor($input['businessDate'], $termsDays);
-        $invoiceNo = $isCredit ? SequenceService::next(DocType::Invoice) : null;
-
+    /**
+     * Everything a sale writes under its header: the taxes charged, the lines
+     * with their stock and cost, the tender, and ONE balanced entry. Shared by
+     * create and edit, so an edited sale posts exactly what a new one would.
+     *
+     * $keepCost (edit only, D34): per product, the quantity and cost the sale
+     * took before it was edited. Up to that quantity leaves at that cost, so
+     * an edit keeps what the goods cost on the sale's own day; anything more
+     * is costed at today's average, as a new sale would be.
+     *
+     * @param  array<int, array{qty: int, cost: int}>  $keepCost
+     * @return array{cogs: int, posted: array{entryId: int, entryNo: string}, expiredSold: list<string>, residual: int}
+     */
+    private static function writeSaleBody(int $saleId, string $receiptNo, array $input, array $resolved, array $taxProfile, object $totals, array $tender, object $settings, array $tenderAccounts, Carbon $occurredAt, Actor $actor, bool $isDemo, array $keepCost = []): array
+    {
+        $residual = 0;
+        $customerId = $input['customerId'] ?? null;
         $at = Clock::stamp($occurredAt);
-        $isDemo = $input['isDemo'] ?? false;
-        $saleId = (int) DB::table('sales')->insertGetId([
-            'receipt_no' => $receiptNo,
-            'invoice_no' => $invoiceNo,
-            'terms_days' => $termsDays,
-            'due_date' => $dueDate,
-            'business_date' => $input['businessDate'],
-            'occurred_at' => $at,
-            'customer_id' => $customerId,
-            // Net of tax however the shelves are priced, so subtotal − discount + tax = total.
-            'subtotal_minor' => $totals->subtotalExTax,
-            'discount_minor' => $totals->invoiceDiscountExTax,
-            'tax_minor' => $totals->tax,
-            'total_minor' => $totals->total,
-            'tax_inclusive' => (bool) $settings->tax_inclusive,
-            'cogs_minor' => 0,
-            'status' => 'POSTED',
-            'client_ref' => $clientRef,
-            'note' => $input['note'] ?? null,
-            'created_by' => $actor->id,
-            'is_demo' => $isDemo,
-            'created_at' => $at,
-            'updated_at' => $at,
-        ]);
-
         TaxService::writeSaleTaxes($saleId, $totals->taxLines, $taxProfile['componentIdByCode'], $occurredAt);
 
         // --- lines, stock and COGS --------------------------------------
@@ -264,11 +357,28 @@ final class SaleService
             $unitCost = 0;
             $totalCost = 0;
             if ($entry['product']->track_inventory) {
+                $productId = (int) $entry['product']->id;
+                $qty = $entry['lineUnit']['baseQty'];
+                $keptAt = null;
+                if (($keepCost[$productId]['qty'] ?? 0) > 0) {
+                    $budget = $keepCost[$productId];
+                    $take = min($qty, $budget['qty']);
+                    $kept = Money::mulDiv($budget['cost'], $take, $budget['qty']);
+                    $keepCost[$productId] = ['qty' => Quantity::subtract($budget['qty'], $take), 'cost' => Money::subtract($budget['cost'], $kept)];
+                    $keptAt = $kept;
+                    if ($qty > $take) {
+                        // The extra units, at the average of what else is on the shelf.
+                        $shelf = DB::table('products')->where('id', $productId)->first(['qty_on_hand_milli', 'stock_value_minor', 'cost_price_minor']);
+                        $rest = new StockState(Quantity::subtract((int) $shelf->qty_on_hand_milli, $take), Money::subtract((int) $shelf->stock_value_minor, $kept));
+                        $keptAt = Money::add($kept, Costing::stockOut($rest, Quantity::subtract($qty, $take), (int) $shelf->cost_price_minor, true)->totalCost);
+                    }
+                }
                 // First-expiry-first-out; expired stock only with the right, and only when nothing else is left.
                 $movement = InventoryService::recordStockMovement([
-                    'productId' => (int) $entry['product']->id,
+                    'productId' => $productId,
                     'direction' => 'OUT',
-                    'qty' => $entry['lineUnit']['baseQty'],
+                    'qty' => $qty,
+                    ...($keptAt === null ? [] : ['totalCost' => Money::atLeastZero($keptAt)]),
                     'movementType' => MovementType::Sale,
                     'sourceType' => 'SALE',
                     'sourceId' => $saleId,
@@ -287,6 +397,7 @@ final class SaleService
                 ]);
                 $unitCost = $movement['unitCost'];
                 $totalCost = $movement['totalCost'];
+                $residual = Money::add($residual, $movement['residual']);
                 array_push($expiredSold, ...$movement['expiredTaken']);
             }
             $cogsParts[] = $totalCost;
@@ -383,51 +494,7 @@ final class SaleService
         );
         DB::table('sales')->where('id', $saleId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
 
-        // A sale put on another day than the one it was rung up says so.
-        AuditService::write(
-            AuditAction::Create,
-            'sale',
-            "{$receiptNo}: ".count($input['items']).' item(s), total '.Money::format($totals->total, $settings->currency_code)
-                .($input['businessDate'] !== Clock::dateOf($occurredAt) ? ', dated '.InventoryService::formatDate($input['businessDate']) : ''),
-            $saleId,
-            $actor,
-            [
-                'businessDate' => $input['businessDate'],
-                'totalMinor' => $totals->total,
-                'cogsMinor' => $cogs,
-                'outstandingMinor' => $tender['outstanding'],
-                'customerId' => $customerId,
-                'entryNo' => $posted['entryNo'],
-            ],
-            $occurredAt,
-        );
-
-        // Its own row, findable by action: who let expired stock go out, and which crate.
-        if ($expiredSold !== []) {
-            AuditService::write(
-                AuditAction::Create,
-                'expiry_override',
-                "{$receiptNo}: sold expired stock from ".implode(', ', $expiredSold),
-                $saleId,
-                $actor,
-                [
-                    'batchRefs' => $expiredSold,
-                    'businessDate' => $input['businessDate'],
-                    ...(isset($input['overrideReason']) ? ['reason' => $input['overrideReason']] : []),
-                ],
-                $occurredAt,
-            );
-        }
-
-        return [
-            'saleId' => $saleId,
-            'receiptNo' => $receiptNo,
-            'total' => $totals->total,
-            'cogs' => $cogs,
-            'change' => $tender['change'],
-            'outstanding' => $tender['outstanding'],
-            'journalEntryId' => $posted['entryId'],
-        ];
+        return ['cogs' => $cogs, 'posted' => $posted, 'expiredSold' => $expiredSold, 'residual' => $residual];
     }
 
     /**
@@ -620,6 +687,197 @@ final class SaleService
 
             return ['reversalSaleId' => $reversalId, 'receiptNo' => $receiptNo];
         });
+    }
+
+    /**
+     * Owner decision D34: correct a saved sale in place, under the same
+     * receipt number. On the day it was recorded, its goods go back at the
+     * cost they left at, into the crates they came from, and its entry is
+     * reversed; then the corrected sale is written exactly as a new one would
+     * be, priced as the owner typed it. What it said before is kept in the
+     * audit log.
+     *
+     * Refused while anything leans on it: goods returned against it, or
+     * customer payments set against it.
+     *
+     * Input: as createSale (no clientRef).
+     *
+     * @return array{saleId: int, receiptNo: string, total: int, cogs: int, change: int, outstanding: int, journalEntryId: int}
+     */
+    public static function editSale(int $saleId, array $input, string $why, Actor $actor, ?Carbon $now = null): array
+    {
+        RoleGuard::assertActorIsOwner($actor, 'edit a saved sale');
+        if (($input['items'] ?? []) === []) {
+            throw new ValidationError('Add at least one item to the sale.');
+        }
+        $why = JsCompat::trim($why);
+        if (mb_strlen($why) < 3) {
+            throw new ValidationError('Say why this sale is being edited.');
+        }
+        $now ??= Clock::now();
+        // The owner may price and discount, and sell the last of an expired crate, as on the till.
+        $input = [...$input, 'allowPriceOverride' => true, 'allowExpiredStock' => true];
+        unset($input['clientRef']);
+
+        return Tx::run(function () use ($saleId, $input, $why, $actor, $now): array {
+            // Lock order (Tx): every product either version touches, both customers, then the sale.
+            InventoryService::lockProducts([
+                ...DB::table('sale_items')->where('sale_items.sale_id', $saleId)->pluck('product_id')->map(fn ($id): int => (int) $id)->all(),
+                ...array_column($input['items'], 'productId'),
+            ]);
+            $customers = array_unique(array_filter([(int) ($input['customerId'] ?? 0), (int) DB::table('sales')->where('id', $saleId)->value('customer_id')]));
+            sort($customers);
+            foreach ($customers as $customerId) {
+                CustomerService::lockCustomer($customerId);
+            }
+            $original = DB::table('sales')->where('id', $saleId)->lockForUpdate()->first() ?? throw new NotFoundError('Sale', $saleId);
+            $no = $original->receipt_no;
+            if ($original->status === 'VOIDED') {
+                throw new ConflictError("{$no} has been voided, so it cannot be edited.");
+            }
+            if ($original->kind !== 'SALE' || $original->voids_sale_id !== null) {
+                throw new ConflictError("{$no} is not a sale, so it cannot be edited.");
+            }
+            TaxService::assertUnchangedSince('sale_taxes', 'sale_id', $saleId, (bool) $original->tax_inclusive, $no);
+
+            $items = DB::table('sale_items')->where('sale_id', $saleId)->orderBy('id')->lockForUpdate()->get();
+            $return = DB::table('sales')->where('returns_sale_id', $saleId)->where('status', 'POSTED')->value('receipt_no');
+            if ($return !== null || $items->contains(fn (object $item): bool => (int) $item->returned_qty_milli > 0)) {
+                throw new ConflictError("Goods from {$no} have been returned".($return === null ? '' : " ({$return})").', so it cannot be edited. Void the return first, or void the sale and ring it up again.');
+            }
+            if (self::settledByPayments($saleId) > 0) {
+                throw new ConflictError("{$no} has customer payments set against it, so it cannot be edited. Void those payments first.");
+            }
+
+            PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
+            $lockedBefore = JournalService::readLockDate();
+            PeriodLock::assertOpen((string) $original->business_date, $lockedBefore);
+            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+
+            $settings = DB::table('business_settings')->where('id', 1)->first() ?? throw new NotFoundError('Business settings', 1);
+            $before = self::snapshot($saleId);
+            $originalDate = (string) $original->business_date;
+            $isDemo = (bool) $original->is_demo;
+
+            // 1. On its own day, the goods go back at the cost they left at, into the crates they came from.
+            $soldFrom = [];
+            foreach ($items as $item) {
+                $soldFrom[(int) $item->product_id] ??= InventoryService::readBatchSplits('SALE', $saleId, (int) $item->product_id);
+            }
+            $residual = 0;
+            $keepCost = [];
+            $sold = DB::table('stock_ledger')->where('stock_ledger.source_type', 'SALE')->where('stock_ledger.source_id', $saleId)
+                ->where('stock_ledger.id', '>', InventoryService::lastEditMark('SALE', $saleId))->pluck('product_id')->map(fn ($id): int => (int) $id)->countBy()->all();
+            foreach ($items as $item) {
+                $productId = (int) $item->product_id;
+                // A line that never left the shelf has nothing to put back.
+                if (($sold[$productId] ?? 0) === 0) {
+                    continue;
+                }
+                $sold[$productId]--;
+                $keepCost[$productId] = [
+                    'qty' => Quantity::add($keepCost[$productId]['qty'] ?? 0, (int) $item->qty_milli),
+                    'cost' => Money::add($keepCost[$productId]['cost'] ?? 0, (int) $item->total_cost_minor),
+                ];
+                $cameFrom = array_shift($soldFrom[$productId]);
+                $movement = InventoryService::recordStockMovement([
+                    'productId' => $productId,
+                    'direction' => 'IN',
+                    'qty' => (int) $item->qty_milli,
+                    'totalCost' => (int) $item->total_cost_minor,
+                    'movementType' => MovementType::SaleReturn,
+                    'sourceType' => 'SALE_VOID',
+                    'sourceId' => $saleId,
+                    'sourceRef' => $no,
+                    'businessDate' => $originalDate,
+                    'occurredAt' => $now,
+                    'userId' => $actor->id,
+                    'note' => "Edit of {$no}",
+                    'isDemo' => $isDemo,
+                    ...($cameFrom === null || $cameFrom === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $cameFrom]]),
+                ]);
+                $residual = Money::add($residual, $movement['residual']);
+            }
+            if ($original->journal_entry_id !== null) {
+                JournalService::reverse((int) $original->journal_entry_id, $originalDate, JournalSourceType::Sale, $saleId, "Edit of {$no}: {$why}", occurredAt: $now, actor: $actor);
+            }
+            PurchaseService::postCostingResidual($residual, $originalDate, $no, $saleId, "Stock costing difference on editing {$no}", $now, $actor, JournalSourceType::Sale, $isDemo);
+            // The old lines, taxes and tender live on in the audit row below.
+            DB::table('sale_items')->where('sale_id', $saleId)->delete();
+            DB::table('sale_taxes')->where('sale_id', $saleId)->delete();
+            DB::table('sale_payments')->where('sale_id', $saleId)->delete();
+
+            // 2. The sale as it should have been, checked against the customer's balance without the old one.
+            ['resolved' => $resolved, 'taxProfile' => $taxProfile, 'totals' => $totals, 'tender' => $tender] = self::priceSale($input, $settings);
+            $customerId = self::checkCredit($input, $tender);
+            $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
+            // The goods already on it leave at what they cost on its own day, not today's average.
+            ['cogs' => $cogs, 'posted' => $posted, 'residual' => $emptied] = self::writeSaleBody($saleId, $no, $input, $resolved, $taxProfile, $totals, $tender, $settings, $tenderAccounts, $now, $actor, $isDemo, $keepCost);
+            PurchaseService::postCostingResidual($emptied, $input['businessDate'], $no, $saleId, "Stock costing difference on {$no}", $now, $actor, JournalSourceType::Sale, $isDemo);
+
+            // An unpaid sale is an invoice: it keeps the number it has, or takes the next one.
+            $isCredit = $tender['outstanding'] !== 0 && $customerId !== null;
+            $termsDays = $isCredit ? ($input['termsDays'] ?? ($original->terms_days === null ? (int) ($settings->default_terms_days ?? 30) : (int) $original->terms_days)) : null;
+            $at = Clock::stamp($now);
+            DB::table('sales')->where('id', $saleId)->update([
+                'invoice_no' => $isCredit && $original->invoice_no === null ? SequenceService::next(DocType::Invoice) : $original->invoice_no,
+                'terms_days' => $termsDays,
+                'due_date' => $termsDays === null ? null : BusinessDate::dueDateFor($input['businessDate'], $termsDays),
+                'business_date' => $input['businessDate'],
+                'customer_id' => $customerId,
+                'subtotal_minor' => $totals->subtotalExTax,
+                'discount_minor' => $totals->invoiceDiscountExTax,
+                'tax_minor' => $totals->tax,
+                'total_minor' => $totals->total,
+                'tax_inclusive' => (bool) $settings->tax_inclusive,
+                'note' => $input['note'] ?? null,
+                'edited_at' => $at,
+                'updated_at' => $at,
+            ]);
+            AuditService::write(AuditAction::Update, 'sale', "Edited {$no}: {$why}", $saleId, $actor, [
+                'edit' => true,
+                'reason' => $why,
+                'before' => $before,
+                'after' => self::snapshot($saleId),
+            ], $now);
+
+            return [
+                'saleId' => $saleId,
+                'receiptNo' => $no,
+                'total' => $totals->total,
+                'cogs' => $cogs,
+                'change' => $tender['change'],
+                'outstanding' => $tender['outstanding'],
+                'journalEntryId' => $posted['entryId'],
+            ];
+        });
+    }
+
+    /** What a sale says, in the edit history's shape (see StockAdjustmentService::snapshot). */
+    private static function snapshot(int $saleId): array
+    {
+        $sale = DB::table('sales')->leftJoin('customers', 'customers.id', '=', 'sales.customer_id')
+            ->where('sales.id', $saleId)->first(['sales.*', 'customers.name as customer_name']);
+        $paid = DB::table('sale_payments')->join('payment_accounts', 'payment_accounts.id', '=', 'sale_payments.payment_account_id')
+            ->where('sale_payments.sale_id', $saleId)->orderBy('sale_payments.id')
+            ->get(['payment_accounts.name', 'sale_payments.amount_minor'])
+            ->map(fn (object $p): string => "{$p->name} ".Money::format((int) $p->amount_minor))->implode(', ');
+
+        return [
+            'date' => (string) $sale->business_date,
+            'fields' => [
+                'Customer' => $sale->customer_name ?? 'Walk-in customer',
+                'Paid' => $paid === '' ? 'Nothing, on credit' : $paid,
+                'Discount' => (int) $sale->discount_minor === 0 ? null : Money::format((int) $sale->discount_minor),
+                'Note' => $sale->note,
+            ],
+            'lines' => DB::table('sale_items')->where('sale_id', $saleId)->orderBy('line_no')->get()
+                ->map(fn (object $i): array => [
+                    'label' => "{$i->product_name}: ".Quantity::formatWithUnit((int) $i->qty_milli, $i->unit).' at '.Money::format((int) $i->unit_price_minor),
+                    'amount' => (int) $i->line_total_minor,
+                ])->all(),
+            'total' => (int) $sale->total_minor,
+        ];
     }
 
     /** Customer payments still standing against one sale. */

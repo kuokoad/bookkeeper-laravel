@@ -7,33 +7,24 @@ namespace App\Livewire\Products;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Services\CatalogService;
-use App\Services\UnitsService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * The old products/new and products/[id]/edit pages (product-form.tsx,
- * remove-product.tsx): add a product, change one, archive, restore or
- * delete it.
+ * The old products/[id]/edit page (product-form.tsx, remove-product.tsx):
+ * change a product, archive, restore or delete it. Adding is Create.
  */
 final class Form extends Component
 {
     use ProductFields;
 
     #[Locked]
-    public ?int $productId = null;
+    public int $productId = 0;
 
-    public function mount(?string $id = null): void
+    public function mount(string $id): void
     {
-        if ($id === null) {
-            // An upgraded shop may spell it 'Pcs'; a default the list does not hold would pick whichever sorts first.
-            $units = UnitsService::listUnits();
-            $this->unit = collect($units)->first(fn (object $u): bool => mb_strtolower($u->symbol) === 'pcs')->symbol ?? ($units[0]->symbol ?? '');
-
-            return;
-        }
         try {
             $product = CatalogService::getProduct((int) $id);
         } catch (NotFoundError) {
@@ -45,27 +36,21 @@ final class Form extends Component
 
     public function save(): void
     {
-        $this->authorize($this->productId === null ? 'products.create' : 'products.edit');
+        $this->authorize('products.edit');
         $input = $this->productInput();
         if ($input === null) {
             return;
         }
         try {
-            if ($this->productId === null) {
-                CatalogService::createProduct($input, $this->actor());
-            } else {
-                // Locked units ride along unchanged, as the old hidden inputs did.
-                CatalogService::updateProduct($this->productId, $input, $this->actor());
-            }
+            // Locked units ride along unchanged, as the old hidden inputs did.
+            CatalogService::updateProduct($this->productId, $input, $this->actor());
         } catch (DomainError $e) {
             $this->addError('form', $e->userMessage);
 
             return;
         }
 
-        session()->flash('status', $this->productId === null
-            ? 'Stock item created. It starts with no stock — record a stock adjustment to enter opening stock.'
-            : 'Stock item updated.');
+        session()->flash('status', 'Stock item updated.');
         $this->redirect('/products');
     }
 
@@ -73,7 +58,7 @@ final class Form extends Component
     {
         $this->authorize('products.edit');
         try {
-            CatalogService::setProductActive((int) $this->productId, $isActive, $this->actor());
+            CatalogService::setProductActive($this->productId, $isActive, $this->actor());
         } catch (DomainError $e) {
             $this->addError('remove', $e->userMessage);
 
@@ -87,7 +72,7 @@ final class Form extends Component
     {
         $this->authorize('products.edit');
         try {
-            CatalogService::deleteProduct((int) $this->productId, $this->actor());
+            CatalogService::deleteProduct($this->productId, $this->actor());
         } catch (DomainError $e) {
             $this->addError('delete', $e->userMessage);
 
@@ -99,17 +84,17 @@ final class Form extends Component
 
     public function render(): View
     {
-        $product = $this->productId === null ? null : CatalogService::getProduct($this->productId);
-        $unitsLocked = $product !== null && CatalogService::productUnitsLocked($product['id']);
+        $product = CatalogService::getProduct($this->productId);
+        $unitsLocked = CatalogService::productUnitsLocked($product['id']);
 
         return view('livewire.products.form', [
-            ...$this->formOptions($product !== null),
+            ...$this->formOptions(true),
             'product' => $product,
             'unitsLocked' => $unitsLocked,
-            'altUnitLocked' => $product !== null && CatalogService::productAltUnitLocked($product['id']),
-            'inUse' => $product !== null && CatalogService::isProductInUse($product['id']),
+            'altUnitLocked' => CatalogService::productAltUnitLocked($product['id']),
+            'inUse' => CatalogService::isProductInUse($product['id']),
             // The replace page needs these too; do not offer a door that will not open.
             'offerReplace' => $unitsLocked && $product['isActive'] && Gate::allows('products.create') && Gate::allows('inventory.create'),
-        ])->title($product === null ? 'Add stock item' : 'Edit stock item');
+        ])->title('Edit stock item');
     }
 }

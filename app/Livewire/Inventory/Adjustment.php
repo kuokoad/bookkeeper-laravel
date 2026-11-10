@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire\Inventory;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
+use App\Services\AuditService;
 use App\Services\Reporting\LedgerService;
 use App\Services\StockAdjustmentService;
 use Illuminate\View\View;
@@ -58,12 +60,16 @@ final class Adjustment extends Component
     {
         $data = StockAdjustmentService::getStockAdjustment($this->adjustmentId);
         $entryId = $data['adjustment']->journal_entry_id;
+        $isOwner = RoleGuard::actorIsOwner((int) auth()->id());
 
         return view('livewire.inventory.adjustment', [
             'adjustment' => $data['adjustment'],
             'items' => $data['items'],
             // The journal entry this document produced, so the accounting effect is visible.
             'journal' => $entryId === null ? null : LedgerService::getJournalEntry((int) $entryId),
+            // D34: only the owner edits, and only a live adjustment that is not itself a reversal.
+            'canEdit' => $isOwner && $data['adjustment']->status === 'POSTED' && $data['adjustment']->voids_adjustment_id === null,
+            'history' => $isOwner ? AuditService::editHistory('stock_adjustment', $this->adjustmentId) : [],
         ])->title($data['adjustment']->adjustment_no);
     }
 }

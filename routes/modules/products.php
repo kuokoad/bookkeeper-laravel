@@ -8,7 +8,7 @@ use App\Services\ProductImportService;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/products', Products\Index::class)->middleware('permission:products,view');
-Route::get('/products/new', Products\Form::class)->middleware('permission:products,create');
+Route::get('/products/new', Products\Create::class)->middleware('permission:products,create');
 Route::get('/products/{id}/edit', Products\Form::class)->whereNumber('id')->middleware('permission:products,edit');
 // It creates a product and moves stock, so it needs all three rights, as the old page did.
 Route::get('/products/{id}/replace', Products\Replace::class)->whereNumber('id')

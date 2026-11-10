@@ -534,6 +534,7 @@ final class InventoryService
             ->where('stock_ledger.source_type', $sourceType)
             ->where('stock_ledger.source_id', $sourceId)
             ->where('stock_ledger.product_id', $productId)
+            ->where('stock_ledger.id', '>', self::lastEditMark($sourceType, $sourceId))
             ->orderBy('stock_ledger_batches.ledger_id')
             ->orderBy('stock_ledger_batches.id')
             ->get(['stock_ledger_batches.ledger_id', 'stock_ledger_batches.batch_id', 'product_batches.batch_ref', 'stock_ledger_batches.qty_in_milli', 'stock_ledger_batches.qty_out_milli']);
@@ -548,6 +549,20 @@ final class InventoryService
         }
 
         return array_values($byMovement);
+    }
+
+    /**
+     * D34: an edit takes a document's movements back out (as <type>_VOID rows
+     * under the document's own id) and posts new ones. Only movements after
+     * the latest edit are the document's current lines; before any edit this
+     * is 0. A real void writes its rows under the reversal's id, never here.
+     */
+    public static function lastEditMark(string $sourceType, int $sourceId): Builder
+    {
+        return DB::table('stock_ledger as edit_marks')
+            ->where('edit_marks.source_type', "{$sourceType}_VOID")
+            ->where('edit_marks.source_id', $sourceId)
+            ->selectRaw('COALESCE(MAX(`edit_marks`.`id`), 0)');
     }
 
     private static function batchRow(object $row, string $asAt): array

@@ -27,3 +27,4 @@ Thumbs.db
 /.playwright-cli/
 /screenshots/*
 !/screenshots/final/
+graphify-out/

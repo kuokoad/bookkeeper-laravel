@@ -75,6 +75,14 @@ describe('report exports', function () {
             ->assertOk()
             ->assertHeader('Content-Disposition', 'attachment; filename="bookkeeper_profit-and-loss_2026-08-01_2026-08-31.csv"');
     });
+
+    it('refuses the receivables and payables files to someone their screens refuse', function (string $report) {
+        // Owner decision 2026-11-07: the old app let reports view alone download who owes what.
+        signedIn(staff(['reports' => viewOnly()]))->get("/export/report/{$report}")
+            ->assertForbidden()->assertSeeText('You do not have permission to export this.');
+        signedIn(staff(['reports' => viewOnly(), 'accounts' => viewOnly()], 'kofi'))->get("/export/report/{$report}")
+            ->assertOk()->assertHeader('Content-Type', 'text/csv; charset=utf-8');
+    })->with(['receivables', 'payables']);
 });
 
 it('throttles one person after 30 downloads a minute, lists and reports counted together', function () {

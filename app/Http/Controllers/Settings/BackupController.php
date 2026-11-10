@@ -41,6 +41,17 @@ final class BackupController extends Controller
             return $throttled;
         }
 
+        // A timeout is fatal and skips every `finally`, leaving the scratch database,
+        // the dump and the password file behind; a closed tab must not stop it halfway either.
+        set_time_limit(0);
+        ignore_user_abort(true);
+        // FastCGI can still kill a very long one, skipping the `finally`: an hour on, a leftover
+        // folder (the dump and the password file) is nobody's download in progress.
+        foreach (File::glob(storage_path('app/backup-download-*'), GLOB_ONLYDIR) as $stale) {
+            if (filemtime($stale) < time() - 3600) {
+                File::deleteDirectory($stale);
+            }
+        }
         $directory = storage_path('app/backup-download-'.bin2hex(random_bytes(8)));
         try {
             $result = BackupService::createBackup($directory, 1);

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Livewire\Sales;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
 use App\Domain\BusinessDate;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\ExpiredStockError;
+use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\StaleUnitError;
 use App\Domain\JsCompat;
 use App\Domain\Money;
@@ -22,6 +24,7 @@ use App\Services\SaleService;
 use App\Services\SettingsService;
 use App\Services\TaxService;
 use App\Support\Clock;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -58,6 +61,10 @@ final class Pos extends Component
     /** @var array<int, array<string, mixed>> cart lines by key */
     public array $lines = [];
 
+    /** Opened as "New invoice": customer first, nothing taken, so it saves on credit. */
+    #[Locked]
+    public bool $invoiceMode = false;
+
     public string $customerId = '';
 
     public string $invoiceDiscount = '';
@@ -91,12 +98,99 @@ final class Pos extends Component
     #[Locked]
     public ?array $staleUnit = null;
 
-    public function mount(): void
+    /** D34: the sale the owner is editing in place, under its own receipt number. */
+    #[Locked]
+    public ?int $editingId = null;
+
+    #[Locked]
+    public string $editingNo = '';
+
+    public string $editReason = '';
+
+    public function mount(?string $id = null): void
     {
         $this->cartSeed = (string) Str::uuid();
+        $this->invoiceMode = request()->boolean('invoice');
         $accounts = PaymentAccountService::listPaymentAccounts();
         $default = collect($accounts)->firstWhere('isDefault', true) ?? $accounts[0] ?? null;
         $this->tenderAccountId = $default === null ? '' : (string) $default['id'];
+        if ($id !== null) {
+            $this->loadForEdit((int) $id);
+        }
+    }
+
+    /** The saved sale, in the till's own terms, so the owner edits what is there. */
+    private function loadForEdit(int $saleId): void
+    {
+        abort_unless(RoleGuard::actorIsOwner((int) auth()->id()), 403);
+        try {
+            $sale = SaleService::getSale($saleId);
+        } catch (NotFoundError) {
+            abort(404);
+        }
+        abort_unless($sale['kind'] === 'SALE' && $sale['status'] === 'POSTED' && $sale['voidsSaleId'] === null, 404);
+
+        $this->editingId = $saleId;
+        $this->editingNo = $sale['receiptNo'];
+        $this->customerId = $sale['customerId'] === null ? '' : (string) $sale['customerId'];
+        $this->note = (string) ($sale['note'] ?? '');
+        $this->pickedDate = $sale['businessDate'] === Clock::today() ? null : (string) $sale['businessDate'];
+        // The discount as typed: what the lines came to, less what the sale was net of tax (D34).
+        $netBeforeTax = $sale['taxInclusive'] ? (int) $sale['totalMinor'] : Money::subtract((int) $sale['totalMinor'], (int) $sale['taxMinor']);
+        $typedDiscount = Money::subtract(Money::sum(array_map(fn (array $i): int => (int) $i['lineTotalMinor'], $sale['items'])), $netBeforeTax);
+        $this->invoiceDiscount = $typedDiscount === 0 ? '' : Money::toInputString($typedDiscount);
+
+        $this->lines = [];
+        $this->nextKey = 1;
+        $archived = [];
+        foreach ($sale['items'] as $item) {
+            // Archived products too: dropping the line would quietly change the sale's total on save.
+            $product = CatalogService::getProduct((int) $item['productId']);
+            if (! $product['isActive']) {
+                $archived[] = $product['name'];
+            }
+            $alt = $item['entryUnit'] !== null && $item['entryQtyMilli'] !== null;
+            $dates = InventoryService::getExpiryOutlook(Clock::today())[$product['id']] ?? null;
+            $this->lines[$this->nextKey++] = [
+                'productId' => $product['id'],
+                'name' => $product['name'],
+                'unit' => $product['unit'],
+                'altUnit' => $product['altUnit'],
+                'altFactorMilli' => $alt ? (int) $item['entryFactorMilli'] : $product['altFactor'],
+                'alt' => $alt,
+                'sellingPrice' => $product['sellingPrice'],
+                'altSellingPrice' => $product['altSellingPrice'],
+                'qty' => Quantity::toInputString((int) ($alt ? $item['entryQtyMilli'] : $item['qtyMilli'])),
+                'unitPrice' => Money::toInputString((int) $item['unitPriceMinor']),
+                'discount' => (int) $item['discountMinor'] === 0 ? '' : Money::toInputString((int) $item['discountMinor']),
+                // This sale's own goods go back on the shelf before the edit takes them again.
+                'qtyOnHandMilli' => Quantity::add($product['qtyOnHand'], $product['trackInventory'] ? (int) $item['qtyMilli'] : 0),
+                'trackInventory' => $product['trackInventory'],
+                'goodQtyMilli' => Quantity::add($dates['goodQtyMilli'] ?? 0, $product['trackInventory'] ? (int) $item['qtyMilli'] : 0),
+                'soonestExpiry' => $dates['soonestExpiry'] ?? null,
+                'warnDays' => $dates['warnDays'] ?? (int) (SettingsService::get()->expiry_warning_days ?? 30),
+                'cartonWas' => null,
+            ];
+        }
+
+        $paid = DB::table('sale_payments')->where('sale_id', $saleId)->orderBy('id')->get(['payment_account_id', 'amount_minor', 'reference']);
+        $this->tenderAmount = $this->secondAmount = $this->secondAccountId = $this->reference = '';
+        if (isset($paid[0])) {
+            $this->tenderAccountId = (string) $paid[0]->payment_account_id;
+            $this->tenderAmount = Money::toInputString((int) $paid[0]->amount_minor);
+            $this->reference = (string) ($paid[0]->reference ?? '');
+        }
+        if (isset($paid[1])) {
+            $this->secondAccountId = (string) $paid[1]->payment_account_id;
+            $this->secondAmount = Money::toInputString((int) $paid[1]->amount_minor);
+        }
+        if ($archived !== []) {
+            $this->addError('form', '"'.implode('", "', $archived).'" has been archived since this sale, so it cannot be saved with it. Restore the stock item first, or void the sale and ring it up again.');
+        }
+        // The till takes two payments; a third would be lost on save.
+        if (count($paid) > 2) {
+            $this->addError('form', "{$this->editingNo} was paid from more than two accounts, which this screen cannot show, so it cannot be edited here. Void it and ring it up again.");
+        }
     }
 
     private function principal(): Principal
@@ -304,6 +398,12 @@ final class Pos extends Component
             $discount = trim($this->invoiceDiscount) === '' ? 0 : Money::parse($this->invoiceDiscount);
             $overrideReason = mb_substr(trim($this->overrideReason), 0, 200);
 
+            if ($this->editingId !== null) {
+                $this->saveEdit($businessDate, $items, $tenders, $discount, $principal);
+
+                return;
+            }
+
             $result = SaleService::createSale([
                 'businessDate' => $businessDate,
                 'customerId' => $this->customerId === '' ? null : (int) $this->customerId,
@@ -348,6 +448,33 @@ final class Pos extends Component
         $this->salesCompleted++;
         // The sale may have changed what a customer owes.
         unset($this->customers);
+    }
+
+    /** D34: the owner's corrected sale, posted over the old one under the same receipt number. */
+    private function saveEdit(string $businessDate, array $items, array $tenders, int $discount, Principal $principal): void
+    {
+        abort_unless(RoleGuard::actorIsOwner($principal->id), 403);
+        if (DB::table('sale_payments')->where('sale_id', $this->editingId)->count() > 2) {
+            $this->addError('form', "{$this->editingNo} was paid from more than two accounts, which this screen cannot show, so it cannot be edited here. Void it and ring it up again.");
+
+            return;
+        }
+        if (mb_strlen(trim($this->editReason)) < 3) {
+            $this->addError('editReason', 'Say why this sale is being edited.');
+
+            return;
+        }
+        SaleService::editSale($this->editingId, [
+            'businessDate' => $businessDate,
+            'customerId' => $this->customerId === '' ? null : (int) $this->customerId,
+            'items' => $items,
+            'invoiceDiscount' => $discount,
+            'tenders' => $tenders,
+            ...(trim($this->note) !== '' ? ['note' => mb_substr(trim($this->note), 0, 300)] : []),
+        ], trim($this->editReason), $principal->actor());
+
+        session()->flash('status', "{$this->editingNo} edited. The old sale was reversed and the corrected one posted under the same receipt number.");
+        $this->redirect("/sales/{$this->editingId}");
     }
 
     /**

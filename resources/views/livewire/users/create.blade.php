@@ -1,5 +1,5 @@
 {{-- The old (app)/users/new page and new-user-form.tsx. --}}
-<div class="mx-auto max-w-4xl">
+<div>
     <x-page-header title="Add a user" :description="$isOwner ? 'Someone who will sign in — a shop assistant, a manager, or a second owner.' : 'Someone who will sign in. You can give them any of the access you have yourself.'" />
 
     <form wire:submit="save" class="space-y-6" novalidate>

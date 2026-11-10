@@ -17,6 +17,7 @@ use App\Enums\AuditAction;
 use App\Enums\PermissionModule;
 use App\Enums\UserRole;
 use App\Support\Clock;
+use App\Support\RateLimit;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -213,9 +214,19 @@ final class UserService
     {
         $now ??= Clock::now();
         $existing = DB::table('users')->where('users.id', $userId)->first() ?? throw new NotFoundError('User', $userId);
+        // A till left signed in must not become a way to guess the password, as sign-in is not.
+        $limit = RateLimit::hit("pwchange:{$userId}", AuthService::LOGIN_ATTEMPT_LIMIT, AuthService::LOGIN_WINDOW_MS, $now->getTimestampMs());
+        if (! $limit['allowed']) {
+            $minutes = max(1, (int) ceil($limit['retryAfterMs'] / 60_000));
+            throw new ValidationError("Too many wrong passwords. Try again in {$minutes} minute".($minutes === 1 ? '' : 's').'.');
+        }
         if (! Passwords::verify($currentPassword, $existing->password_hash)) {
+            // The attempted password is never recorded.
+            Tx::run(fn () => AuditService::write(AuditAction::LoginFailed, 'user', "Wrong current password when {$existing->username} tried to change it", $userId, new Actor($userId, $existing->username), at: $now));
             throw new ValidationError('Your current password is not correct.');
         }
+        // The right password ends the guessing, whether or not the new one is accepted.
+        RateLimit::reset("pwchange:{$userId}");
         if (Passwords::verify($newPassword, $existing->password_hash)) {
             throw new ValidationError('The new password must be different from the current one.');
         }

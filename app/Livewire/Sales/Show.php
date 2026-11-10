@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Livewire\Sales;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
 use App\Domain\Quantity;
 use App\Services\Actor;
+use App\Services\AuditService;
 use App\Services\PaymentAccountService;
 use App\Services\Reporting\LedgerService;
 use App\Services\ReturnsService;
@@ -155,6 +157,7 @@ final class Show extends Component
     public function render(): View
     {
         $sale = $this->sale();
+        $isOwner = RoleGuard::actorIsOwner((int) auth()->id());
         $entry = $sale['journalEntryId'] === null ? null : LedgerService::getJournalEntry((int) $sale['journalEntryId']);
         $returnable = $sale['kind'] === 'SALE' && $sale['status'] === 'POSTED' && Gate::allows('sales.create')
             ? ReturnsService::getReturnableSaleItems($this->saleId) : [];
@@ -179,6 +182,9 @@ final class Show extends Component
             'returnable' => $returnable,
             'estimate' => $estimate,
             'accounts' => $returnable === [] ? [] : PaymentAccountService::listPaymentAccounts(),
+            // D34: only the owner edits, and only a live sale.
+            'canEdit' => $isOwner && $sale['kind'] === 'SALE' && $sale['status'] === 'POSTED' && $sale['voidsSaleId'] === null,
+            'history' => $isOwner ? AuditService::editHistory('sale', $this->saleId) : [],
         ]);
     }
 }

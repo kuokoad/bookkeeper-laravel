@@ -959,6 +959,142 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Modern: the 2026-11-09 dashboard design (design-shotgun, "Owner homepage").
+   A navy menu that stays dark in both themes, a cool off-white page, white
+   cards with an 8px corner and a hairline rule instead of a shadow, one blue
+   accent, Inter type (the shell's own). Bright colour is kept for alerts.
+   The dashboard also changes shape under this look: dashboard-modern.blade.php
+   puts Needs Attention first. White on the navy menu clears 15:1; the blue
+   accent clears 6.7:1 on white.
+   --------------------------------------------------------------------------- */
+
+:root[data-look='modern'] {
+  --surface: #f5f7fb;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f4f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #64748b;
+
+  --accent: #1d4ed8;
+  --accent-text: #ffffff;
+  --accent-soft: #e8efff;
+
+  --sidebar: #0b1b3a;
+  --sidebar-raised: #1c3366;
+  --sidebar-border: #1a2b52;
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #c7d2e8;
+  --sidebar-subtle: #8a9cc2;
+  --sidebar-wordmark: #ffffff;
+
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --warning: #92400e;
+  --warning-soft: #fffbeb;
+  --success: #047857;
+  --success-soft: #ecfdf5;
+
+  --card-radius: 8px;
+  --panel-radius: var(--card-radius);
+  --card-shadow: none;
+
+  --chart-1: #1d4ed8;
+  --chart-2: #93c5fd;
+  --chart-3: #047857;
+  --chart-4: #cbd5e1;
+  --chart-5: #d97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-look='modern']:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: #0d1424;
+    --surface-raised: #152036;
+    --surface-sunken: #101a2e;
+    --border: #24314d;
+    --border-strong: #34446a;
+    --text: #e8eefb;
+    --text-muted: #b4c0d8;
+    --text-subtle: #8d9ab6;
+
+    --accent: #7fa6ff;
+    --accent-text: #0b1530;
+    --accent-soft: #1b2b52;
+
+    --sidebar: #081227;
+    --sidebar-raised: #1b2b52;
+    --sidebar-border: #16223f;
+
+    --danger: #f28b82;
+    --danger-soft: #3a1c1b;
+    --warning: #f2c46b;
+    --warning-soft: #3a2c10;
+    --success: #6fcf97;
+    --success-soft: #16301f;
+  }
+}
+
+:root[data-look='modern'][data-theme='dark'] {
+  color-scheme: dark;
+  --surface: #0d1424;
+  --surface-raised: #152036;
+  --surface-sunken: #101a2e;
+  --border: #24314d;
+  --border-strong: #34446a;
+  --text: #e8eefb;
+  --text-muted: #b4c0d8;
+  --text-subtle: #8d9ab6;
+
+  --accent: #7fa6ff;
+  --accent-text: #0b1530;
+  --accent-soft: #1b2b52;
+
+  --sidebar: #081227;
+  --sidebar-raised: #1b2b52;
+  --sidebar-border: #16223f;
+
+  --danger: #f28b82;
+  --danger-soft: #3a1c1b;
+  --warning: #f2c46b;
+  --warning-soft: #3a2c10;
+  --success: #6fcf97;
+  --success-soft: #16301f;
+}
+
+:root[data-look='modern'] .app-shell .rounded-lg {
+  border-radius: 6px;
+}
+:root[data-look='modern'] .stitch-sidebar a[aria-current='page'] {
+  border-radius: 6px;
+  background: var(--sidebar-raised);
+  color: var(--sidebar-text);
+  font-weight: 600;
+}
+/* The Modern dashboard's amounts: a small currency code, the figure on one line. */
+.modern-amount {
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.modern-amount .modern-cur {
+  margin-right: 0.25rem;
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+.modern-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------------
    Dropdowns, on every look: select boxes wear the Create Transaction button's
    chevron (in the accent) and focus ring, and the list a select opens on a
    desktop (resources/js/app.js) is the same panel as that menu. Unlayered, so
@@ -1101,7 +1237,11 @@ select:not([multiple]):not([size]):focus-visible {
   }
   /* Tailwind v4 dropped the pointer from buttons; in base so cursor-* utilities still override. */
   button:not(:disabled),
-  [role='button']:not([aria-disabled='true']) {
+  [role='button']:not([aria-disabled='true']),
+  /* shortcut: matches exact attribute names only, so add any .modifier variant (e.g. wire:click.prevent) here when one appears. */
+  [wire\:click]:not(:disabled),
+  [x-on\:click]:not(:disabled),
+  [\@click]:not(:disabled) {
     cursor: pointer;
   }
 }
@@ -1158,7 +1298,7 @@ textarea:focus-visible {
    should give.
    
    Durations are short enough to feel like the page settling rather than a
-   performance: 160ms for content, 120ms for feedback.
+   performance: 160ms for content, 140ms for a menu opening.
    --------------------------------------------------------------------------- */
 
 @keyframes rise {
@@ -1169,15 +1309,6 @@ textarea:focus-visible {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 
@@ -1209,10 +1340,6 @@ textarea:focus-visible {
   animation: reveal 140ms ease-out both;
 }
 
-.motion-fade {
-  animation: fade 120ms ease-out both;
-}
-
 /* Respect a user's reduced-motion preference; we use little motion anyway. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1227,7 +1354,6 @@ textarea:focus-visible {
      land the content where it belongs with no movement at all. */
   .motion-page,
   .motion-appear,
-  .motion-fade,
   .motion-reveal {
     animation: none !important;
   }
@@ -1260,7 +1386,6 @@ textarea:focus-visible {
   /* A receipt must render in its final state, not mid-entrance. */
   .motion-page,
   .motion-appear,
-  .motion-fade,
   .motion-reveal {
     animation: none !important;
     opacity: 1 !important;

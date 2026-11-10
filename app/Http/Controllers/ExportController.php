@@ -23,6 +23,12 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ExportController extends Controller
 {
+    /**
+     * Reports whose screens need more than reports view: the file must not give
+     * what the screen refuses (owner decision 2026-11-07; the old app checked reports only).
+     */
+    private const REPORT_MODULES = ['receivables' => 'accounts', 'payables' => 'accounts'];
+
     public function list(Request $request, string $list): Response
     {
         // An unknown list is 404 before anything else, as the old route.
@@ -49,6 +55,10 @@ final class ExportController extends Controller
         $refused = self::refuse('reports.view', 'You do not have permission to export reports.');
         if ($refused !== null) {
             return $refused;
+        }
+        $module = self::REPORT_MODULES[$report] ?? null;
+        if ($module !== null && Gate::forUser(Auth::guard('web')->user())->denies("{$module}.view")) {
+            return self::text('You do not have permission to export this.', 403);
         }
         $file = ReportExport::download($report, $request->query());
 

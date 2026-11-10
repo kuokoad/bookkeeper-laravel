@@ -1,5 +1,5 @@
 @php($editing = $customerId !== null)
-<div class="mx-auto max-w-3xl">
+<div>
     @if ($editing)
         <x-page-header title="Edit customer" :description="$name" />
     @else

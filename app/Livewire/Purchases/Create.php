@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Purchases;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
 use App\Domain\Errors\DomainError;
+use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
 use App\Domain\Purchases\ReadPurchase;
 use App\Domain\Quantity;
@@ -20,6 +22,7 @@ use App\Support\Clock;
 use App\Support\Filters\Filters;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -56,15 +59,117 @@ final class Create extends Component
 
     public ?string $savedNo = null;
 
+    /** The purchase being corrected: voided only when this one is saved, in the same transaction. */
+    #[Locked]
+    public ?int $correctingId = null;
+
+    #[Locked]
+    public string $correctingNo = '';
+
+    public string $correctReason = '';
+
+    #[Locked]
+    public ?string $replacedNo = null;
+
     public ?int $savedId = null;
 
-    public function mount(): void
+    /** D34: the purchase the owner is editing in place, under its own number. */
+    #[Locked]
+    public ?int $editingId = null;
+
+    #[Locked]
+    public string $editingNo = '';
+
+    public string $editReason = '';
+
+    public function mount(?string $id = null): void
     {
+        if ($id !== null) {
+            $this->loadForEdit((int) $id);
+
+            return;
+        }
         $this->businessDate = Clock::today();
         $this->rows = [self::blankRow(1)];
         $accounts = PaymentAccountService::listPaymentAccounts();
         $default = collect($accounts)->firstWhere('isDefault', true) ?? ($accounts[0] ?? null);
         $this->payAccountId = $default === null ? '' : (string) $default['id'];
+        $from = request()->query('from');
+        if (is_string($from) && ctype_digit($from)) {
+            $this->copyFrom((int) $from);
+        }
+    }
+
+    private function loadForEdit(int $purchaseId): void
+    {
+        abort_unless(RoleGuard::actorIsOwner((int) auth()->id()), 403);
+        try {
+            $p = PurchaseService::getPurchase($purchaseId);
+        } catch (NotFoundError) {
+            abort(404);
+        }
+        abort_unless($p['kind'] === 'PURCHASE' && $p['status'] === 'POSTED', 404);
+        $this->businessDate = Clock::today();
+        $this->rows = [self::blankRow(1)];
+        $accounts = PaymentAccountService::listPaymentAccounts();
+        $default = collect($accounts)->firstWhere('isDefault', true) ?? ($accounts[0] ?? null);
+        $this->payAccountId = $default === null ? '' : (string) $default['id'];
+        $this->copyFrom($purchaseId);
+        $this->correctingId = null;
+        $this->correctingNo = '';
+        $this->editingId = $purchaseId;
+        $this->editingNo = $p['purchaseNo'];
+        // This form takes one payment; a split one would be lost on save.
+        if (count($p['tenders']) > 1) {
+            $this->addError('form', "{$p['purchaseNo']} was paid from more than one account, which this form cannot show, so it cannot be edited here. Use \"Correct this purchase\" instead.");
+        }
+    }
+
+    /** "Correct this purchase": the original purchase's supplier, date, lines and payment, ready to fix and save again. */
+    private function copyFrom(int $purchaseId): void
+    {
+        try {
+            $p = PurchaseService::getPurchase($purchaseId);
+        } catch (NotFoundError) {
+            return;
+        }
+        if ($p['kind'] !== 'PURCHASE') {
+            return;
+        }
+        // A voided one is only copied; a posted one is corrected, and voided when this saves.
+        if ($p['status'] === 'POSTED') {
+            $this->correctingId = $purchaseId;
+            $this->correctingNo = $p['purchaseNo'];
+        }
+        $this->supplierId = (string) $p['supplierId'];
+        $this->businessDate = $p['businessDate'];
+        $this->dueDate = $p['dueDate'] ?? '';
+        $this->invoiceNo = $p['invoiceNo'] ?? '';
+        $this->note = $p['note'] ?? '';
+        $this->invoiceDiscount = $p['discountMinor'] > 0 ? Money::toInputString((int) $p['discountMinor']) : '';
+        $this->rows = [];
+        foreach ($p['items'] as $i => $item) {
+            $alt = $item['entryUnit'] !== null && $item['entryQtyMilli'] !== null;
+            $expiry = (string) ($item['batches'][0]['expiryDate'] ?? '');
+            $this->rows[] = [
+                ...self::blankRow($i + 1),
+                'productId' => (string) $item['productId'],
+                'qty' => Quantity::toInputString((int) ($alt ? $item['entryQtyMilli'] : $item['qtyMilli'])),
+                'alt' => $alt,
+                'unitCost' => Money::toInputString((int) $item['unitCostMinor']),
+                'costFor' => (string) $item['productId'],
+                'costAlt' => $alt,
+                'discount' => $item['discountMinor'] > 0 ? Money::toInputString((int) $item['discountMinor']) : '',
+                'expiryDate' => $expiry,
+                'showExpiry' => $expiry !== '',
+            ];
+        }
+        // One tender is all this form takes; split payments are left for the user to enter again.
+        if (count($p['tenders']) === 1) {
+            $this->payAccountId = (string) $p['tenders'][0]['paymentAccountId'];
+            $this->payAmount = Money::toInputString((int) $p['tenders'][0]['amountMinor']);
+            $this->reference = $p['tenders'][0]['reference'] ?? '';
+        }
     }
 
     private static function blankRow(int $key): array
@@ -186,7 +291,7 @@ final class Create extends Component
     {
         $this->authorize('purchases.create');
         $this->resetErrorBag();
-        $this->savedNo = null;
+        $this->savedNo = $this->replacedNo = null;
 
         $reading = $this->reading();
         $fail = function (string $message): void {
@@ -251,7 +356,7 @@ final class Create extends Component
             }
             $discount = trim($this->invoiceDiscount) === '' ? 0 : Money::parse($this->invoiceDiscount);
 
-            $result = PurchaseService::createPurchase([
+            $input = [
                 'supplierId' => (int) $this->supplierId,
                 'businessDate' => $this->businessDate,
                 'dueDate' => $this->dueDate === '' ? null : $this->dueDate,
@@ -260,7 +365,40 @@ final class Create extends Component
                 'invoiceDiscount' => $discount,
                 'tenders' => $tenders,
                 'note' => trim($this->note) === '' ? null : trim($this->note),
-            ], Principal::load((int) auth()->id())->actor());
+            ];
+            $actor = Principal::load((int) auth()->id())->actor();
+            if ($this->editingId !== null) {
+                abort_unless(RoleGuard::actorIsOwner((int) auth()->id()), 403);
+                if (count(PurchaseService::getPurchase($this->editingId)['tenders']) > 1) {
+                    $fail("{$this->editingNo} was paid from more than one account, which this form cannot show, so it cannot be edited here. Use \"Correct this purchase\" instead.");
+
+                    return;
+                }
+                if (mb_strlen(trim($this->editReason)) < 3) {
+                    $this->addError('editReason', 'Say why this purchase is being edited.');
+
+                    return;
+                }
+                PurchaseService::editPurchase($this->editingId, $input, trim($this->editReason), $actor);
+                session()->flash('status', "{$this->editingNo} edited. The old delivery was reversed and the corrected one posted under the same number.");
+                $this->redirect("/purchases/{$this->editingId}");
+
+                return;
+            }
+            if ($this->correctingId === null) {
+                $result = PurchaseService::createPurchase($input, $actor);
+            } else {
+                $this->authorize('purchases.void');
+                if (mb_strlen(trim($this->correctReason)) < 3) {
+                    $this->addError('correctReason', 'Give a reason for correcting this purchase.');
+
+                    return;
+                }
+                $result = PurchaseService::correctPurchase($this->correctingId, trim($this->correctReason), $input, $actor);
+                $this->replacedNo = $result['voidedPurchaseNo'];
+                $this->correctingId = null;
+                $this->correctingNo = $this->correctReason = '';
+            }
         } catch (DomainError $e) {
             $fail($e->userMessage);
 

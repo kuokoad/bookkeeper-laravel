@@ -7,6 +7,7 @@ namespace App\Livewire;
 use App\Auth\Principal;
 use App\Domain\Dashboard as Windows;
 use App\Domain\Money;
+use App\Enums\Look;
 use App\Enums\PermissionModule as M;
 use App\Models\User;
 use App\Services\CashbookService;
@@ -19,6 +20,7 @@ use App\Services\Reporting\LedgerService;
 use App\Services\Reporting\MoneyTrend;
 use App\Services\Reporting\OperationsService;
 use App\Services\SaleService;
+use App\Services\SettingsService;
 use App\Services\SupplierService;
 use App\Support\Clock;
 use Illuminate\Http\Request;
@@ -40,10 +42,13 @@ final class Dashboard extends Component
 
     public string $spend = 'month';
 
+    public ?string $activity = null;
+
     public function mount(Request $request): void
     {
         $this->sales = Windows::dashboardRange(is_string($request->query('sales')) ? $request->query('sales') : null);
         $this->spend = Windows::dashboardRange(is_string($request->query('spend')) ? $request->query('spend') : null);
+        $this->activity = Windows::dashboardActivity(is_string($request->query('activity')) ? $request->query('activity') : null);
     }
 
     public function render(): View
@@ -77,6 +82,8 @@ final class Dashboard extends Component
 
         return view('livewire.dashboard', [
             'user' => $user,
+            // The Modern look has its own dashboard layout: same figures, arranged attention first.
+            'modern' => SettingsService::get()->look === Look::Modern->value,
             'shows' => $shows,
             'nothingToShow' => ! in_array(true, $shows, true),
             'today' => $today,
@@ -104,6 +111,8 @@ final class Dashboard extends Component
             'reconciliation' => $reconciliation,
             'differences' => Windows::reconciliationIssues($reconciliation),
             'moneyMonths' => $shows['money'] ? MoneyTrend::getMoneyByMonth($today, 6) : [],
+            // Transaction History: the journal's newest entries, filtered in SQL before the limit. Same right as /accounting/journal.
+            'recent' => $shows['money'] ? LedgerService::listJournalEntries(['limit' => 10, ...($this->activity === null ? [] : ['sourceType' => $this->activity])]) : [],
             'failedChecks' => array_values(array_filter($checks, fn (array $c): bool => ! $c['passed'])),
         ]);
     }

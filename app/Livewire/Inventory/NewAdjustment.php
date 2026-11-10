@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Inventory;
 
 use App\Auth\Principal;
+use App\Auth\RoleGuard;
 use App\Domain\Errors\DomainError;
+use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
 use App\Domain\Quantity;
 use App\Enums\AdjustmentReason;
@@ -18,6 +20,7 @@ use App\Support\CostFields;
 use App\Support\Filters\Filters;
 use App\View\Format;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -36,14 +39,56 @@ final class NewAdjustment extends Component
 
     public string $note = '';
 
+    /** D34: the adjustment being edited, if this is an edit. */
+    #[Locked]
+    public ?int $editingId = null;
+
+    #[Locked]
+    public ?string $editingNo = null;
+
+    public string $editReason = '';
+
     /** @var list<array{productId: string, direction: string, qty: string, alt: bool, altFactor: ?int, value: string, costSource: string, batchId: string}> */
     public array $rows = [];
 
-    public function mount(): void
+    public function mount(?string $id = null): void
     {
         $this->businessDate = Clock::today();
         $this->reason = AdjustmentReason::cases()[0]->value;
         $this->rows = [self::blankRow('IN')];
+        if ($id !== null) {
+            $this->loadForEdit((int) $id);
+        }
+    }
+
+    /** The saved adjustment, in the form's own terms, so the owner edits what is there. */
+    private function loadForEdit(int $id): void
+    {
+        abort_unless(RoleGuard::actorIsOwner((int) auth()->id()), 403);
+        try {
+            $data = StockAdjustmentService::getStockAdjustment($id);
+        } catch (NotFoundError) {
+            abort(404);
+        }
+        $adjustment = $data['adjustment'];
+        abort_unless($adjustment->status === 'POSTED' && $adjustment->voids_adjustment_id === null, 404);
+
+        $this->editingId = $id;
+        $this->editingNo = $adjustment->adjustment_no;
+        $this->businessDate = (string) $adjustment->business_date;
+        $this->reason = $adjustment->reason;
+        $this->note = (string) ($adjustment->note ?? '');
+        $this->rows = array_map(fn (object $item): array => [
+            'productId' => (string) $item->product_id,
+            'direction' => $item->direction,
+            // Shown in the unit it was typed in.
+            'qty' => Quantity::toInputString($item->entry_unit === null ? (int) $item->qty_milli : (int) $item->entry_qty_milli),
+            'alt' => $item->entry_unit !== null,
+            'altFactor' => $item->entry_factor_milli === null ? null : (int) $item->entry_factor_milli,
+            'value' => $item->direction === 'IN' ? Money::toInputString((int) $item->total_cost_minor) : '',
+            'costSource' => 'total',
+            'batchId' => $item->batch_id === null ? '' : (string) $item->batch_id,
+        ], $data['items']);
     }
 
     private static function blankRow(string $direction): array
@@ -105,8 +150,15 @@ final class NewAdjustment extends Component
 
     public function save(): void
     {
-        $this->authorize('inventory.create');
+        if ($this->editingId === null) {
+            $this->authorize('inventory.create');
+        } else {
+            abort_unless(RoleGuard::actorIsOwner((int) auth()->id()), 403);
+        }
         $this->resetErrorBag();
+        if ($this->editingId !== null && mb_strlen(trim($this->editReason)) < 3) {
+            $this->addError('editReason', 'Say why this adjustment is being edited.');
+        }
         if (! Filters::isValidBusinessDate($this->businessDate)) {
             $this->addError('businessDate', 'Enter a valid date.');
         }
@@ -169,15 +221,28 @@ final class NewAdjustment extends Component
             return;
         }
 
+        $input = [
+            'businessDate' => $this->businessDate,
+            'reason' => $this->reason,
+            'note' => trim($this->note) === '' ? null : trim($this->note),
+            'items' => $items,
+        ];
+        $actor = Principal::load((int) auth()->id())->actor();
         try {
-            StockAdjustmentService::createStockAdjustment([
-                'businessDate' => $this->businessDate,
-                'reason' => $this->reason,
-                'note' => trim($this->note) === '' ? null : trim($this->note),
-                'items' => $items,
-            ], Principal::load((int) auth()->id())->actor());
+            if ($this->editingId !== null) {
+                StockAdjustmentService::editStockAdjustment($this->editingId, $input, trim($this->editReason), $actor);
+            } else {
+                StockAdjustmentService::createStockAdjustment($input, $actor);
+            }
         } catch (DomainError $e) {
             $this->addError('form', $e->userMessage);
+
+            return;
+        }
+
+        if ($this->editingId !== null) {
+            session()->flash('status', "{$this->editingNo} edited. The old lines were reversed and the new ones posted under the same number.");
+            $this->redirect("/inventory/adjustments/{$this->editingId}");
 
             return;
         }
@@ -207,6 +272,8 @@ final class NewAdjustment extends Component
         ], $this->trackedProducts());
 
         return view('livewire.inventory.new-adjustment', [
+            'editingNo' => $this->editingNo,
+            'editingId' => $this->editingId,
             'products' => collect($products)->keyBy('id')->all(),
             'reasons' => StockAdjustmentService::REASON_LABELS,
             'forcedDirection' => $this->forcedDirection(),

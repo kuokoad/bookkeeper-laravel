@@ -344,3 +344,8 @@ it('accepts the Mamut look in the database and wears it', function () {
     DB::table('business_settings')->update(['look' => 'mamut']);
     $this->get('/setup')->assertSee('data-look="mamut"', false);
 });
+
+it('accepts the Modern look in the database and wears it', function () {
+    DB::table('business_settings')->update(['look' => 'modern']);
+    $this->get('/setup')->assertSee('data-look="modern"', false);
+});

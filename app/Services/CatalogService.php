@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Database\Tx;
 use App\Domain\Errors\ConflictError;
+use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
 use App\Domain\Inventory\Costing;
@@ -170,6 +171,29 @@ final class CatalogService
         if ($warnDays !== null && (! is_int($warnDays) || $warnDays < 0)) {
             throw new ValidationError('The expiry warning period must be a whole number of days.', ['warnDays' => $warnDays]);
         }
+    }
+
+    /**
+     * Several new stock items at once (the add page's grid): all are saved or
+     * none. Keys are the screen's row indexes, so a refusal names the row.
+     *
+     * @param  array<int, array<string, mixed>>  $inputs
+     * @return list<int>
+     */
+    public static function createProducts(array $inputs, Actor $actor): array
+    {
+        return Tx::run(function () use ($inputs, $actor): array {
+            $ids = [];
+            foreach ($inputs as $row => $input) {
+                try {
+                    $ids[] = self::createProduct($input, $actor);
+                } catch (DomainError $e) {
+                    throw new ValidationError('Row '.($row + 1).': '.$e->userMessage);
+                }
+            }
+
+            return $ids;
+        });
     }
 
     public static function createProduct(array $input, Actor $actor): int

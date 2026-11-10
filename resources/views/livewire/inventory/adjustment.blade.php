@@ -7,6 +7,9 @@
 <div class="w-full">
     <x-page-header :title="$adjustment->adjustment_no" :description="$label.' · '.Format::date($adjustment->business_date)">
         <x-slot:actions>
+            @if ($canEdit)
+                <x-button variant="secondary" size="sm" href="/inventory/adjustments/{{ $adjustment->id }}/edit">Edit</x-button>
+            @endif
             <x-button variant="secondary" size="sm" href="/inventory/adjustments">Back</x-button>
         </x-slot:actions>
     </x-page-header>
@@ -34,6 +37,9 @@
                         <x-badge tone="danger">Voided</x-badge>
                     @else
                         <x-badge tone="success">Posted</x-badge>
+                    @endif
+                    @if ($adjustment->edited_at)
+                        <x-badge tone="accent">Edited</x-badge>
                     @endif
                 </dd>
             </div>
@@ -94,6 +100,8 @@
             {{ $journal['balanced'] ? 'Debits equal credits — this entry balances.' : 'WARNING: this entry does not balance. Please report it.' }}
         </p>
     @endif
+
+    <x-edit-history :history="$history" />
 
     @if ($adjustment->status === 'POSTED' && Gate::allows('inventory.void'))
         <div class="mt-8">

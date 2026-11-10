@@ -29,9 +29,18 @@ final class Dashboard
         return ['from' => BusinessDate::addDays($today, 1 - self::RANGES[$range]), 'to' => $today];
     }
 
-    public static function dashboardRangeHref(string $sales, string $spend): string
+    /** The Transaction History filter: one journal source type each, the journal page's own kinds. */
+    public const ACTIVITY = ['SALE' => 'Sales', 'PURCHASE' => 'Purchases', 'EXPENSE' => 'Expenses', 'CUSTOMER_PAYMENT' => 'Customer payments', 'SUPPLIER_PAYMENT' => 'Supplier payments'];
+
+    /** A known kind, or null for everything: anything else in the query string is ignored. */
+    public static function dashboardActivity(?string $value): ?string
     {
-        return "/dashboard?sales={$sales}&spend={$spend}";
+        return $value !== null && array_key_exists($value, self::ACTIVITY) ? $value : null;
+    }
+
+    public static function dashboardRangeHref(string $sales, string $spend, ?string $activity = null): string
+    {
+        return "/dashboard?sales={$sales}&spend={$spend}".($activity === null ? '' : "&activity={$activity}");
     }
 
     /**

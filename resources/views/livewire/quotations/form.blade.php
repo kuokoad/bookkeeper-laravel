@@ -3,7 +3,7 @@
     use App\View\Format;
     $fmt = fn (int $v) => Format::money($v, currencyCode: $currency);
 @endphp
-<div class="mx-auto max-w-4xl">
+<div>
     @if ($quotationId === null)
         <x-page-header title="New quote" description="A price the customer can take away. Nothing is sold and no stock moves until they accept." />
     @else

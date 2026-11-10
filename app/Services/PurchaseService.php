@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
@@ -15,6 +16,7 @@ use App\Domain\Errors\ValidationError;
 use App\Domain\JsCompat;
 use App\Domain\Money;
 use App\Domain\Purchases\PurchaseCalculator;
+use App\Domain\Quantity;
 use App\Domain\Tax\TaxComponent;
 use App\Domain\Tax\TaxLine;
 use App\Enums\AuditAction;
@@ -100,15 +102,8 @@ final class PurchaseService
         if (($input['items'] ?? []) === []) {
             throw new ValidationError('Add at least one stock item to the purchase.');
         }
-        // D8: when the supplier wants paying, held to a sale's terms: the purchase date plus 0 to 365 days.
+        self::assertDueDate($input);
         $dueDate = $input['dueDate'] ?? null;
-        if ($dueDate !== null) {
-            BusinessDate::assert($dueDate, 'due date');
-            $days = BusinessDate::daysBetween($input['businessDate'], $dueDate);
-            if ($days < 0 || $days > 365) {
-                throw new ValidationError('The due date must be from the purchase date up to a year after it.', ['dueDate' => $dueDate]);
-            }
-        }
 
         return Tx::run(function () use ($input, $actor, $dueDate): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
@@ -123,31 +118,9 @@ final class PurchaseService
                 throw new ValidationError("\"{$supplier->name}\" is archived and cannot be purchased from.");
             }
 
-            // --- line arithmetic ---------------------------------------------
-            $lines = [];
-            foreach ($input['items'] as $item) {
-                $product = DB::table('products')->where('id', $item['productId'])->first() ?? throw new NotFoundError('Stock item', $item['productId']);
-                // A form opened before the product was archived, or replaced, must not put a delivery there.
-                if (! $product->is_active) {
-                    throw new ValidationError("\"{$product->name}\" is archived and cannot be bought. Reload the form and pick the stock item again.");
-                }
-                $discount = $item['discount'] ?? 0;
-                $lineTotal = PurchaseCalculator::lineTotal($item['unitCost'], $item['qty'], $discount);
-                $lineUnit = UnitsService::resolveLineUnit($product, $item['qty'], $item['alt'] ?? null, $item['altFactor'] ?? null);
-                $lines[] = ['item' => $item, 'product' => $product, 'lineUnit' => $lineUnit, 'discount' => $discount, 'lineTotal' => $lineTotal];
-            }
-            $lineTotals = array_column($lines, 'lineTotal');
-
-            // Priced net with tax on top, whatever the shop's own shelves do.
+            $priced = self::priceLines($input);
+            ['totals' => $totals, 'total' => $total, 'tender' => $tender] = $priced;
             $invoiceDiscount = $input['invoiceDiscount'] ?? 0;
-            $taxProfile = TaxService::profile();
-            $totals = PurchaseCalculator::totals($lineTotals, $invoiceDiscount, $taxProfile['components']);
-            $taxLines = $totals['breakdown']->lines;
-            $total = $totals['total'];
-
-            // Tax that cannot be reclaimed is part of what the goods cost.
-            $nonRecoverableTax = TaxService::nonRecoverableTotal($taxLines);
-            $tender = PurchaseCalculator::tender($total, array_column($input['tenders'], 'amount'));
 
             // --- write the purchase -------------------------------------------
             // Lock order (Tx 3a): the tender accounts, shared, so archiving one waits for this delivery.
@@ -174,121 +147,7 @@ final class PurchaseService
                 'updated_at' => $at,
             ]);
 
-            // What was paid, component by component, with whether each was reclaimable ON THE DAY.
-            TaxService::writePurchaseTaxes($purchaseId, $taxLines, $taxProfile['componentIdByCode'], $occurredAt);
-
-            // --- stock in: the goods value, discount spread and levies added ---
-            $lineCosts = PurchaseCalculator::lineCosts($lineTotals, $invoiceDiscount, $nonRecoverableTax);
-            $inventoryParts = [];
-            $residual = 0;
-            foreach ($lines as $index => $line) {
-                if ($line['product']->track_inventory) {
-                    // A dated line opens its own batch; an undated one pools where undated stock always went.
-                    $expiryDate = $line['item']['expiryDate'] ?? null;
-                    $movement = InventoryService::recordStockMovement([
-                        'productId' => (int) $line['product']->id,
-                        'direction' => 'IN',
-                        'qty' => $line['lineUnit']['baseQty'],
-                        'totalCost' => $lineCosts[$index],
-                        'movementType' => MovementType::Purchase,
-                        'sourceType' => 'PURCHASE',
-                        'sourceId' => $purchaseId,
-                        'sourceRef' => $purchaseNo,
-                        'businessDate' => $input['businessDate'],
-                        'occurredAt' => $occurredAt,
-                        'userId' => $actor->id,
-                        'isDemo' => $isDemo,
-                        ...($expiryDate === null ? [] : ['batch' => ['kind' => 'NEW', 'expiryDate' => $expiryDate, 'supplierId' => $input['supplierId']]]),
-                    ]);
-                    // D26: stock bought back up from below zero at another price.
-                    $residual = Money::add($residual, $movement['residual']);
-                    $inventoryParts[] = $lineCosts[$index];
-                }
-
-                DB::table('purchase_items')->insert([
-                    'purchase_id' => $purchaseId,
-                    'line_no' => $index + 1,
-                    'product_id' => (int) $line['product']->id,
-                    'product_name' => $line['product']->name,
-                    'unit' => $line['product']->unit,
-                    'qty_milli' => $line['lineUnit']['baseQty'],
-                    'entry_unit' => $line['lineUnit']['entryUnit'],
-                    'entry_qty_milli' => $line['lineUnit']['entryQtyMilli'],
-                    'entry_factor_milli' => $line['lineUnit']['entryFactorMilli'],
-                    'unit_cost_minor' => $line['item']['unitCost'],
-                    'discount_minor' => $line['discount'],
-                    'line_total_minor' => $line['lineTotal'],
-                    'created_at' => $at,
-                ]);
-            }
-            $inventoryValue = Money::sum($inventoryParts);
-
-            // Goods not stock-tracked are an expense now; their levies too, or the entry would not balance.
-            $nonInventoryValue = Money::subtract(Money::sum([$totals['net'], $nonRecoverableTax]), $inventoryValue);
-
-            // --- tender ---------------------------------------------------------
-            $journal = [];
-            foreach ($input['tenders'] as $request) {
-                if ($request['amount'] <= 0) {
-                    continue;
-                }
-                $account = $tenderAccounts[$request['paymentAccountId']] ?? throw new NotFoundError('Payment account', $request['paymentAccountId']);
-                if (! $account->is_active) {
-                    throw new ValidationError("Payment account \"{$account->name}\" is not active.");
-                }
-                DB::table('purchase_payments')->insert([
-                    'purchase_id' => $purchaseId,
-                    'payment_account_id' => $request['paymentAccountId'],
-                    'amount_minor' => $request['amount'],
-                    'reference' => $request['reference'] ?? null,
-                    'created_at' => $at,
-                ]);
-                $journal[] = Journal::credit((int) $account->gl_account_id, $request['amount'], [
-                    'paymentAccountId' => (int) $request['paymentAccountId'],
-                    'description' => "{$purchaseNo} paid ({$account->name})",
-                ]);
-            }
-
-            // --- the journal entry ------------------------------------------------
-            if ($inventoryValue !== 0) {
-                $journal[] = Journal::debit(JournalService::accountIdByCode(ChartOfAccounts::INVENTORY), $inventoryValue, ['description' => "{$purchaseNo} stock received"]);
-            }
-            if ($nonInventoryValue !== 0) {
-                $journal[] = Journal::debit(JournalService::accountIdByCode('6900'), $nonInventoryValue, ['description' => "{$purchaseNo} non-stock items"]);
-            }
-            // Only the reclaimable part is an asset, each in the account it is set off in.
-            foreach ($taxLines as $taxLine) {
-                if (! $taxLine->component->isRecoverable || $taxLine->amount === 0) {
-                    continue;
-                }
-                $componentId = $taxProfile['componentIdByCode'][$taxLine->component->code] ?? null;
-                $journal[] = Journal::debit(TaxService::accountFor($componentId, $taxLine->component->code), $taxLine->amount, ['description' => "{$purchaseNo} {$taxLine->component->name} reclaimable"]);
-            }
-            if ($tender['outstanding'] !== 0) {
-                $journal[] = Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::ACCOUNTS_PAYABLE), $tender['outstanding'], [
-                    'supplierId' => (int) $input['supplierId'],
-                    'description' => "{$purchaseNo} on credit",
-                ]);
-            }
-
-            // A delivery worth nothing posts nothing, but the books lock still applies.
-            $posted = null;
-            if ($journal === []) {
-                PeriodLock::assertOpen($input['businessDate'], JournalService::readLockDate());
-            } else {
-                $posted = JournalService::post(
-                    $input['businessDate'],
-                    JournalSourceType::Purchase,
-                    $journal,
-                    sourceId: $purchaseId,
-                    memo: "{$purchaseNo} — purchase from {$supplier->name}",
-                    isDemo: $isDemo,
-                    occurredAt: $occurredAt,
-                    actor: $actor,
-                );
-                DB::table('purchases')->where('id', $purchaseId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
-            }
-            self::postCostingResidual($residual, $input['businessDate'], $purchaseNo, $purchaseId, "Stock costing difference on {$purchaseNo}", $occurredAt, $actor, JournalSourceType::Purchase, $isDemo);
+            $posted = self::writeBody($purchaseId, $purchaseNo, $input, $priced, $supplier, $tenderAccounts, $occurredAt, $actor, $isDemo);
 
             AuditService::write(
                 AuditAction::Create,
@@ -314,6 +173,409 @@ final class PurchaseService
                 'outstanding' => $tender['outstanding'],
                 'journalEntryId' => $posted['entryId'] ?? null,
             ];
+        });
+    }
+
+    /**
+     * The arithmetic of a delivery: each line, the totals, the tax and the
+     * tender, read from the (already locked) products. Shared by create and
+     * edit.
+     *
+     * @return array{lines: list<array>, lineTotals: list<int>, totals: array, taxProfile: array, taxLines: list<TaxLine>, total: int, nonRecoverableTax: int, tender: array}
+     */
+    private static function priceLines(array $input): array
+    {
+        $lines = [];
+        foreach ($input['items'] as $item) {
+            $product = DB::table('products')->where('id', $item['productId'])->first() ?? throw new NotFoundError('Stock item', $item['productId']);
+            // A form opened before the product was archived, or replaced, must not put a delivery there.
+            if (! $product->is_active) {
+                throw new ValidationError("\"{$product->name}\" is archived and cannot be bought. Reload the form and pick the stock item again.");
+            }
+            $discount = $item['discount'] ?? 0;
+            $lineTotal = PurchaseCalculator::lineTotal($item['unitCost'], $item['qty'], $discount);
+            $lineUnit = UnitsService::resolveLineUnit($product, $item['qty'], $item['alt'] ?? null, $item['altFactor'] ?? null);
+            $lines[] = ['item' => $item, 'product' => $product, 'lineUnit' => $lineUnit, 'discount' => $discount, 'lineTotal' => $lineTotal];
+        }
+        $lineTotals = array_column($lines, 'lineTotal');
+
+        // Priced net with tax on top, whatever the shop's own shelves do.
+        $invoiceDiscount = $input['invoiceDiscount'] ?? 0;
+        $taxProfile = TaxService::profile();
+        $totals = PurchaseCalculator::totals($lineTotals, $invoiceDiscount, $taxProfile['components']);
+        $taxLines = $totals['breakdown']->lines;
+        $total = $totals['total'];
+
+        // Tax that cannot be reclaimed is part of what the goods cost.
+        $nonRecoverableTax = TaxService::nonRecoverableTotal($taxLines);
+        $tender = PurchaseCalculator::tender($total, array_column($input['tenders'], 'amount'));
+
+        return compact('lines', 'lineTotals', 'totals', 'taxProfile', 'taxLines', 'total', 'nonRecoverableTax', 'tender');
+    }
+
+    /**
+     * Everything a delivery writes under its header: the taxes paid, the
+     * lines and their stock, the payments made on the day, ONE balanced
+     * entry and any costing residual. Shared by create and edit, so an
+     * edited purchase posts exactly what a new one would.
+     *
+     * @return array{entryId: int, entryNo: string}|null the entry, or null when the delivery was worth nothing
+     */
+    private static function writeBody(int $purchaseId, string $purchaseNo, array $input, array $priced, object $supplier, array $tenderAccounts, Carbon $occurredAt, Actor $actor, bool $isDemo): ?array
+    {
+        ['lines' => $lines, 'lineTotals' => $lineTotals, 'totals' => $totals, 'taxProfile' => $taxProfile, 'taxLines' => $taxLines, 'nonRecoverableTax' => $nonRecoverableTax, 'tender' => $tender] = $priced;
+        $invoiceDiscount = $input['invoiceDiscount'] ?? 0;
+        $at = Clock::stamp($occurredAt);
+
+        // What was paid, component by component, with whether each was reclaimable ON THE DAY.
+        TaxService::writePurchaseTaxes($purchaseId, $taxLines, $taxProfile['componentIdByCode'], $occurredAt);
+
+        // --- stock in: the goods value, discount spread and levies added ---
+        $lineCosts = PurchaseCalculator::lineCosts($lineTotals, $invoiceDiscount, $nonRecoverableTax);
+        $inventoryParts = [];
+        $residual = 0;
+        foreach ($lines as $index => $line) {
+            if ($line['product']->track_inventory) {
+                // A dated line opens its own batch; an undated one pools where undated stock always went.
+                $expiryDate = $line['item']['expiryDate'] ?? null;
+                $movement = InventoryService::recordStockMovement([
+                    'productId' => (int) $line['product']->id,
+                    'direction' => 'IN',
+                    'qty' => $line['lineUnit']['baseQty'],
+                    'totalCost' => $lineCosts[$index],
+                    'movementType' => MovementType::Purchase,
+                    'sourceType' => 'PURCHASE',
+                    'sourceId' => $purchaseId,
+                    'sourceRef' => $purchaseNo,
+                    'businessDate' => $input['businessDate'],
+                    'occurredAt' => $occurredAt,
+                    'userId' => $actor->id,
+                    'isDemo' => $isDemo,
+                    ...($expiryDate === null ? [] : ['batch' => ['kind' => 'NEW', 'expiryDate' => $expiryDate, 'supplierId' => $input['supplierId']]]),
+                ]);
+                // D26: stock bought back up from below zero at another price.
+                $residual = Money::add($residual, $movement['residual']);
+                $inventoryParts[] = $lineCosts[$index];
+            }
+
+            DB::table('purchase_items')->insert([
+                'purchase_id' => $purchaseId,
+                'line_no' => $index + 1,
+                'product_id' => (int) $line['product']->id,
+                'product_name' => $line['product']->name,
+                'unit' => $line['product']->unit,
+                'qty_milli' => $line['lineUnit']['baseQty'],
+                'entry_unit' => $line['lineUnit']['entryUnit'],
+                'entry_qty_milli' => $line['lineUnit']['entryQtyMilli'],
+                'entry_factor_milli' => $line['lineUnit']['entryFactorMilli'],
+                'unit_cost_minor' => $line['item']['unitCost'],
+                'discount_minor' => $line['discount'],
+                'line_total_minor' => $line['lineTotal'],
+                'created_at' => $at,
+            ]);
+        }
+        $inventoryValue = Money::sum($inventoryParts);
+
+        // Goods not stock-tracked are an expense now; their levies too, or the entry would not balance.
+        $nonInventoryValue = Money::subtract(Money::sum([$totals['net'], $nonRecoverableTax]), $inventoryValue);
+
+        // --- tender ---------------------------------------------------------
+        $journal = [];
+        foreach ($input['tenders'] as $request) {
+            if ($request['amount'] <= 0) {
+                continue;
+            }
+            $account = $tenderAccounts[$request['paymentAccountId']] ?? throw new NotFoundError('Payment account', $request['paymentAccountId']);
+            if (! $account->is_active) {
+                throw new ValidationError("Payment account \"{$account->name}\" is not active.");
+            }
+            DB::table('purchase_payments')->insert([
+                'purchase_id' => $purchaseId,
+                'payment_account_id' => $request['paymentAccountId'],
+                'amount_minor' => $request['amount'],
+                'reference' => $request['reference'] ?? null,
+                'created_at' => $at,
+            ]);
+            $journal[] = Journal::credit((int) $account->gl_account_id, $request['amount'], [
+                'paymentAccountId' => (int) $request['paymentAccountId'],
+                'description' => "{$purchaseNo} paid ({$account->name})",
+            ]);
+        }
+
+        // --- the journal entry ------------------------------------------------
+        if ($inventoryValue !== 0) {
+            $journal[] = Journal::debit(JournalService::accountIdByCode(ChartOfAccounts::INVENTORY), $inventoryValue, ['description' => "{$purchaseNo} stock received"]);
+        }
+        if ($nonInventoryValue !== 0) {
+            $journal[] = Journal::debit(JournalService::accountIdByCode('6900'), $nonInventoryValue, ['description' => "{$purchaseNo} non-stock items"]);
+        }
+        // Only the reclaimable part is an asset, each in the account it is set off in.
+        foreach ($taxLines as $taxLine) {
+            if (! $taxLine->component->isRecoverable || $taxLine->amount === 0) {
+                continue;
+            }
+            $componentId = $taxProfile['componentIdByCode'][$taxLine->component->code] ?? null;
+            $journal[] = Journal::debit(TaxService::accountFor($componentId, $taxLine->component->code), $taxLine->amount, ['description' => "{$purchaseNo} {$taxLine->component->name} reclaimable"]);
+        }
+        if ($tender['outstanding'] !== 0) {
+            $journal[] = Journal::credit(JournalService::accountIdByCode(ChartOfAccounts::ACCOUNTS_PAYABLE), $tender['outstanding'], [
+                'supplierId' => (int) $input['supplierId'],
+                'description' => "{$purchaseNo} on credit",
+            ]);
+        }
+
+        // A delivery worth nothing posts nothing, but the books lock still applies.
+        $posted = null;
+        if ($journal === []) {
+            PeriodLock::assertOpen($input['businessDate'], JournalService::readLockDate());
+        } else {
+            $posted = JournalService::post(
+                $input['businessDate'],
+                JournalSourceType::Purchase,
+                $journal,
+                sourceId: $purchaseId,
+                memo: "{$purchaseNo} — purchase from {$supplier->name}",
+                isDemo: $isDemo,
+                occurredAt: $occurredAt,
+                actor: $actor,
+            );
+            DB::table('purchases')->where('id', $purchaseId)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
+        }
+        self::postCostingResidual($residual, $input['businessDate'], $purchaseNo, $purchaseId, "Stock costing difference on {$purchaseNo}", $occurredAt, $actor, JournalSourceType::Purchase, $isDemo);
+
+        return $posted;
+    }
+
+    /**
+     * Owner decision D34: correct a saved purchase in place, under the same
+     * number. On the day it was recorded, its stock leaves at the cost it
+     * arrived at, from the batches it filled, and its entry is reversed; then
+     * the corrected delivery is written exactly as a new one would be. What
+     * it said before is kept in the audit log.
+     *
+     * Refused while anything leans on it: goods returned, supplier payments
+     * set against it, or any of its stock gone out since (those sales were
+     * costed with it; "Correct this purchase" handles that case).
+     *
+     * Input: as createPurchase.
+     *
+     * @return array{purchaseId: int, purchaseNo: string, total: int, paid: int, outstanding: int, journalEntryId: ?int}
+     */
+    public static function editPurchase(int $purchaseId, array $input, string $why, Actor $actor, ?Carbon $now = null): array
+    {
+        RoleGuard::assertActorIsOwner($actor, 'edit a saved purchase');
+        if (($input['items'] ?? []) === []) {
+            throw new ValidationError('Add at least one stock item to the purchase.');
+        }
+        self::assertDueDate($input);
+        $why = JsCompat::trim($why);
+        if (mb_strlen($why) < 3) {
+            throw new ValidationError('Say why this purchase is being edited.');
+        }
+        $now ??= Clock::now();
+
+        return Tx::run(function () use ($purchaseId, $input, $why, $actor, $now): array {
+            // Lock order (Tx): every product either version touches, both suppliers, then the purchase.
+            $oldProducts = DB::table('purchase_items')->where('purchase_items.purchase_id', $purchaseId)->pluck('product_id')->map(fn ($id): int => (int) $id)->all();
+            InventoryService::lockProducts([...$oldProducts, ...array_column($input['items'], 'productId')]);
+            $suppliers = array_unique(array_filter([(int) $input['supplierId'], (int) DB::table('purchases')->where('id', $purchaseId)->value('supplier_id')]));
+            sort($suppliers);
+            foreach ($suppliers as $supplierId) {
+                SupplierService::lockSupplier($supplierId);
+            }
+            $original = DB::table('purchases')->where('id', $purchaseId)->lockForUpdate()->first() ?? throw new NotFoundError('Purchase', $purchaseId);
+            $no = $original->purchase_no;
+            if ($original->status === 'VOIDED') {
+                throw new ConflictError("{$no} has been voided, so it cannot be edited.");
+            }
+            if ($original->kind !== 'PURCHASE') {
+                throw new ConflictError("{$no} is not a purchase, so it cannot be edited.");
+            }
+            TaxService::assertUnchangedSince('purchase_taxes', 'purchase_id', $purchaseId, null, $no);
+            $supplier = DB::table('suppliers')->where('id', $input['supplierId'])->first() ?? throw new NotFoundError('Supplier', $input['supplierId']);
+            if (! $supplier->is_active && (int) $supplier->id !== (int) $original->supplier_id) {
+                throw new ValidationError("\"{$supplier->name}\" is archived and cannot be purchased from.");
+            }
+
+            $items = DB::table('purchase_items')->where('purchase_id', $purchaseId)->orderBy('id')->lockForUpdate()->get();
+            $return = DB::table('purchases')->where('returns_purchase_id', $purchaseId)->where('status', 'POSTED')->value('purchase_no');
+            if ($return !== null || $items->contains(fn (object $item): bool => (int) $item->returned_qty_milli > 0)) {
+                throw new ConflictError("Goods from {$no} have been returned".($return === null ? '' : " ({$return})").', so it cannot be edited. Void the return first, or correct the purchase instead.');
+            }
+            if (self::settledByPayments($purchaseId) > 0) {
+                throw new ConflictError("{$no} has supplier payments set against it, so it cannot be edited. Void those payments first.");
+            }
+            $mark = InventoryService::lastEditMark('PURCHASE', $purchaseId);
+            $firstIn = DB::table('stock_ledger')->where('stock_ledger.source_type', 'PURCHASE')->where('stock_ledger.source_id', $purchaseId)->where('stock_ledger.id', '>', $mark)->min('stock_ledger.id');
+            if ($firstIn !== null) {
+                $since = DB::table('stock_ledger')->whereIn('stock_ledger.product_id', $oldProducts)->where('stock_ledger.id', '>', $firstIn)
+                    ->where('stock_ledger.qty_out_milli', '>', 0)->orderBy('stock_ledger.id')->value('stock_ledger.source_ref');
+                if ($since !== null) {
+                    throw new ConflictError("Stock from {$no} has gone out since it arrived (first on {$since}), so it cannot be edited: what that stock cost has already been used. Use \"Correct this purchase\" instead.");
+                }
+            }
+
+            PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
+            $lockedBefore = JournalService::readLockDate();
+            PeriodLock::assertOpen((string) $original->business_date, $lockedBefore);
+            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+
+            $before = self::snapshot($purchaseId);
+            $originalDate = (string) $original->business_date;
+            $isDemo = (bool) $original->is_demo;
+            $allowNegative = (bool) DB::table('business_settings')->where('id', 1)->value('allow_negative_stock');
+
+            // 1. On its own day, the old delivery leaves at the cost it came in at, from the crates it filled.
+            $wentInAt = self::stockCostQueues($purchaseId);
+            $wentInTo = [];
+            foreach ($items as $item) {
+                $wentInTo[(int) $item->product_id] ??= InventoryService::readBatchSplits('PURCHASE', $purchaseId, (int) $item->product_id);
+            }
+            $residual = 0;
+            foreach ($items as $item) {
+                $productId = (int) $item->product_id;
+                $wentInAt[$productId] ??= [];
+                $cost = array_shift($wentInAt[$productId]);
+                // A line that never went onto the shelf has nothing to take back off it.
+                if ($cost === null) {
+                    continue;
+                }
+                $batches = array_shift($wentInTo[$productId]);
+                $movement = InventoryService::recordStockMovement([
+                    'productId' => $productId,
+                    'direction' => 'OUT',
+                    'qty' => (int) $item->qty_milli,
+                    'totalCost' => $cost,
+                    ...($batches === null || $batches === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $batches]]),
+                    'movementType' => MovementType::PurchaseReturn,
+                    'sourceType' => 'PURCHASE_VOID',
+                    'sourceId' => $purchaseId,
+                    'sourceRef' => $no,
+                    'businessDate' => $originalDate,
+                    'occurredAt' => $now,
+                    'userId' => $actor->id,
+                    'allowNegative' => $allowNegative,
+                    'note' => "Edit of {$no}",
+                    'isDemo' => $isDemo,
+                ]);
+                $residual = Money::add($residual, $movement['residual']);
+            }
+            if ($original->journal_entry_id !== null) {
+                JournalService::reverse((int) $original->journal_entry_id, $originalDate, JournalSourceType::Purchase, $purchaseId, "Edit of {$no}: {$why}", occurredAt: $now, actor: $actor);
+            }
+            self::postCostingResidual($residual, $originalDate, $no, $purchaseId, "Stock costing difference on editing {$no}", $now, $actor, JournalSourceType::Purchase, $isDemo);
+            // The old lines, taxes and payments live on in the audit row below.
+            DB::table('purchase_items')->where('purchase_id', $purchaseId)->delete();
+            DB::table('purchase_taxes')->where('purchase_id', $purchaseId)->delete();
+            DB::table('purchase_payments')->where('purchase_id', $purchaseId)->delete();
+
+            // 2. The delivery as it should have been.
+            $priced = self::priceLines($input);
+            $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
+            $posted = self::writeBody($purchaseId, $no, $input, $priced, $supplier, $tenderAccounts, $now, $actor, $isDemo);
+            $at = Clock::stamp($now);
+            DB::table('purchases')->where('id', $purchaseId)->update([
+                'supplier_id' => $input['supplierId'],
+                'business_date' => $input['businessDate'],
+                'due_date' => $input['dueDate'] ?? null,
+                'invoice_no' => $input['invoiceNo'] ?? null,
+                'subtotal_minor' => $priced['totals']['subtotal'],
+                'discount_minor' => $input['invoiceDiscount'] ?? 0,
+                'tax_minor' => $priced['totals']['tax'],
+                'total_minor' => $priced['total'],
+                'note' => $input['note'] ?? null,
+                'journal_entry_id' => $posted['entryId'] ?? null,
+                'edited_at' => $at,
+                'updated_at' => $at,
+            ]);
+            AuditService::write(AuditAction::Update, 'purchase', "Edited {$no}: {$why}", $purchaseId, $actor, [
+                'edit' => true,
+                'reason' => $why,
+                'before' => $before,
+                'after' => self::snapshot($purchaseId),
+            ], $now);
+
+            return [
+                'purchaseId' => $purchaseId,
+                'purchaseNo' => $no,
+                'total' => $priced['total'],
+                'paid' => $priced['tender']['tendered'],
+                'outstanding' => $priced['tender']['outstanding'],
+                'journalEntryId' => $posted['entryId'] ?? null,
+            ];
+        });
+    }
+
+    /** D8: when the supplier wants paying, held to a sale's terms: the purchase date plus 0 to 365 days. */
+    private static function assertDueDate(array $input): void
+    {
+        $dueDate = $input['dueDate'] ?? null;
+        if ($dueDate === null) {
+            return;
+        }
+        BusinessDate::assert($dueDate, 'due date');
+        $days = BusinessDate::daysBetween($input['businessDate'], $dueDate);
+        if ($days < 0 || $days > 365) {
+            throw new ValidationError('The due date must be from the purchase date up to a year after it.', ['dueDate' => $dueDate]);
+        }
+    }
+
+    /** What a purchase says, in the edit history's shape (see StockAdjustmentService::snapshot). */
+    private static function snapshot(int $purchaseId): array
+    {
+        $purchase = DB::table('purchases')->leftJoin('suppliers', 'suppliers.id', '=', 'purchases.supplier_id')
+            ->where('purchases.id', $purchaseId)->first(['purchases.*', 'suppliers.name as supplier_name']);
+        $paid = (int) DB::table('purchase_payments')->where('purchase_id', $purchaseId)->sum('amount_minor');
+
+        return [
+            'date' => (string) $purchase->business_date,
+            'fields' => [
+                'Supplier' => $purchase->supplier_name,
+                'Supplier invoice' => $purchase->invoice_no,
+                'Due' => $purchase->due_date === null ? null : (string) $purchase->due_date,
+                'Paid on the day' => Money::format($paid),
+                'Note' => $purchase->note,
+            ],
+            'lines' => DB::table('purchase_items')->where('purchase_id', $purchaseId)->orderBy('line_no')->get()
+                ->map(fn (object $i): array => [
+                    'label' => "{$i->product_name}: ".Quantity::formatWithUnit((int) $i->qty_milli, $i->unit).' at '.Money::format((int) $i->unit_cost_minor),
+                    'amount' => (int) $i->line_total_minor,
+                ])->all(),
+            'total' => (int) $purchase->total_minor,
+        ];
+    }
+
+    /**
+     * "Correct this purchase": record the corrected delivery and void the
+     * original in one transaction, or neither. The new purchase goes in
+     * first, so stock is checked once, after the corrected quantities have
+     * arrived: 150 bought, 2 sold, corrected to 140 nets out to 138 on hand,
+     * not a refused void.
+     *
+     * @return array{purchaseId: int, purchaseNo: string, voidedPurchaseNo: string, voidPurchaseNo: string}
+     */
+    public static function correctPurchase(int $originalId, string $reason, array $input, Actor $actor): array
+    {
+        if (mb_strlen(JsCompat::trim($reason)) < 3) {
+            throw new ValidationError('Give a reason for correcting this purchase.');
+        }
+
+        return Tx::run(function () use ($originalId, $reason, $input, $actor): array {
+            // Lock order (Tx): every product either purchase touches, then both suppliers, so neither inner call takes a product after a supplier.
+            InventoryService::lockProducts([
+                ...array_column($input['items'] ?? [], 'productId'),
+                ...DB::table('purchase_items')->where('purchase_items.purchase_id', $originalId)->pluck('product_id')->all(),
+            ]);
+            $suppliers = array_unique(array_filter([(int) $input['supplierId'], (int) DB::table('purchases')->where('id', $originalId)->value('supplier_id')]));
+            sort($suppliers);
+            foreach ($suppliers as $supplierId) {
+                SupplierService::lockSupplier($supplierId);
+            }
+
+            $created = self::createPurchase($input, $actor);
+            $void = self::voidPurchase($originalId, $reason, $actor);
+
+            return [...$created, 'voidedPurchaseNo' => (string) DB::table('purchases')->where('id', $originalId)->value('purchase_no'), 'voidPurchaseNo' => $void['purchaseNo']];
         });
     }
 
@@ -529,7 +791,7 @@ final class PurchaseService
     private static function stockCostQueues(int $purchaseId): array
     {
         $queues = [];
-        foreach (DB::table('stock_ledger')->where('source_type', 'PURCHASE')->where('source_id', $purchaseId)->orderBy('id')->get(['product_id', 'total_cost_minor']) as $row) {
+        foreach (DB::table('stock_ledger')->where('source_type', 'PURCHASE')->where('source_id', $purchaseId)->where('stock_ledger.id', '>', InventoryService::lastEditMark('PURCHASE', $purchaseId))->orderBy('id')->get(['product_id', 'total_cost_minor']) as $row) {
             $queues[(int) $row->product_id][] = (int) $row->total_cost_minor;
         }
 
@@ -835,7 +1097,7 @@ final class PurchaseService
             ->join('payment_accounts', 'payment_accounts.id', '=', 'purchase_payments.payment_account_id')
             ->where('purchase_payments.purchase_id', $purchaseId)
             ->orderBy('purchase_payments.id')
-            ->get(['purchase_payments.id', 'purchase_payments.amount_minor', 'purchase_payments.reference', 'payment_accounts.name AS account_name'])
+            ->get(['purchase_payments.id', 'purchase_payments.payment_account_id', 'purchase_payments.amount_minor', 'purchase_payments.reference', 'payment_accounts.name AS account_name'])
             ->map(Row::camel(...))->all();
 
         return [

@@ -151,6 +151,15 @@ it('starts the ledger at the 1st of the month and carries earlier lines in the o
         ->assertViewHas('openingBalance', -1_500)->assertViewHas('closingBalance', -4_000);
 });
 
+it('ends the ledger at the To date it shows, leaving out entries dated later', function () {
+    Shop::expense($this->actor, $this->today, Shop::expenseCategory('Transport'), 2_500, 'Taxi today');
+    Shop::expense($this->actor, BusinessDate::addDays($this->today, 10), Shop::expenseCategory('Transport'), 9_000, 'Rent next week');
+
+    $cash = (int) DB::table('payment_accounts')->where('id', Shop::paymentAccount('CASH'))->value('gl_account_id');
+    accountingAs($this->ownerId, Ledger::class, [], ['id' => (string) $cash])
+        ->assertSeeHtml('value="'.$this->today.'"')->assertDontSee('Rent next week')->assertViewHas('closingBalance', -2_500);
+});
+
 it('narrows who owes you without breaking the ledger check', function () {
     $product = Shop::product($this->actor, 'Cement', 500, 1_000);
     Shop::openingStock($this->actor, $product, 10_000, 5_000, $this->today);

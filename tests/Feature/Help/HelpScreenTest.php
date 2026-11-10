@@ -50,3 +50,46 @@ it('answers an unknown guide with not found', function () {
 it('says nothing was saved on the 500 page', function () {
     expect(view('errors.500')->render())->toContain('Something went wrong')->toContain('Nothing was saved.');
 });
+
+/*
+ * Ported from the old tests/lib/help.test.ts. The old tests/lib/markdown.test.ts
+ * tested a hand-written parser; league/commonmark replaces it, so only the
+ * constructs the guides rely on (tables, fences, Windows line endings) are kept.
+ */
+
+it('points every guide at a file that exists and renders it in full', function (string $slug) {
+    expect(resource_path('docs/'.Pages::PAGES[$slug][2]))->toBeFile()
+        ->and(substr_count((string) Pages::render($slug), '<p>'))->toBeGreaterThan(3);
+})->with(array_keys(Pages::PAGES));
+
+it('leaves no raw markdown in the words a reader sees', function (string $slug) {
+    // A single asterisk counts: `*accounts*` once reached the screen wearing them.
+    $words = strip_tags((string) preg_replace('#<(code|pre)>.*?</\1>#s', '', (string) Pages::render($slug)));
+    expect(preg_match_all('/\*|`|\]\(/', $words))->toBe(0);
+})->with(array_keys(Pages::PAGES));
+
+it('sends every link somewhere a reader can get to', function (string $slug) {
+    preg_match_all('/href="([^"]*)"/', (string) Pages::render($slug), $m);
+    expect($m[1])->toBeArray(); // a guide with no links still asserts something
+    foreach ($m[1] as $href) {
+        // `../reference/filters.md` means nothing in the app: those become plain words.
+        expect($href)->not->toEndWith('.md');
+        if (str_starts_with($href, '/')) {
+            expect($href)->toMatch('#^/[a-z0-9/-]*$#');
+        }
+        if (str_starts_with($href, '/help/')) {
+            expect(Pages::PAGES)->toHaveKey(substr($href, strlen('/help/')));
+        }
+    }
+})->with(array_keys(Pages::PAGES));
+
+it('renders the guides’ tables as tables, never as raw pipes', function (string $slug) {
+    // Through Pages::render itself: a hand-built converter would stay green if Help lost its table support.
+    $html = (string) Pages::render($slug);
+    expect($html)->toContain('<table>')
+        ->and(preg_match('/^\s*\|/m', strip_tags($html)))->toBe(0);
+})->with(['fixing-a-mistake', 'credit-and-payments', 'moving-money', 'backdating-a-sale', 'managing-tax', 'backups']);
+
+it('keeps a guide’s commands as code, exactly as written', function () {
+    expect((string) Pages::render('backups'))->toMatch('#<pre><code[^>]*>php artisan nuna:backup#');
+});

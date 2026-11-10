@@ -11,6 +11,7 @@
         'jinu' => ['light' => ['#f1f6f3', '#ffffff', '#ffffff', '#13784b'], 'dark' => ['#121a19', '#19231f', '#0e1513', '#5cc18c']],
         'quikbooks' => ['light' => ['#f4f5f8', '#ffffff', '#ffffff', '#108000'], 'dark' => ['#1b1c1f', '#232427', '#151618', '#53b700']],
         'mamut' => ['light' => ['#eef1f4', '#ffffff', '#f8fafc', '#2a4a9e'], 'dark' => ['#121826', '#1a2233', '#0f1420', '#8fa8ea']],
+        'modern' => ['light' => ['#f5f7fb', '#ffffff', '#0b1b3a', '#1d4ed8'], 'dark' => ['#0d1424', '#152036', '#081227', '#7fa6ff']],
     ];
     $basisLabel = ['NET' => 'the goods value', 'NET_PLUS_LEVIES' => 'the value plus the taxes above it'];
 @endphp

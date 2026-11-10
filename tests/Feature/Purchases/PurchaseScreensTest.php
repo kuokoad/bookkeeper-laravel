@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Domain\Errors\InsufficientStockError;
 use App\Livewire\Purchases\Create;
 use App\Livewire\Purchases\Index;
 use App\Livewire\Purchases\Show;
 use App\Models\User;
 use App\Services\Actor;
+use App\Services\InventoryService;
 use App\Services\PurchaseService;
 use App\Services\SupplierService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\Shop;
 
@@ -95,6 +98,70 @@ it('shows a purchase with its entry, and voids it with a reason', function () {
     $page->set('reason', 'Delivered to the wrong shop')->call('void')->assertHasNoErrors()->assertRedirect("/purchases/{$id}");
     expect(PurchaseService::getPurchase($id)['status'])->toBe('VOIDED')
         ->and(SupplierService::getSupplierBalance($this->supplierId))->toBe(0);
+});
+
+it('corrects a purchase: a prefilled copy, and the original voided only when the copy is saved', function () {
+    $owner = User::query()->findOrFail($this->ownerId);
+    $id = $this->paid['purchaseId'];
+    Livewire::actingAs($owner)->test(Show::class, ['id' => (string) $id])->assertSeeHtml('href="/purchases/new?from='.$id.'"');
+
+    // The same supplier, date, line and cash payment, ready to fix; nothing voided yet.
+    $form = Livewire::withQueryParams(['from' => (string) $id])->actingAs($owner)->test(Create::class)
+        ->assertSet('correctingId', $id)->assertSeeText('Correcting '.$this->paid['purchaseNo'])
+        ->assertSet('supplierId', (string) $this->other)->assertSet('businessDate', '2026-08-17')
+        ->assertSet('rows.0.productId', (string) $this->oil)->assertSet('rows.0.qty', '2')->assertSet('rows.0.unitCost', '20.00')
+        ->assertSet('payAccountId', (string) $this->cash)->assertSet('payAmount', '40.00');
+    expect(PurchaseService::getPurchase($id)['status'])->toBe('POSTED');
+
+    // A reason is required, and without one nothing is saved or voided.
+    $before = DB::table('purchases')->count();
+    $form->set('rows.0.productId', (string) $this->rice)->assertSet('rows.0.unitCost', '20.00')
+        ->call('save')->assertHasErrors(['correctReason']);
+    expect(DB::table('purchases')->count())->toBe($before)->and(PurchaseService::getPurchase($id)['status'])->toBe('POSTED');
+
+    $form->set('correctReason', 'Wrong stock item chosen')->call('save')->assertHasNoErrors()
+        ->assertSee($this->paid['purchaseNo'].' was voided in its place.')->assertSet('correctingId', null);
+    $fixed = PurchaseService::getPurchase((int) $form->get('savedId'));
+    expect(PurchaseService::getPurchase($id)['status'])->toBe('VOIDED')
+        ->and($fixed['items'][0]['productId'])->toBe($this->rice)
+        ->and($fixed['totalMinor'])->toBe(4_000)->and($fixed['paidMinor'])->toBe(4_000)
+        ->and(SupplierService::getSupplierBalance($this->other))->toBe(0);
+    Shop::assertBooksHealthy('after a correction');
+});
+
+it('corrects a purchase whose stock has partly sold, checking stock once after the corrected lines', function () {
+    $owner = User::query()->findOrFail($this->ownerId);
+    $perla = Shop::product($this->actor, 'Perla 500ml', 1_000, 1_500);
+    $bought = Shop::purchase($this->actor, $this->supplierId, [[$perla, 150_000, 1_000]]);
+    Shop::sell($this->actor, [[$perla, 2_000]], [['paymentAccountId' => $this->cash, 'amount' => 3_000]], ['businessDate' => '2026-08-18']);
+    // A plain void cannot take 150 back out when only 148 are left.
+    expect(fn () => PurchaseService::voidPurchase($bought['purchaseId'], 'Duplicate item', $this->actor))->toThrow(InsufficientStockError::class);
+
+    // Swapped to another product: Perla would go below zero, so nothing is saved and nothing voided.
+    $count = DB::table('purchases')->count();
+    Livewire::withQueryParams(['from' => (string) $bought['purchaseId']])->actingAs($owner)->test(Create::class)
+        ->set('correctReason', 'Duplicate item')->set('rows.0.productId', (string) $this->rice)
+        ->call('save')->assertHasErrors(['form']);
+    expect(DB::table('purchases')->count())->toBe($count)
+        ->and(PurchaseService::getPurchase($bought['purchaseId'])['status'])->toBe('POSTED')
+        ->and(InventoryService::getStockState($perla)->qty)->toBe(148_000);
+
+    // Corrected to 140: 140 in, then 150 out, leaves 138.
+    $form = Livewire::withQueryParams(['from' => (string) $bought['purchaseId']])->actingAs($owner)->test(Create::class)
+        ->set('correctReason', 'Duplicate item')->set('rows.0.qty', '140')
+        ->call('save')->assertHasNoErrors();
+    expect(PurchaseService::getPurchase($bought['purchaseId'])['status'])->toBe('VOIDED')
+        ->and(PurchaseService::getPurchase((int) $form->get('savedId'))['totalMinor'])->toBe(140_000)
+        ->and(InventoryService::getStockState($perla)->qty)->toBe(138_000)
+        ->and(SupplierService::getSupplierBalance($this->supplierId))->toBe(10_000 + 140_000);
+    Shop::assertBooksHealthy('after correcting a partly sold delivery');
+});
+
+it('needs the right to void before a correction replaces a purchase', function () {
+    $buyer = User::query()->findOrFail(staff(['purchases' => ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false]], 'efua'));
+    Livewire::withQueryParams(['from' => (string) $this->credit['purchaseId']])->actingAs($buyer)->test(Create::class)
+        ->set('correctReason', 'Wrong item')->call('save')->assertForbidden();
+    expect(PurchaseService::getPurchase($this->credit['purchaseId'])['status'])->toBe('POSTED');
 });
 
 it('returns goods to the supplier, reducing what is owed', function () {

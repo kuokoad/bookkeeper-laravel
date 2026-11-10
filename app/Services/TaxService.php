@@ -319,6 +319,29 @@ final class TaxService
             ->get();
     }
 
+    /**
+     * D34: an edit re-prices the whole document with today's tax setup. Refuse it
+     * when that setup differs from the one the document was posted under, or
+     * fixing a note would change its tax, its total and what is owed.
+     * shortcut: a component that came to 0 on the document is not stored, so a
+     * document where any tax rounded to 0 (a line of a few pesewas, a free one)
+     * is refused too. That errs towards refusing; compare against what each
+     * component would charge on the original net if it ever gets in the way.
+     */
+    public static function assertUnchangedSince(string $taxTable, string $foreignKey, int $documentId, ?bool $wasInclusive, string $documentNo): void
+    {
+        $withRecovery = $taxTable === 'purchase_taxes';
+        $then = DB::table($taxTable)->where($foreignKey, $documentId)->orderBy('code')->get()
+            ->map(fn (object $r): string => "{$r->code}:{$r->rate_bp}:{$r->basis}".($withRecovery ? ':'.(int) $r->is_recoverable : ''))->all();
+        $profile = self::profile();
+        $now = collect($profile['components'])->filter(fn (TaxComponent $c): bool => $c->rateBp > 0)->sortBy('code')
+            ->map(fn (TaxComponent $c): string => "{$c->code}:{$c->rateBp}:{$c->basis->value}".($withRecovery ? ':'.(int) $c->isRecoverable : ''))->values()->all();
+        $inclusiveChanged = $wasInclusive !== null && $then !== [] && $wasInclusive !== $profile['inclusive'];
+        if ($then !== $now || $inclusiveChanged) {
+            throw new ConflictError("The tax settings have changed since {$documentNo} was saved, so editing it would re-price its tax. Void it and enter it again instead.");
+        }
+    }
+
     private static function component(object $row): TaxComponent
     {
         return new TaxComponent($row->code, $row->name, (int) $row->rate_bp, TaxBasis::from($row->basis), (bool) $row->is_recoverable);

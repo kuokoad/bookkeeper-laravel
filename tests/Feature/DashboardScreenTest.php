@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Actor;
 use App\Services\PaymentAccountService;
 use App\Services\ReconciliationService;
+use App\Services\Reporting\LedgerService;
 use App\Support\Clock;
 use App\Support\Filters\ListFilters;
 use Illuminate\Support\Facades\DB;
@@ -117,7 +118,7 @@ it('offers in Create Transaction only the entries a person may start', function 
     expect($menu($this->ownerId))->toContain('Sale', 'Purchase', 'Expense', 'Other income', 'Customer payment received', 'Supplier payment', 'Transfer between accounts', 'Stock adjustment')
         // Quotations stay off the menu until the shop turns them on.
         ->not->toContain('Quotation')
-        ->and($menu(staff(['sales' => $create, 'expenses' => viewOnly()])))->toBe(['Sale'])
+        ->and($menu(staff(['sales' => $create, 'expenses' => viewOnly()])))->toBe(['Sale', 'New invoice'])
         ->and(dashboardAs(staff([], 'kofi'))->html())->not->toContain('Create Transaction');
 
     DB::table('business_settings')->update(['feature_quotations' => true]);
@@ -134,4 +135,71 @@ it('sends Receive Payment and the receivables links to customers who owe, not to
         // The customer list reads only what its filter parser knows; ?owing=1 was silently ignored.
         expect(ListFilters::parseCustomerFilters($query)['filters']['balanceState'] ?? null)->toBe('owing', $href);
     }
+});
+
+it('lays the dashboard out attention first under the Modern look, with the same figures', function () {
+    DB::table('business_settings')->update(['look' => 'modern']);
+    $html = dashboardAs($this->ownerId)->html();
+
+    expect($html)->toContain('modern-dashboard')
+        ->and(strpos($html, 'id="attention-heading"'))->toBeLessThan(strpos($html, 'aria-label="Primary financial figures"'))
+        // The amount is split for display only: the code, then the figure the services hold.
+        ->and($html)->toContain('<span class="modern-cur">GHS</span>100.00')
+        ->toContain('1 posted sale · transaction total')
+        ->toContain('Daily sales')->toContain('Daily expenses')->toContain('Cash movements')
+        ->toContain('Top selling stock item')->toContain('Dashboard rice')
+        ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
+        ->toContain('Account reconciliation')->toContain('reconciliation not verified')
+        ->toContain('/dashboard?sales=week&amp;spend=month');
+});
+
+it('keeps the permission gates under the Modern look', function () {
+    DB::table('business_settings')->update(['look' => 'modern']);
+
+    expect(dashboardAs(staff(['sales' => viewOnly()]))->html())
+        ->toContain('Top selling stock item')->toContain('Daily sales')
+        ->not->toContain('Inventory valuation')->not->toContain('Cash &amp; Bank Balance')
+        ->not->toContain('Cash movements')->not->toContain('Books Check')->not->toContain('Supplier payables');
+    dashboardAs(staff([], 'kofi'))->assertSee('No dashboard summaries available')->assertDontSee('Net Profit')->assertDontSee('Needs attention');
+});
+
+it('marks a negative account balance red under the Modern look', function () {
+    DB::table('business_settings')->update(['look' => 'modern']);
+    Shop::expense($this->actor, $this->today, PaymentAccountService::listExpenseCategories()[0]['id'], 100, 'Negative balance test', ['paymentAccountId' => $this->momo]);
+    $html = dashboardAs($this->ownerId)->html();
+
+    expect($html)->toContain('Negative ledger balance.')
+        ->and($html)->toMatch('#bg-danger-soft negative-account-alert#');
+});
+
+it('lists the newest journal entries as Transaction History, linking each to its entry', function () {
+    $html = dashboardAs($this->ownerId)->html();
+    $newest = LedgerService::listJournalEntries(['limit' => 1])[0];
+
+    expect($html)->toContain('Transaction History')->toContain('View all in the journal')
+        ->toContain('href="/accounting/journal/'.$newest['id'].'"')->toContain($newest['entryNo'])
+        ->toContain('/dashboard?sales=month&amp;spend=month&amp;activity=SALE');
+});
+
+it('filters Transaction History by kind in SQL and keeps the chart windows', function () {
+    Shop::expense($this->actor, $this->today, PaymentAccountService::listExpenseCategories()[0]['id'], 500, 'History filter test', ['paymentAccountId' => $this->cash]);
+    $html = dashboardAs($this->ownerId, ['sales' => 'week', 'activity' => 'EXPENSE'])->html();
+
+    expect($html)->toContain('History filter test')->not->toContain('>Sale</span>')
+        ->toContain('href="/accounting/journal?source=EXPENSE"')
+        // Changing a chart window keeps the chosen kind.
+        ->toContain('/dashboard?sales=month&amp;spend=month&amp;activity=EXPENSE');
+});
+
+it('ignores an unknown Transaction History kind', function () {
+    $html = dashboardAs($this->ownerId, ['activity' => 'DROP TABLE'])->html();
+
+    expect($html)->toContain('Transaction History')->not->toContain('DROP TABLE')->not->toContain('activity=DROP');
+});
+
+it('shows Transaction History only to people who may open the journal', function () {
+    expect(dashboardAs(staff(['sales' => viewOnly()]))->html())->not->toContain('Transaction History')
+        ->and(dashboardAs(staff(['accounts' => viewOnly()], 'kofi'))->html())->toContain('Transaction History');
+    DB::table('business_settings')->update(['look' => 'modern']);
+    expect(dashboardAs($this->ownerId)->html())->toContain('Transaction History')->toContain('activity-heading');
 });

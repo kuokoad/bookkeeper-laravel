@@ -2,8 +2,12 @@
     $select = 'h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content disabled:opacity-60';
     $label = 'mb-1 block text-xs font-medium text-content-muted';
 @endphp
-<div class="mx-auto max-w-4xl">
-    <x-page-header title="Stock adjustment" description="Record stock that came in or went out for any reason other than a sale or purchase." />
+<div>
+    @if ($editingNo)
+        <x-page-header :title="'Edit '.$editingNo" description="The old lines are taken back out on the day they were recorded and these are posted in their place, under the same number. What it said before is kept in its edit history." />
+    @else
+        <x-page-header title="Stock adjustment" description="Record stock that came in or went out for any reason other than a sale or purchase." />
+    @endif
 
     @if ($products === [])
         <x-empty-state title="No stock-tracked stock items yet" description="Add a stock item first, then come back to record its opening stock.">
@@ -28,6 +32,11 @@
                     <x-field label="Note" for="note" hint="Optional, but future-you will thank you." class="sm:col-span-2">
                         <x-input id="note" wire:model="note" placeholder="e.g. Crate dropped during delivery" :invalid="$errors->has('note')" />
                     </x-field>
+                    @if ($editingNo)
+                        <x-field label="Why are you editing it?" for="editReason" name="editReason" required class="sm:col-span-2">
+                            <x-input id="editReason" wire:model="editReason" placeholder="e.g. Counted 12, not 21" required :invalid="$errors->has('editReason')" />
+                        </x-field>
+                    @endif
                 </div>
             </div>
 
@@ -118,10 +127,10 @@
 
             <div class="flex items-center gap-3">
                 <x-button type="submit" size="lg" wire:loading.attr="disabled">
-                    <span wire:loading.remove wire:target="save">Save adjustment</span>
+                    <span wire:loading.remove wire:target="save">{{ $editingNo ? 'Save changes' : 'Save adjustment' }}</span>
                     <span wire:loading wire:target="save">Saving…</span>
                 </x-button>
-                <x-button variant="ghost" href="/inventory">Cancel</x-button>
+                <x-button variant="ghost" :href="$editingNo ? '/inventory/adjustments/'.$editingId : '/inventory'">Cancel</x-button>
             </div>
         </form>
     @endif

@@ -72,3 +72,11 @@ describe('dashboard financial classification', function () {
         expect(array_column(Dashboard::integrityChecks($check), 'passed'))->toBe([true, false, false, true, false]);
     });
 });
+
+it('accepts only the known Transaction History kinds and carries one in the range link', function () {
+    expect(Dashboard::dashboardActivity('EXPENSE'))->toBe('EXPENSE')
+        ->and(Dashboard::dashboardActivity('expense'))->toBeNull()
+        ->and(Dashboard::dashboardActivity('REVERSAL'))->toBeNull()
+        ->and(Dashboard::dashboardActivity(null))->toBeNull()
+        ->and(Dashboard::dashboardRangeHref('week', 'month', 'SALE'))->toBe('/dashboard?sales=week&spend=month&activity=SALE');
+});

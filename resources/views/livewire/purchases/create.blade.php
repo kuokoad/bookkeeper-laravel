@@ -5,7 +5,7 @@
     $err = fn (string $id, ?string $message) => $message ? '<p id="'.e($id).'-error" class="mt-1 text-xs font-medium text-danger">'.e($message).'</p>' : '';
     $select = 'h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content';
 @endphp
-<div @class(['mx-auto', 'max-w-4xl' => $suppliers === [] || $products === [], 'max-w-5xl' => $suppliers !== [] && $products !== []])>
+<div>
     @if ($suppliers === [])
         <x-page-header title="New purchase" />
         <x-empty-state title="Add a supplier first" description="A purchase records what you bought and from whom, so the money you owe can be tracked.">
@@ -17,17 +17,37 @@
             <x-slot:action><x-button href="/products/new">Add a stock item</x-button></x-slot:action>
         </x-empty-state>
     @else
-        <x-page-header title="New purchase" description="Record a delivery. Stock goes up at the price you actually paid.">
+        <x-page-header :title="$editingId ? 'Edit '.$editingNo : 'New purchase'" :description="$editingId ? 'On the day it was recorded, the old delivery is taken back out and its entry reversed; this one is posted in its place under the same number. What it said before is kept in its edit history.' : 'Record a delivery. Stock goes up at the price you actually paid.'">
             <x-slot:actions><x-button variant="secondary" size="sm" href="/purchases">All purchases</x-button></x-slot:actions>
         </x-page-header>
 
         <form wire:submit="save" class="space-y-4" novalidate>
             @if ($savedNo)
                 <x-alert tone="success" :title="'Purchase saved — '.$savedNo">
-                    Stock was added and the accounts updated. <a href="/purchases/{{ $savedId }}" class="text-accent hover:underline">View it</a>
+                    @if ($replacedNo){{ $replacedNo }} was voided in its place. @endif Stock was added and the accounts updated. <a href="/purchases/{{ $savedId }}" class="text-accent hover:underline">View it</a>
                 </x-alert>
             @endif
             @error('form')<x-alert tone="danger">{{ $message }}</x-alert>@enderror
+            @if ($editingId)
+                <div class="rounded-xl border border-line bg-surface-raised p-4">
+                    <div class="max-w-md">
+                        <x-field label="Why are you editing it?" for="edit-reason" name="editReason" required>
+                            <x-input id="edit-reason" wire:model="editReason" placeholder="e.g. Invoice said 24 cartons, not 42" :invalid="$errors->has('editReason')" />
+                        </x-field>
+                    </div>
+                </div>
+            @endif
+            @if ($correctingId)
+                <div class="rounded-xl border border-warning/40 bg-warning-soft p-4">
+                    <h2 class="text-sm font-semibold text-content">Correcting <a href="/purchases/{{ $correctingId }}" class="text-accent hover:underline">{{ $correctingNo }}</a></h2>
+                    <p class="mt-1 mb-3 text-sm text-content-muted">Fix the lines below. When you save, {{ $correctingNo }} is voided and this purchase is recorded in its place, together. Nothing changes until then.</p>
+                    <div class="max-w-md">
+                        <x-field label="Reason for the correction" for="correct-reason" name="correctReason" required>
+                            <x-input id="correct-reason" wire:model="correctReason" placeholder="e.g. Wrong stock item chosen" :invalid="$errors->has('correctReason')" />
+                        </x-field>
+                    </div>
+                </div>
+            @endif
 
             <div class="rounded-xl border border-line bg-surface-raised p-4">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -235,7 +255,7 @@
 
             <div class="flex flex-wrap items-center gap-3">
                 <x-button type="submit" size="lg" :disabled="$blocker !== null" wire:loading.attr="disabled" :aria-describedby="$blocker ? 'save-reason' : null">
-                    <span wire:loading.remove wire:target="save">{{ $reading['total'] === null ? 'Save purchase' : 'Save purchase — '.$currency.' '.Money::toDecimalString($reading['total']) }}</span>
+                    <span wire:loading.remove wire:target="save">{{ ($editingId ? 'Save changes' : 'Save purchase').($reading['total'] === null ? '' : ' — '.$currency.' '.Money::toDecimalString($reading['total'])) }}</span>
                     <span wire:loading wire:target="save">Saving…</span>
                 </x-button>
                 <x-button variant="ghost" href="/purchases">Cancel</x-button>

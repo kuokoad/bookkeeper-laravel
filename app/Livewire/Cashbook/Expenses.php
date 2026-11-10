@@ -32,9 +32,8 @@ final class Expenses extends CashbookPage
             'emptyFiltered' => 'No expenses match these filters',
             'emptyTitle' => 'Nothing recorded yet',
             'emptyDescription' => 'Record what you spend so your profit figure is real and your cash balance can be trusted.',
-            'formHeading' => 'Record an expense',
-            'submit' => 'Record expense',
-            'descriptionPlaceholder' => 'e.g. Taxi to the market',
+            // Recorded on their own page, several at a time (NewExpenses).
+            'recordPage' => '/expenses/new',
             'newCategoryLabel' => 'New expense category',
             'newCategoryPlaceholder' => 'e.g. Security guard',
             'noRight' => 'You do not have permission to record expenses.',
@@ -47,8 +46,11 @@ final class Expenses extends CashbookPage
             'summary' => CashbookService::getFilteredExpensesSummary(...),
             'byCategory' => CashbookService::getFilteredExpensesByCategory(...),
             'categories' => PaymentAccountService::listExpenseCategories(...),
-            'record' => CashbookService::recordExpense(...),
             'void' => CashbookService::voidExpense(...),
+            'edit' => CashbookService::editExpense(...),
+            'table' => 'expenses',
+            'entity' => 'expense',
+            'edited' => 'Expense edited. Its old entry was reversed and the corrected one posted under the same number.',
         ];
     }
 }

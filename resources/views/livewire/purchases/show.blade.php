@@ -7,8 +7,17 @@
 @endphp
 <div class="w-full">
     <x-page-header :title="$purchase['purchaseNo']" :description="Format::date($purchase['businessDate']).($purchase['dueDate'] ? ' · Due '.Format::date($purchase['dueDate']) : '').($purchase['invoiceNo'] ? ' · Invoice '.$purchase['invoiceNo'] : '')">
-        <x-slot:actions><x-button variant="secondary" size="sm" href="/purchases">All purchases</x-button></x-slot:actions>
+        <x-slot:actions>
+            @if ($canEdit)
+                <x-button variant="secondary" size="sm" href="/purchases/{{ $purchase['id'] }}/edit">Edit</x-button>
+            @endif
+            <x-button variant="secondary" size="sm" href="/purchases">All purchases</x-button>
+        </x-slot:actions>
     </x-page-header>
+
+    @if ($purchase['editedAt'])
+        <p class="mb-4"><x-badge tone="accent">Edited</x-badge> <span class="text-sm text-content-muted">{{ Format::dateTime($purchase['editedAt']) }}</span></p>
+    @endif
 
     @if ($purchase['status'] === 'VOIDED')
         <x-alert tone="warning" title="This purchase was voided" class="mb-4">
@@ -185,6 +194,8 @@
         </div>
     @endif
 
+    <x-edit-history :history="$history" />
+
     @if ($purchase['status'] === 'POSTED' && $purchase['kind'] === 'PURCHASE' && Gate::allows('purchases.void'))
         <div class="mt-6">
             <x-confirm-dialog title="Void this purchase" description="Stock is taken back out and the payable or payment reversed. The original record is kept."
@@ -194,5 +205,12 @@
                 </x-field>
             </x-confirm-dialog>
         </div>
+        @can('purchases.create')
+            <div class="no-print mt-4 rounded-[var(--panel-radius,var(--radius-xl))] border border-line bg-surface-raised p-4">
+                <h2 class="text-sm font-semibold text-content">Correct this purchase</h2>
+                <p class="mt-1 mb-3 text-sm text-content-muted">Wrong stock item or figure? Opens a copy to fix. {{ $purchase['purchaseNo'] }} is only voided when you save the corrected one.</p>
+                <x-button variant="secondary" href="/purchases/new?from={{ $purchase['id'] }}">Correct {{ $purchase['purchaseNo'] }}…</x-button>
+            </div>
+        @endcan
     @endif
 </div>

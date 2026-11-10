@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\Accounting\PeriodLock;
 use App\Domain\Errors\ConflictError;
+use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
 use App\Domain\JsCompat;
@@ -88,7 +91,6 @@ final class CashbookService
                 throw new ValidationError("Payment account \"{$account->name}\" is not active.");
             }
 
-            $isExpense = $direction === 'EXPENSE';
             JournalService::readLockDate();
             $documentNo = SequenceService::next($side['doc']);
             $description = JsCompat::trim($input['description']);
@@ -110,25 +112,7 @@ final class CashbookService
                 'updated_at' => $at,
             ]);
 
-            $category = fn (string $method) => Journal::$method($input['categoryAccountId'], $input['amount'], ['description' => "{$documentNo} {$categoryName}"]);
-            $money = fn (string $method, string $text) => Journal::$method((int) $account->gl_account_id, $input['amount'], [
-                'paymentAccountId' => (int) $input['paymentAccountId'],
-                'description' => $text,
-            ]);
-            $lines = $isExpense
-                ? [$category('debit'), $money('credit', "{$documentNo} paid from {$account->name}")]
-                : [$money('debit', "{$documentNo} received into {$account->name}"), $category('credit')];
-
-            $posted = JournalService::post(
-                $input['businessDate'],
-                $side['source'],
-                $lines,
-                sourceId: $id,
-                memo: "{$documentNo} — {$description}",
-                isDemo: $input['isDemo'] ?? false,
-                occurredAt: $occurredAt,
-                actor: $actor,
-            );
+            $posted = self::postEntry($direction, $id, $documentNo, $input, $categoryName, $account, $occurredAt, $actor, $input['isDemo'] ?? false);
             DB::table($side['table'])->where('id', $id)->update(['journal_entry_id' => $posted['entryId'], 'updated_at' => $at]);
 
             AuditService::write(AuditAction::Create, $side['entity'], "{$documentNo}: {$categoryName} — {$description}", $id, $actor, [
@@ -147,10 +131,158 @@ final class CashbookService
         return self::record('EXPENSE', $input, $actor);
     }
 
+    /**
+     * Several expenses at once (the record-expenses page): each keeps its own
+     * number and journal entry, and all are saved or none. Keys are the
+     * screen's row indexes, so a refusal names the row.
+     *
+     * @param  array<int, array<string, mixed>>  $inputs
+     * @return list<array{id: int, documentNo: string, journalEntryId: int}>
+     */
+    public static function recordExpenses(array $inputs, Actor $actor): array
+    {
+        return Tx::run(function () use ($inputs, $actor): array {
+            $saved = [];
+            foreach ($inputs as $row => $input) {
+                try {
+                    $saved[] = self::record('EXPENSE', $input, $actor);
+                } catch (DomainError $e) {
+                    throw new ValidationError('Row '.($row + 1).': '.$e->userMessage);
+                }
+            }
+
+            return $saved;
+        });
+    }
+
     /** @return array{id: int, documentNo: string, journalEntryId: int} */
     public static function recordIncome(array $input, Actor $actor): array
     {
         return self::record('INCOME', $input, $actor);
+    }
+
+    /**
+     * The one journal entry a cashbook record posts. Shared by record and
+     * edit, so an edited record posts exactly what a new one would.
+     *
+     * @return array{entryId: int, entryNo: string}
+     */
+    private static function postEntry(string $direction, int $id, string $documentNo, array $input, string $categoryName, object $account, Carbon $occurredAt, Actor $actor, bool $isDemo): array
+    {
+        $side = self::SIDES[$direction];
+        $description = JsCompat::trim($input['description']);
+        $category = fn (string $method) => Journal::$method($input['categoryAccountId'], $input['amount'], ['description' => "{$documentNo} {$categoryName}"]);
+        $money = fn (string $method, string $text) => Journal::$method((int) $account->gl_account_id, $input['amount'], [
+            'paymentAccountId' => (int) $input['paymentAccountId'],
+            'description' => $text,
+        ]);
+        $lines = $direction === 'EXPENSE'
+            ? [$category('debit'), $money('credit', "{$documentNo} paid from {$account->name}")]
+            : [$money('debit', "{$documentNo} received into {$account->name}"), $category('credit')];
+
+        return JournalService::post(
+            $input['businessDate'],
+            $side['source'],
+            $lines,
+            sourceId: $id,
+            memo: "{$documentNo} — {$description}",
+            isDemo: $isDemo,
+            occurredAt: $occurredAt,
+            actor: $actor,
+        );
+    }
+
+    /**
+     * Owner decision D34: correct a saved expense or income in place. Its
+     * entry is reversed on the day it was recorded and the corrected one
+     * posted, under the same number; what it said before is kept in the
+     * audit log. Input: as recordExpense / recordIncome.
+     */
+    private static function editRecord(string $direction, int $id, array $input, string $why, Actor $actor, ?Carbon $now): void
+    {
+        $side = self::SIDES[$direction];
+        RoleGuard::assertActorIsOwner($actor, 'edit a saved '.strtolower($side['name']));
+        if ($input['amount'] <= 0) {
+            throw new ValidationError('Enter an amount greater than zero.');
+        }
+        if (JsCompat::trim($input['description'] ?? '') === '') {
+            throw new ValidationError('Enter a short description.');
+        }
+        $why = JsCompat::trim($why);
+        if (mb_strlen($why) < 3) {
+            throw new ValidationError('Say why this record is being edited.');
+        }
+        $now ??= Clock::now();
+
+        Tx::run(function () use ($direction, $side, $id, $input, $why, $actor, $now): void {
+            $row = DB::table($side['table'])->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError($side['name'], $id);
+            $documentNo = $row->{$side['no']};
+            if ($row->status === 'VOIDED') {
+                throw new ConflictError("{$documentNo} has been voided, so it cannot be edited.");
+            }
+            $categoryName = self::assertCategoryUsable($input['categoryAccountId'], $direction);
+            // The accounts the reversal and the new entry move, in one ordered lock.
+            $accounts = PaymentAccountService::lockAccounts([(int) $row->payment_account_id, (int) $input['paymentAccountId']]);
+            $account = $accounts[$input['paymentAccountId']] ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
+            if (! $account->is_active) {
+                throw new ValidationError("Payment account \"{$account->name}\" is not active.");
+            }
+            $lockedBefore = JournalService::readLockDate();
+            PeriodLock::assertOpen((string) $row->business_date, $lockedBefore);
+            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+
+            $before = self::snapshot($direction, $row);
+            if ($row->journal_entry_id !== null) {
+                JournalService::reverse((int) $row->journal_entry_id, (string) $row->business_date, $side['source'], $id, "Edit of {$documentNo}: {$why}", occurredAt: $now, actor: $actor);
+            }
+            $posted = self::postEntry($direction, $id, $documentNo, $input, $categoryName, $account, $now, $actor, (bool) $row->is_demo);
+            $at = Clock::stamp($now);
+            DB::table($side['table'])->where('id', $id)->update([
+                'business_date' => $input['businessDate'],
+                'category_account_id' => $input['categoryAccountId'],
+                'description' => JsCompat::trim($input['description']),
+                'amount_minor' => $input['amount'],
+                'payment_account_id' => $input['paymentAccountId'],
+                'reference' => $input['reference'] ?? null,
+                'note' => $input['note'] ?? null,
+                'journal_entry_id' => $posted['entryId'],
+                'edited_at' => $at,
+                'updated_at' => $at,
+            ]);
+            AuditService::write(AuditAction::Update, $side['entity'], "Edited {$documentNo}: {$why}", $id, $actor, [
+                'edit' => true,
+                'reason' => $why,
+                'before' => $before,
+                'after' => self::snapshot($direction, DB::table($side['table'])->where('id', $id)->first()),
+            ], $now);
+        });
+    }
+
+    public static function editExpense(int $id, array $input, string $why, Actor $actor, ?Carbon $now = null): void
+    {
+        self::editRecord('EXPENSE', $id, $input, $why, $actor, $now);
+    }
+
+    public static function editIncome(int $id, array $input, string $why, Actor $actor, ?Carbon $now = null): void
+    {
+        self::editRecord('INCOME', $id, $input, $why, $actor, $now);
+    }
+
+    /** What a record says, in the edit history's shape (see StockAdjustmentService::snapshot). */
+    private static function snapshot(string $direction, object $row): array
+    {
+        return [
+            'date' => (string) $row->business_date,
+            'fields' => [
+                'Category' => DB::table('accounts')->where('id', $row->category_account_id)->value('name'),
+                'Description' => $row->description,
+                ($direction === 'EXPENSE' ? 'Paid from' : 'Received into') => DB::table('payment_accounts')->where('id', $row->payment_account_id)->value('name'),
+                'Reference' => $row->reference,
+                'Note' => $row->note,
+            ],
+            'lines' => [],
+            'total' => (int) $row->amount_minor,
+        ];
     }
 
     /** Void either kind by a reversing entry dated the day of the void. The original row is kept. */
@@ -356,7 +488,7 @@ final class CashbookService
         return $q->limit(min($query['limit'] ?? 200, 500))->offset($query['offset'] ?? 0)->get([
             "{$t}.id", "{$t}.{$side['no']} AS document_no", "{$t}.business_date", "{$t}.occurred_at", "{$t}.description",
             "{$t}.amount_minor", 'accounts.name AS category_name', "{$t}.category_account_id", "{$t}.payment_account_id",
-            'payment_accounts.name AS payment_account_name', "{$t}.reference", "{$t}.status", "{$t}.created_by",
+            'payment_accounts.name AS payment_account_name', "{$t}.reference", "{$t}.note", "{$t}.status", "{$t}.created_by", "{$t}.edited_at",
         ])->map(Row::camel(...))->all();
     }
 

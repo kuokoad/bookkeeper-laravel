@@ -9,6 +9,9 @@
     <x-page-header :title="$sale['receiptNo']" :description="Format::date($sale['businessDate']).' · '.Format::dateTime($sale['occurredAt'])">
         <x-slot:actions>
             <x-button variant="secondary" size="sm" href="/sales">All sales</x-button>
+            @if ($canEdit)
+                <x-button variant="secondary" size="sm" href="/sales/{{ $sale['id'] }}/edit">Edit</x-button>
+            @endif
             @if ($sale['invoiceNo'])
                 <x-button variant="secondary" size="sm" href="/sales/{{ $sale['id'] }}/invoice">Invoice</x-button>
             @endif
@@ -21,6 +24,10 @@
             {{ $sale['voidReason'] }}@if ($sale['voidedAt']) — {{ Format::dateTime($sale['voidedAt']) }}@endif. The original record is kept
             exactly as it was made.
         </x-alert>
+    @endif
+
+    @if ($sale['editedAt'])
+        <p class="mb-4"><x-badge tone="accent">Edited</x-badge> <span class="text-sm text-content-muted">{{ Format::dateTime($sale['editedAt']) }}</span></p>
     @endif
 
     @if ($sale['voidsSaleId'] !== null)
@@ -148,4 +155,6 @@
             </div>
         @endcan
     @endif
+
+    <x-edit-history :history="$history" />
 </div>

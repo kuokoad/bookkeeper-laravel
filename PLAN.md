@@ -557,3 +557,29 @@ still shows, and the total is `CustomerService::getCustomerBalance` with
 15 Jan and 40.00 as at 20 Jan, and the total equals that customer's
 receivables ageing as at the same day (`CustomerStatementAsAtTest`). Without
 `asAt` (the Statement page) nothing changes.
+
+**D34. The owner can edit a saved document instead of voiding it.
+DONE (2026-11-09, approved by the owner).** Old: a saved stock adjustment,
+expense, income, purchase or sale could only be voided and entered again
+(purchases also had "Correct this purchase", which voids and re-enters under
+a new number). Now the owner (no other role) can edit any of them that is
+not voided and sits in an open period, and the change must give a reason.
+Underneath nothing posted is changed: on the day the document was recorded,
+its stock movements are taken back out (at the cost they moved at, from the
+crates they filled or emptied) and its journal entry is reversed; then the
+corrected document is written by the same code a new one uses, under the
+same number and id. The old lines, taxes and payments are replaced; what the
+document said before (date, fields, lines, total), who changed it, when and
+why is kept in the insert-only audit log, shown as "Edit history" to the
+owner, and the document shows "Edited" (`edited_at`). Both the old and the
+new date must be open. Refused while something leans on the document: a
+return or customer/supplier payment against a sale or purchase, a purchase
+whose stock has gone out since (those sales were costed with it), half of a
+unit-change replacement, or a void's own reversal. Reports for the original
+day change to the corrected figures; later sales keep the cost they were
+recorded at. An edited sale keeps what its goods cost on its own day (owner,
+2026-11-09): per product, up to the quantity it held before the edit leaves at
+that cost; units added by the edit are new goods, at today's average of the
+rest of the shelf. Readers of a document's stock movements (void, returns, batch
+splits) skip those taken back out by an edit (`InventoryService::lastEditMark`).
+Tests: `DocumentEditTest`, `DocumentEditScreensTest`.

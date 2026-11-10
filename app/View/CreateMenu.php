@@ -19,9 +19,10 @@ final class CreateMenu
 
         $items = [
             ['Sale', '/sales/new', $can(M::Sales)],
+            ['New invoice', '/sales/new?invoice=1', $can(M::Sales)],
             ['Quotation', '/quotations/new', $can(M::Quotations) && $quotations],
             ['Purchase', '/purchases/new', $can(M::Purchases)],
-            ['Expense', '/expenses#record-expense', $can(M::Expenses)],
+            ['Expense', '/expenses/new', $can(M::Expenses)],
             ['Other income', '/income#record-income', $can(M::Income)],
             ['Customer payment received', '/customers?balance=owing', $can(M::Customers)],
             ['Supplier payment', '/suppliers?balance=owing', $can(M::Suppliers)],

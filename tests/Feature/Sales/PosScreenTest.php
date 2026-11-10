@@ -157,3 +157,20 @@ it('loads the customer list once, not on every search keystroke, and again after
     $till->call('add', $this->rice)->set('tenderAmount', '10')->call('complete')->assertHasNoErrors()->assertSee('Kofi Boateng');
     expect($queries)->toBeGreaterThan(0);
 });
+
+it('opens as a new invoice from Create Transaction: customer first, saved on credit with an invoice to open', function () {
+    $adwoa = Shop::customer($this->actor, 'Adwoa Mensah');
+
+    signedIn($this->ownerId)->get('/sales/new?invoice=1')->assertOk()
+        ->assertSee('New invoice')->assertSee('Choose the customer, add the items, save on credit.')
+        ->assertSeeHtml('id="customer" wire:model.live="customerId"  autofocus');
+
+    $till = Livewire::withQueryParams(['invoice' => '1'])->actingAs(User::query()->findOrFail($this->ownerId))->test(Pos::class)
+        ->assertSet('invoiceMode', true)->assertSee('(required)')
+        ->call('add', $this->rice)->set('customerId', (string) $adwoa)
+        ->call('complete')->assertHasNoErrors();
+
+    $sale = DB::table('sales')->first();
+    expect($sale->invoice_no)->toStartWith('INV-')->and((int) $sale->customer_id)->toBe($adwoa);
+    $till->assertSee("GHS 10.00 left on Adwoa Mensah's account.", false)->assertSee('/sales/'.$sale->id.'/invoice');
+});

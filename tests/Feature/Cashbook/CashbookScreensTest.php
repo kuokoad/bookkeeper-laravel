@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use App\Livewire\Cashbook\Expenses;
 use App\Livewire\Cashbook\Income;
+use App\Livewire\Cashbook\NewExpenses;
 use App\Models\User;
 use App\Services\Actor;
 use App\Services\CashbookService;
@@ -55,24 +56,26 @@ it('refuses somebody without the right', function () {
     signedIn(staff(['expenses' => viewOnly()], 'yaw'))->get('/expenses')->assertOk()->assertSee('You do not have permission to record expenses.');
 });
 
-it('records an expense through the service and returns to the filtered list', function () {
-    $category = Shop::expenseCategory('Transport');
-    cashbookAs($this->ownerId, Expenses::class, ['period' => 'today'])
+it('records income through the service and returns to the filtered list', function () {
+    $category = Shop::incomeCategory('Commission');
+    cashbookAs($this->ownerId, Income::class, ['period' => 'today'])
         ->set('categoryAccountId', (string) $category)
-        ->set('description', 'Taxi to the market')
+        ->set('description', 'Airtime commission')
         ->set('amount', '25.50')
         ->call('record')
         ->assertHasNoErrors()
-        ->assertRedirect('/expenses?period=today&created=1');
+        ->assertRedirect('/income?period=today&created=1');
 
-    expect(DB::table('expenses')->value('amount_minor'))->toBe(2_550);
-    cashbookAs($this->ownerId, Expenses::class, ['period' => 'today', 'created' => '1'])
-        ->assertSee('Expense recorded. The money came out of the account you chose.')
+    expect(DB::table('incomes')->value('amount_minor'))->toBe(2_550);
+    cashbookAs($this->ownerId, Income::class, ['period' => 'today', 'created' => '1'])
+        ->assertSee('Income recorded. It went into the account you chose, kept separate from sales.')
         ->assertSee('GHS 25.50');
+    cashbookAs($this->ownerId, Expenses::class, ['created' => '1'])
+        ->assertSee('Expense recorded. The money came out of the account you chose.');
 });
 
 it('shows the form and service messages', function () {
-    cashbookAs($this->ownerId, Expenses::class)
+    cashbookAs($this->ownerId, Income::class)
         ->set('description', '')
         ->call('record')
         ->assertHasErrors(['categoryAccountId' => 'Choose a category.', 'description' => 'Enter a short description.', 'amount' => 'Enter an amount.']);
@@ -89,7 +92,8 @@ it('shows the form and service messages', function () {
 
 it('refuses each write without its right', function () {
     $id = staff(['expenses' => viewOnly(), 'income' => viewOnly()]);
-    cashbookAs($id, Expenses::class)->call('record')->assertForbidden();
+    cashbookAs($id, Income::class)->call('record')->assertForbidden();
+    cashbookAs($id, NewExpenses::class)->call('save')->assertForbidden();
     cashbookAs($id, Income::class)->call('addCategory')->assertForbidden();
     cashbookAs($id, Expenses::class)->call('void', 1)->assertForbidden();
 });
@@ -118,4 +122,39 @@ it('shows the resolved filters and narrows rows and totals alike', function () {
         ->toContain('GHS 10.00')->not->toContain('GHS 510.00')
         ->toMatch('/<option value="'.$transport.'"\s+selected/')
         ->toContain('value="'.substr($this->today, 0, 7).'-01"');
+});
+
+it('records several expenses on their own page, each with its own number, all or none', function () {
+    $transport = Shop::expenseCategory('Transport');
+    $power = Shop::expenseCategory('Rent');
+    signedIn(staff(['expenses' => viewOnly()], 'yaw'))->get('/expenses/new')->assertRedirect('/no-access?area=expenses');
+    signedIn($this->ownerId)->get('/expenses')->assertOk()->assertSee('href="/expenses/new"', false);
+
+    // A bad row stops every row, and says which one.
+    cashbookAs($this->ownerId, NewExpenses::class)
+        ->set('rows.0.categoryAccountId', (string) $transport)->set('rows.0.description', 'Taxi')->set('rows.0.amount', '25.50')
+        ->call('addRow')->set('rows.1.categoryAccountId', (string) Shop::incomeCategory('Commission'))
+        ->set('rows.1.description', 'Wrong side')->set('rows.1.amount', '5')
+        ->call('save')->assertHasErrors('form')->assertSee('Row 2:');
+    expect(DB::table('expenses')->count())->toBe(0);
+
+    cashbookAs($this->ownerId, NewExpenses::class)
+        ->set('rows.0.description', 'Taxi')->call('save')
+        ->assertHasErrors(['rows.0.categoryAccountId' => 'Choose a category.', 'rows.0.amount' => 'Enter an amount.']);
+
+    cashbookAs($this->ownerId, NewExpenses::class)
+        ->set('rows.0.categoryAccountId', (string) $transport)->set('rows.0.description', 'Taxi')->set('rows.0.amount', '25.50')
+        ->call('addRow')->set('rows.1.categoryAccountId', (string) $power)->set('rows.1.description', 'Shop rent')->set('rows.1.amount', '100')
+        ->set('rows.1.reference', 'TX-9')
+        ->call('addRow')
+        ->assertSee('GHS 125.50')
+        ->call('save')->assertHasNoErrors()->assertRedirect('/expenses?created=1');
+
+    $rows = DB::table('expenses')->orderBy('id')->get();
+    expect($rows->pluck('amount_minor')->all())->toBe([2_550, 10_000])
+        ->and($rows->pluck('reference')->all())->toBe([null, 'TX-9'])
+        ->and($rows->pluck('business_date')->unique()->all())->toBe([$this->today])
+        ->and($rows->pluck('expense_no')->unique()->count())->toBe(2)
+        ->and($rows->whereNull('journal_entry_id')->count())->toBe(0);
+    Shop::assertBooksHealthy('after a batch of expenses');
 });

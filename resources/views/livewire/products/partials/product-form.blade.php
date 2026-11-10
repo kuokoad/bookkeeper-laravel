@@ -1,7 +1,7 @@
 {{--
-    The old products/product-form.tsx fields (ProductFields), shared by add,
-    edit and replace. Expects $categories, $units, $currency, $offerExpiry,
-    $unitsLocked, $altUnitLocked, $submitLabel, $showStockNotice and, when
+    The old products/product-form.tsx fields (ProductFields), shared by edit
+    and replace. Expects $categories, $units, $currency, $offerExpiry,
+    $unitsLocked, $altUnitLocked, $submitLabel and, when
     replacing, $moveStock = ['current' => '12 pcs', 'hasStock' => true].
 --}}
 @php
@@ -101,9 +101,6 @@
                 </label>
             </div>
         </div>
-        @if ($showStockNotice)
-            <x-alert tone="info" class="mt-4">Stock quantity is not set here. A new stock item starts empty; enter opening stock with a stock adjustment so the value can always be traced back to a record.</x-alert>
-        @endif
     </div>
 
     @if ($moveStock['hasStock'] ?? false)

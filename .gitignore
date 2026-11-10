@@ -28,3 +28,4 @@ Thumbs.db
 /screenshots/*
 !/screenshots/final/
 graphify-out/
+/.claude/

@@ -11,7 +11,8 @@ use Throwable;
 
 /**
  * The old `npm run db:restore -- <file> --force`. Refuses without --force,
- * and while the web server is serving (a sale could land mid-restore).
+ * and while the Apache service is running; whatever the web server, the app
+ * is in maintenance mode while the restore runs (a sale could land mid-restore).
  */
 final class RestoreCommand extends Command
 {
@@ -41,12 +42,23 @@ final class RestoreCommand extends Command
             return self::FAILURE;
         }
 
+        // The service check above only sees Apache run as a Windows service. Under Laragon or
+        // `php artisan serve` nothing would stop a till, so every web request is turned away
+        // until the restore ends, and the shop opens again only if this command closed it.
+        $wasDown = app()->isDownForMaintenance();
+        if (! $wasDown) {
+            $this->callSilently('down', ['--retry' => 60]);
+        }
         try {
             $result = BackupService::restore($file);
         } catch (Throwable $e) {
             $this->error('Restore failed: '.$e->getMessage());
 
             return self::FAILURE;
+        } finally {
+            if (! $wasDown) {
+                $this->callSilently('up');
+            }
         }
 
         $this->info("Restored {$database} from {$file}");

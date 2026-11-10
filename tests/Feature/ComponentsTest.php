@@ -98,3 +98,9 @@ it('points an input at its error only when the error is on screen, and at the fi
         ->and($render([], '<x-input id="q-1" invalid="Enter a quantity." />'))->toContain('aria-describedby="q-1-error"')
         ->and($render([], '<x-date-input id="from" :invalid="true" />'))->not->toContain('aria-describedby');
 });
+
+it('shows a row field error under its id, escaped, and nothing without one', function () {
+    expect(Blade::render('<x-field-error :id="\'q-\'.$k" :message="$m" />', ['k' => 2, 'm' => 'Enter a quantity <above> 0.']))
+        ->toContain('id="q-2-error"')->toContain('Enter a quantity &lt;above&gt; 0.')
+        ->and(trim(Blade::render('<x-field-error id="q-1" :message="null" />')))->toBe('');
+});

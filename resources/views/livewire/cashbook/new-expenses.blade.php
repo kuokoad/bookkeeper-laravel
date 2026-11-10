@@ -1,5 +1,4 @@
 @php
-    $err = fn (string $id, ?string $message) => $message ? '<p id="'.e($id).'-error" class="mt-1 text-xs font-medium text-danger">'.e($message).'</p>' : '';
     $select = 'h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content';
     $label = 'mb-1 block text-xs font-medium text-content-muted';
 @endphp
@@ -43,23 +42,23 @@
                                         <option value="{{ $category['id'] }}">{{ $category['name'] }}</option>
                                     @endforeach
                                 </select>
-                                {!! $err("cat-{$index}", $errors->first('rows.'.$index.'.categoryAccountId')) !!}
+                                <x-field-error :id="'cat-'.$index" :message="$errors->first('rows.'.$index.'.categoryAccountId')" />
                             </div>
                             <div class="sm:col-span-4">
                                 <label for="desc-{{ $index }}" class="{{ $label }}">Description <span class="text-danger">*</span></label>
                                 <x-input id="desc-{{ $index }}" wire:model="rows.{{ $index }}.description" placeholder="e.g. Taxi to the market" :invalid="$errors->first('rows.'.$index.'.description')" />
-                                {!! $err("desc-{$index}", $errors->first('rows.'.$index.'.description')) !!}
+                                <x-field-error :id="'desc-'.$index" :message="$errors->first('rows.'.$index.'.description')" />
                             </div>
                             <div class="sm:col-span-2">
                                 <label for="amt-{{ $index }}" class="{{ $label }}">Amount ({{ $currency }}) <span class="text-danger">*</span></label>
                                 <x-input amount id="amt-{{ $index }}" wire:model.live.debounce.400ms="rows.{{ $index }}.amount" placeholder="0.00" :invalid="$errors->first('rows.'.$index.'.amount')" />
-                                {!! $err("amt-{$index}", $errors->first('rows.'.$index.'.amount')) !!}
+                                <x-field-error :id="'amt-'.$index" :message="$errors->first('rows.'.$index.'.amount')" />
                             </div>
                             <div class="flex items-start gap-2 sm:col-span-3">
                                 <div class="flex-1">
                                     <label for="ref-{{ $index }}" class="{{ $label }}">Reference</label>
                                     <x-input id="ref-{{ $index }}" wire:model="rows.{{ $index }}.reference" placeholder="Optional" :invalid="$errors->first('rows.'.$index.'.reference')" />
-                                    {!! $err("ref-{$index}", $errors->first('rows.'.$index.'.reference')) !!}
+                                    <x-field-error :id="'ref-'.$index" :message="$errors->first('rows.'.$index.'.reference')" />
                                 </div>
                                 <x-button variant="ghost" size="sm" class="mt-6" wire:click="removeRow({{ $index }})" :disabled="count($rows) === 1" aria-label="Remove row {{ $index + 1 }}">✕</x-button>
                             </div>

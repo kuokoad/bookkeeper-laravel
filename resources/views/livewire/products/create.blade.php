@@ -1,5 +1,4 @@
 @php
-    $err = fn (string $id, ?string $message) => $message ? '<p id="'.e($id).'-error" class="mt-1 text-xs font-medium text-danger">'.e($message).'</p>' : '';
     $select = 'h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content';
     $label = 'mb-1 block text-xs font-medium text-content-muted';
 @endphp
@@ -18,7 +17,7 @@
                         <div class="sm:col-span-4">
                             <label for="n-{{ $index }}" class="{{ $label }}">Stock item name <span class="text-danger">*</span></label>
                             <x-input id="n-{{ $index }}" wire:model="rows.{{ $index }}.name" :autofocus="$index === 0" :invalid="$errors->first('rows.'.$index.'.name')" />
-                            {!! $err("n-{$index}", $errors->first('rows.'.$index.'.name')) !!}
+                            <x-field-error :id="'n-'.$index" :message="$errors->first('rows.'.$index.'.name')" />
                         </div>
                         <div class="sm:col-span-2">
                             <label for="g-{{ $index }}" class="{{ $label }}">Stock group</label>
@@ -36,17 +35,17 @@
                                     <option value="{{ $u->symbol }}">{{ $u->symbol }}</option>
                                 @endforeach
                             </select>
-                            {!! $err("u-{$index}", $errors->first('rows.'.$index.'.unit')) !!}
+                            <x-field-error :id="'u-'.$index" :message="$errors->first('rows.'.$index.'.unit')" />
                         </div>
                         <div class="sm:col-span-1">
                             <label for="c-{{ $index }}" class="{{ $label }}">Cost</label>
                             <x-input amount id="c-{{ $index }}" wire:model="rows.{{ $index }}.costPrice" :invalid="$errors->first('rows.'.$index.'.costPrice')" />
-                            {!! $err("c-{$index}", $errors->first('rows.'.$index.'.costPrice')) !!}
+                            <x-field-error :id="'c-'.$index" :message="$errors->first('rows.'.$index.'.costPrice')" />
                         </div>
                         <div class="sm:col-span-1">
                             <label for="s-{{ $index }}" class="{{ $label }}">Selling</label>
                             <x-input amount id="s-{{ $index }}" wire:model="rows.{{ $index }}.sellingPrice" :invalid="$errors->first('rows.'.$index.'.sellingPrice')" />
-                            {!! $err("s-{$index}", $errors->first('rows.'.$index.'.sellingPrice')) !!}
+                            <x-field-error :id="'s-'.$index" :message="$errors->first('rows.'.$index.'.sellingPrice')" />
                         </div>
                         <div class="flex items-start justify-between gap-2 sm:col-span-2">
                             <label class="mt-7 flex items-center gap-2 text-sm text-content">

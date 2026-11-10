@@ -31,7 +31,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!-- In each process's memory: nuna:restore closes the shop while it runs, and a test run must not close the dev app or another run sharing this folder. -->
+        <env name="APP_MAINTENANCE_DRIVER" value="array"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="ARGON_MEMORY" value="1024"/>
         <env name="ARGON_TIME" value="1"/>

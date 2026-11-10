@@ -2,7 +2,6 @@
 @use('App\Domain\Quantity')
 @php
     $unitLabel = fn (bool $alt, array $p): string => $alt && $p['altUnit'] ? $p['altUnit'] : $p['unit'];
-    $err = fn (string $id, ?string $message) => $message ? '<p id="'.e($id).'-error" class="mt-1 text-xs font-medium text-danger">'.e($message).'</p>' : '';
     $select = 'h-11 w-full rounded-lg border border-line-strong bg-surface-raised px-3 text-content';
 @endphp
 <div>
@@ -64,7 +63,7 @@
                         <label for="date" class="mb-1 block text-sm font-medium text-content">Date <span class="text-danger">*</span></label>
                         <x-date-input id="date" wire:model.live="businessDate" :value="$businessDate" :invalid="$reading['dateError']"
                             :min="$lockedBefore ? \App\Domain\BusinessDate::addDays($lockedBefore, 1) : null" aria-label="Delivery date" />
-                        {!! $err('date', $reading['dateError']) !!}
+                        <x-field-error id="date" :message="$reading['dateError']" />
                         @if ($lockedBefore)<p class="mt-1 text-xs text-content-subtle">The books are closed up to @date($lockedBefore).</p>@endif
                     </div>
                     <div>
@@ -75,7 +74,7 @@
                     <div>
                         <label for="invoiceNo" class="mb-1 block text-sm font-medium text-content">Their invoice no.</label>
                         <x-input id="invoiceNo" wire:model.live.debounce.400ms="invoiceNo" placeholder="Optional" :invalid="$reading['invoiceNoError']" />
-                        {!! $err('invoiceNo', $reading['invoiceNoError']) !!}
+                        <x-field-error id="invoiceNo" :message="$reading['invoiceNoError']" />
                     </div>
                 </div>
             </div>
@@ -102,13 +101,13 @@
                                         <option value="{{ $item['id'] }}">{{ $item['name'] }}</option>
                                     @endforeach
                                 </select>
-                                {!! $err("p-{$k}", $errors_['product'] ?? null) !!}
+                                <x-field-error :id="'p-'.$k" :message="$errors_['product'] ?? null" />
                             </div>
 
                             <div class="sm:col-span-2">
                                 <label for="q-{{ $k }}" class="mb-1 block text-xs font-medium text-content-muted">Quantity {{ $product ? '('.$unitLabel($row['alt'], $product).')' : '' }}</label>
                                 <x-input amount id="q-{{ $k }}" wire:model.live.debounce.400ms="rows.{{ $index }}.qty" :invalid="$errors_['qty'] ?? false" />
-                                {!! $err("q-{$k}", $errors_['qty'] ?? null) !!}
+                                <x-field-error :id="'q-'.$k" :message="$errors_['qty'] ?? null" />
                                 @if ($product && $product['altUnit'])
                                     <div class="mt-1">
                                         <select id="u-{{ $k }}" aria-label="Unit" wire:model.live="rows.{{ $index }}.alt" class="h-10 w-full rounded-lg border border-line-strong bg-surface-raised px-2 text-sm text-content">
@@ -122,7 +121,7 @@
                             <div class="sm:col-span-2">
                                 <label for="c-{{ $k }}" class="mb-1 block text-xs font-medium text-content-muted">{{ $product ? 'Cost per '.$unitLabel($row['alt'], $product) : 'Cost each' }}</label>
                                 <x-input amount id="c-{{ $k }}" wire:model.live.debounce.400ms="rows.{{ $index }}.unitCost" :invalid="$errors_['cost'] ?? false" />
-                                {!! $err("c-{$k}", $errors_['cost'] ?? null) !!}
+                                <x-field-error :id="'c-'.$k" :message="$errors_['cost'] ?? null" />
                                 @if ($line['free'])
                                     <p class="mt-1 text-xs font-medium text-warning">{{ $product && ! $product['trackInventory'] ? 'Free: nothing is charged for this line.' : 'Free goods. These bring the average cost down.' }}</p>
                                 @endif
@@ -137,7 +136,7 @@
                             <div class="sm:col-span-2">
                                 <label for="d-{{ $k }}" class="mb-1 block text-xs font-medium text-content-muted">Discount</label>
                                 <x-input amount id="d-{{ $k }}" wire:model.live.debounce.400ms="rows.{{ $index }}.discount" placeholder="0.00" :invalid="$errors_['discount'] ?? false" />
-                                {!! $err("d-{$k}", $errors_['discount'] ?? null) !!}
+                                <x-field-error :id="'d-'.$k" :message="$errors_['discount'] ?? null" />
                             </div>
 
                             <div class="flex items-start justify-between gap-2 sm:col-span-2">
@@ -186,7 +185,7 @@
                             <dt class="pt-2 text-content-muted">Discount on the whole invoice</dt>
                             <dd class="w-40 text-right">
                                 <x-input amount id="invoiceDiscount" wire:model.live.debounce.400ms="invoiceDiscount" placeholder="0.00" aria-label="Invoice discount" :invalid="$reading['invoiceDiscountError']" />
-                                {!! $err('invoiceDiscount', $reading['invoiceDiscountError']) !!}
+                                <x-field-error id="invoiceDiscount" :message="$reading['invoiceDiscountError']" />
                             </dd>
                         </div>
                         @if ($reading['total'] === null)
@@ -230,12 +229,12 @@
                                 <x-input amount id="payAmount" wire:model.live.debounce.400ms="payAmount" placeholder="0.00" :invalid="$reading['paidError']" />
                                 <x-button variant="secondary" wire:click="payAll" :disabled="$reading['total'] === null || $reading['total'] === 0">All</x-button>
                             </div>
-                            {!! $err('payAmount', $reading['paidError']) !!}
+                            <x-field-error id="payAmount" :message="$reading['paidError']" />
                         </div>
                         <div class="sm:col-span-2">
                             <label for="ref" class="mb-1 block text-xs text-content-muted">Reference</label>
                             <x-input id="ref" wire:model.live.debounce.400ms="reference" placeholder="Optional" :invalid="$reading['referenceError']" />
-                            {!! $err('ref', $reading['referenceError']) !!}
+                            <x-field-error id="ref" :message="$reading['referenceError']" />
                         </div>
                     </div>
                     <dl class="mt-3 space-y-1.5 border-t border-line pt-3 text-sm">

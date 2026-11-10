@@ -25,7 +25,7 @@
             </p>
         </form>
 
-        @if ($cells !== null)
+        @if ($hasSheet)
             <div class="space-y-6">
                 <section class="rounded-xl border border-line bg-surface-raised p-4">
                     <h2 class="mb-1 font-semibold text-content">Columns in {{ $fileName }}</h2>

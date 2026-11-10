@@ -14,6 +14,7 @@ use App\Services\Actor;
 use App\Services\CatalogService;
 use App\Services\UnitsService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use Tests\Support\Shop;
 
@@ -150,6 +151,27 @@ it('imports products from a CSV after the preview, and only what was previewed',
 
     $beans = CatalogService::listProducts(['search' => 'Beans'])[0];
     expect([$beans['qtyOnHand'], $beans['stockValue']])->toBe([4_000, 4_000]);
+});
+
+it('keeps the read sheet on the server, sending only a key to the browser, and forgets it once imported', function () {
+    $csv = "Product name,Cost price,Selling price\nZobo concentrate 1L,10,15\n";
+    $page = Livewire::actingAs($this->owner)->test(Import::class)
+        ->set('file', UploadedFile::fake()->createWithContent('list.csv', $csv))->call('read')->assertSee('Import 1 product');
+    $key = $page->get('sheet');
+
+    // The rows wait in the cache, not in every click's payload.
+    expect(json_encode($page->snapshot))->not->toContain('Zobo concentrate')
+        ->and(Cache::get($key)[1][0])->toBe('Zobo concentrate 1L');
+    $page->call('import')->assertRedirect('/products');
+    expect(Cache::has($key))->toBeFalse();
+});
+
+it('asks for the file again when the read sheet has gone from the cache', function () {
+    $page = Livewire::actingAs($this->owner)->test(Import::class)
+        ->set('file', UploadedFile::fake()->createWithContent('list.csv', "Product name\nBeans\n"))->call('read');
+    Cache::forget($page->get('sheet'));
+    $page->call('import')->assertHasErrors(['form' => 'The uploaded sheet was lost. Choose the file again.']);
+    expect(CatalogService::countProducts(['search' => 'Beans']))->toBe(0);
 });
 
 it('refuses a bad upload and opening stock without the stock right', function () {

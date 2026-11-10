@@ -9,6 +9,7 @@ use App\Domain\Errors\DomainError;
 use App\Services\ProductImportService;
 use App\Support\Clock;
 use App\Support\Spreadsheet;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Locked;
@@ -35,12 +36,22 @@ final class Import extends Component
 
     private const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
+    /** How long a read sheet waits for its import. */
+    private const SHEET_HOURS = 2;
+
     /** @var TemporaryUploadedFile|null */
     public $file = null;
 
-    /** The raw cells, carried unchanged so the import re-reads exactly what was previewed. */
+    /**
+     * Where the raw cells wait in the cache, so the import re-reads exactly
+     * what was previewed. Up to 5,000 rows: kept on the server, not sent to
+     * the browser and back on every click.
+     */
     #[Locked]
-    public ?array $cells = null;
+    public ?string $sheet = null;
+
+    /** This request's copy of the cells, read from the cache once. */
+    private ?array $cells = null;
 
     #[Locked]
     public string $fileName = '';
@@ -62,7 +73,8 @@ final class Import extends Component
         $this->authorize('products.create');
         $this->resetErrorBag();
         // A failed upload must not leave the last file's columns on screen under the new error.
-        $this->reset('cells', 'fileName', 'map', 'packUnit', 'previewedMap', 'previewedPackUnit');
+        $this->forgetSheet();
+        $this->reset('fileName', 'map', 'packUnit', 'previewedMap', 'previewedPackUnit');
         if (! $this->file instanceof TemporaryUploadedFile || $this->file->getSize() === 0) {
             $this->addError('form', 'Choose a file to import.');
 
@@ -92,6 +104,8 @@ final class Import extends Component
             return;
         }
 
+        $this->sheet = 'product-import:'.auth()->id().':'.bin2hex(random_bytes(16));
+        Cache::put($this->sheet, $cells, now()->addHours(self::SHEET_HOURS));
         $this->cells = $cells;
         $this->fileName = mb_substr($this->file->getClientOriginalName(), 0, 200);
         $this->packUnit = 'pack';
@@ -117,7 +131,7 @@ final class Import extends Component
     {
         $this->authorize('products.create');
         $this->resetErrorBag();
-        if ($this->cells === null) {
+        if ($this->cells() === null) {
             $this->addError('form', 'The uploaded sheet was lost. Choose the file again.');
 
             return;
@@ -140,7 +154,7 @@ final class Import extends Component
             return;
         }
         try {
-            $result = ProductImportService::importProducts($this->cells, $map, $packUnit, Clock::today(), Principal::load((int) auth()->id())->actor());
+            $result = ProductImportService::importProducts($this->cells(), $map, $packUnit, Clock::today(), Principal::load((int) auth()->id())->actor());
         } catch (DomainError $e) {
             $this->previewedMap = null;
             $this->addError('form', $e->userMessage);
@@ -148,6 +162,7 @@ final class Import extends Component
             return;
         }
 
+        $this->forgetSheet();
         $count = $result['created'];
         session()->flash('status', "Imported {$count} stock item".($count === 1 ? '' : 's').'. '.($result['adjustmentNo'] !== null
             ? 'Their opening stock is recorded as one stock adjustment, under Inventory.'
@@ -158,7 +173,7 @@ final class Import extends Component
     /** Re-preview with the current choices; false (and the error shown) when the service refuses them. */
     private function showPreview(): bool
     {
-        if ($this->cells === null) {
+        if ($this->cells() === null) {
             $this->addError('form', 'The uploaded sheet was lost. Choose the file again.');
 
             return false;
@@ -166,7 +181,7 @@ final class Import extends Component
         $map = $this->columnMap();
         $packUnit = $this->packUnitText();
         try {
-            ProductImportService::previewProductImport($this->cells, $map, $packUnit);
+            ProductImportService::previewProductImport($this->cells(), $map, $packUnit);
         } catch (DomainError $e) {
             $this->previewedMap = null;
             $this->addError('form', $e->userMessage);
@@ -183,7 +198,7 @@ final class Import extends Component
     /** Column choices; anything not a real column index means "not imported". @return array<string, int> */
     private function columnMap(): array
     {
-        $columns = max(array_map('count', $this->cells ?? [[]]));
+        $columns = max(array_map('count', $this->cells() ?? [[]]));
         $map = [];
         foreach (array_keys(ProductImportService::IMPORT_FIELDS) as $key) {
             $text = $this->map[$key] ?? '';
@@ -193,6 +208,26 @@ final class Import extends Component
         }
 
         return $map;
+    }
+
+    /** The sheet read earlier, or null when there is none or the cache let it go. */
+    private function cells(): ?array
+    {
+        if ($this->cells === null && $this->sheet !== null) {
+            $cached = Cache::get($this->sheet);
+            $this->cells = is_array($cached) ? $cached : null;
+        }
+
+        return $this->cells;
+    }
+
+    private function forgetSheet(): void
+    {
+        if ($this->sheet !== null) {
+            Cache::forget($this->sheet);
+        }
+        $this->sheet = null;
+        $this->cells = null;
     }
 
     private function packUnitText(): string
@@ -236,9 +271,10 @@ final class Import extends Component
     public function render(): View
     {
         $preview = null;
-        if ($this->cells !== null && $this->previewedMap !== null) {
+        $cells = $this->cells();
+        if ($cells !== null && $this->previewedMap !== null) {
             try {
-                $preview = ProductImportService::previewProductImport($this->cells, $this->previewedMap, $this->previewedPackUnit);
+                $preview = ProductImportService::previewProductImport($cells, $this->previewedMap, $this->previewedPackUnit);
             } catch (DomainError) {
                 $preview = null;
             }
@@ -246,8 +282,9 @@ final class Import extends Component
 
         return view('livewire.products.import', [
             'preview' => $preview,
-            'header' => $this->cells[0] ?? [],
-            'columns' => $this->cells === null ? 0 : max(array_map('count', $this->cells)),
+            'hasSheet' => $cells !== null,
+            'header' => $cells[0] ?? [],
+            'columns' => $cells === null ? 0 : max(array_map('count', $cells)),
         ]);
     }
 }

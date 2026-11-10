@@ -127,5 +127,6 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 - [ ] Off-site backup copy
 - [x] Receivables and payables CSVs (`/export/report/receivables`, `/payables`) need `accounts` view as well as `reports` view, matching their screens (owner decision 2026-11-07; README difference table; `tests/Feature/ExportsTest`)
 - [x] Owner edits a saved stock adjustment, expense, income, purchase or sale in place (PLAN D34): reversed on its own day and re-posted under the same number, reason required, edit history from the audit log; `tests/Services/DocumentEditTest`, `tests/Feature/DocumentEditScreensTest`; Playwright click-through of the four edit screens on demo data, screenshots in `screenshots/edit/`
+- [x] A customer return may settle an unpaid invoice from the customer's credit: what is not refunded in cash goes on their account (`ReturnsService::createCustomerReturn`, `creditApplied`) and reduces what they owe, with no separate allocation step. Kept as the old app's rule (owner decision 2026-11-10, from the 2026-11-10 audit); not a bug to fix
 
 Phases defined in [ROADMAP.md](ROADMAP.md).

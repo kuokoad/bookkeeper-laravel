@@ -32,8 +32,22 @@ final class Batch extends Component
         'SALE_RETURN' => 'Customer returned',
         'SALE_VOID' => 'Sale cancelled',
         'STOCK_ADJUSTMENT' => 'Stock adjustment',
+        'STOCK_ADJUSTMENT_VOID' => 'Stock adjustment cancelled',
         'OPENING' => 'On the shelf at the start',
     ];
+
+    /** D34: an edit's take-back of the old lines, which the document still stands behind. */
+    public const EDIT_LABELS = [
+        'PURCHASE_VOID' => 'Delivery edited',
+        'SALE_VOID' => 'Sale edited',
+        'STOCK_ADJUSTMENT_VOID' => 'Stock adjustment edited',
+    ];
+
+    public static function label(array $entry): string
+    {
+        return ($entry['isEdit'] ? self::EDIT_LABELS[$entry['sourceType']] ?? null : null)
+            ?? self::SOURCE_LABELS[$entry['sourceType']] ?? $entry['sourceType'];
+    }
 
     #[Locked]
     public int $batchId;
@@ -76,8 +90,8 @@ final class Batch extends Component
     {
         return match (true) {
             $entry['sourceId'] === null => null,
-            in_array($entry['sourceType'], ['SALE', 'SALE_RETURN'], true) => "/sales/{$entry['sourceId']}",
-            in_array($entry['sourceType'], ['PURCHASE', 'PURCHASE_RETURN'], true) => "/purchases/{$entry['sourceId']}",
+            in_array($entry['sourceType'], ['SALE', 'SALE_RETURN'], true), $entry['sourceType'] === 'SALE_VOID' && $entry['isEdit'] => "/sales/{$entry['sourceId']}",
+            in_array($entry['sourceType'], ['PURCHASE', 'PURCHASE_RETURN'], true), $entry['sourceType'] === 'PURCHASE_VOID' && $entry['isEdit'] => "/purchases/{$entry['sourceId']}",
             default => null,
         };
     }

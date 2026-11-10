@@ -143,6 +143,8 @@ final class Pos extends Component
         $this->lines = [];
         $this->nextKey = 1;
         $archived = [];
+        // The whole shop's outlook, once: each line reads its own product from it.
+        $outlook = InventoryService::getExpiryOutlook(Clock::today());
         foreach ($sale['items'] as $item) {
             // Archived products too: dropping the line would quietly change the sale's total on save.
             $product = CatalogService::getProduct((int) $item['productId']);
@@ -150,7 +152,7 @@ final class Pos extends Component
                 $archived[] = $product['name'];
             }
             $alt = $item['entryUnit'] !== null && $item['entryQtyMilli'] !== null;
-            $dates = InventoryService::getExpiryOutlook(Clock::today())[$product['id']] ?? null;
+            $dates = $outlook[$product['id']] ?? null;
             $this->lines[$this->nextKey++] = [
                 'productId' => $product['id'],
                 'name' => $product['name'],

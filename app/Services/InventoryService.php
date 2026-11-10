@@ -724,6 +724,7 @@ final class InventoryService
                 'qtyInMilli' => (int) $row->qty_in_milli,
                 'qtyOutMilli' => (int) $row->qty_out_milli,
                 'partyName' => self::partyFor($row->source_type, $row->source_id === null ? null : (int) $row->source_id),
+                'isEdit' => self::isEditTakeBack($row->source_type, $row->source_id === null ? null : (int) $row->source_id),
             ])
             ->all();
 
@@ -744,6 +745,24 @@ final class InventoryService
             ],
             'entries' => $entries,
         ];
+    }
+
+    /**
+     * D34: an edit takes a document's old movements back out as <type>_VOID rows
+     * under the document's OWN id; a real void writes them under its reversal.
+     * So a _VOID row whose document reverses nothing is an edit, not a cancellation.
+     */
+    private static function isEditTakeBack(string $sourceType, ?int $sourceId): bool
+    {
+        [$table, $voids] = match ($sourceType) {
+            'SALE_VOID' => ['sales', 'voids_sale_id'],
+            'PURCHASE_VOID' => ['purchases', 'voids_purchase_id'],
+            'STOCK_ADJUSTMENT_VOID' => ['stock_adjustments', 'voids_adjustment_id'],
+            default => [null, null],
+        };
+
+        return $table !== null && $sourceId !== null
+            && DB::table($table)->where("{$table}.id", $sourceId)->whereNull("{$table}.{$voids}")->exists();
     }
 
     /** Who a movement's document was with, when it was with anybody. */

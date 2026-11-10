@@ -101,7 +101,7 @@
                             <span class="block text-xs text-content-subtle">{{ Format::dateTime($entry['occurredAt']) }}</span>
                         </x-td>
                         <x-td>
-                            <span class="text-content">{{ Batch::SOURCE_LABELS[$entry['sourceType']] ?? $entry['sourceType'] }}</span>
+                            <span class="text-content">{{ Batch::label($entry) }}</span>
                             @if ($entry['sourceRef'] !== null)
                                 <span class="block text-xs text-content-subtle">
                                     @if ($href === null){{ $entry['sourceRef'] }}@else<a href="{{ $href }}" class="text-accent hover:underline">{{ $entry['sourceRef'] }}</a>@endif

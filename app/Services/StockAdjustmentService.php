@@ -255,28 +255,8 @@ final class StockAdjustmentService
 
             // Value the shelf could not keep: emptying a product at the value that
             // went in can leave the running value off zero once the average has
-            // moved on. It leaves inventory and the general ledger together.
-            if ($costingResidual !== 0) {
-                $cogs = JournalService::accountIdByCode(ChartOfAccounts::COST_OF_GOODS_SOLD);
-                $inventory = JournalService::accountIdByCode(ChartOfAccounts::INVENTORY);
-                JournalService::post(
-                    $businessDate,
-                    JournalSourceType::StockAdjustment,
-                    $costingResidual > 0
-                        ? [
-                            Journal::debit($cogs, $costingResidual, ['description' => "{$reversalNo} costing difference"]),
-                            Journal::credit($inventory, $costingResidual, ['description' => "{$reversalNo} stock value released"]),
-                        ]
-                        : [
-                            Journal::debit($inventory, Money::negate($costingResidual), ['description' => "{$reversalNo} stock value restored"]),
-                            Journal::credit($cogs, Money::negate($costingResidual), ['description' => "{$reversalNo} costing difference"]),
-                        ],
-                    sourceId: $reversalId,
-                    memo: "Stock costing difference on voiding {$original->adjustment_no}",
-                    occurredAt: $now,
-                    actor: $actor,
-                );
-            }
+            // moved on. It leaves inventory and the general ledger together, demo with demo.
+            PurchaseService::postCostingResidual($costingResidual, $businessDate, $reversalNo, $reversalId, "Stock costing difference on voiding {$original->adjustment_no}", $now, $actor, JournalSourceType::StockAdjustment, (bool) $original->is_demo);
 
             DB::table('stock_adjustments')->where('id', $adjustmentId)->update([
                 'status' => 'VOIDED',

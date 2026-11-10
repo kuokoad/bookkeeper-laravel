@@ -15,10 +15,12 @@ use App\Domain\Errors\ForbiddenError;
 use App\Domain\Errors\PeriodLockedError;
 use App\Domain\Errors\ValidationError;
 use App\Enums\AdjustmentReason;
+use App\Livewire\Inventory\Batch;
 use App\Services\Actor;
 use App\Services\AuditService;
 use App\Services\CashbookService;
 use App\Services\CatalogService;
+use App\Services\InventoryService;
 use App\Services\PurchaseService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
@@ -114,6 +116,22 @@ describe('editing a stock adjustment', function () {
         ($this->edit)($damage['adjustmentId'], 1_000);
         expect(CatalogService::getProduct($this->product)['qtyOnHand'])->toBe(5_000);
         Shop::assertBooksHealthy('after the refused edit and the allowed one');
+    });
+
+    it('marks the costing difference of voiding a demo adjustment as demo', function () {
+        // 10 more at GHS 7.00 as demo stock (20 at 12.00); 10 out at the 6.00 average;
+        // voiding the 10 at 7.00 empties the shelf 1.00 off zero, which goes to COGS.
+        $found = StockAdjustmentService::createStockAdjustment(
+            ['businessDate' => EDIT_DAY, 'reason' => AdjustmentReason::Found, 'isDemo' => true, 'items' => [['productId' => $this->product, 'direction' => 'IN', 'qty' => 10_000, 'totalCost' => 7_000]]],
+            $this->actor,
+        );
+        ($this->damage)(10_000);
+        StockAdjustmentService::voidStockAdjustment($found['adjustmentId'], 'Demo data', $this->actor);
+
+        $residual = DB::table('journal_entries')->where('memo', 'like', 'Stock costing difference on voiding%')->get(['is_demo']);
+        expect($residual)->toHaveCount(1)
+            ->and((bool) $residual[0]->is_demo)->toBeTrue();
+        Shop::assertBooksHealthy('after voiding demo stock');
     });
 
     it('keeps what it said before, who changed it and why', function () {
@@ -348,6 +366,22 @@ describe('editing a purchase', function () {
         expect(CatalogService::getProduct($this->product)['qtyOnHand'])->toBe(10_000)
             ->and((int) DB::table('product_batches')->where('id', $crates[1]->id)->value('qty_milli'))->toBe(0);
         Shop::assertBooksHealthy('after edit then void');
+    });
+
+    it('shows an edit in the crate history as an edit, and a real void as cancelled', function () {
+        $purchase = ($this->buy)(20_000, 600, ['line' => ['expiryDate' => '2027-01-31']]);
+        PurchaseService::editPurchase($purchase['purchaseId'], ($this->purchaseInput)(15_000, 600, ['line' => ['expiryDate' => '2027-02-28']]), 'Only 15 came', $this->actor);
+        PurchaseService::voidPurchase($purchase['purchaseId'], 'Wrong shop', $this->actor);
+        $crates = DB::table('product_batches')->where('product_id', $this->product)->whereNotNull('expiry_date')->orderBy('id')->pluck('id');
+
+        $taken = fn (int $crate): array => collect(InventoryService::getBatchHistory($crate)['entries'])->firstWhere('sourceType', 'PURCHASE_VOID');
+        $edited = $taken($crates[0]);
+        $voided = $taken($crates[1]);
+        expect($edited['isEdit'])->toBeTrue()
+            ->and(Batch::label($edited))->toBe('Delivery edited')
+            ->and(Batch::documentHref($edited))->toBe("/purchases/{$purchase['purchaseId']}")
+            ->and($voided['isEdit'])->toBeFalse()
+            ->and(Batch::label($voided))->toBe('Delivery cancelled');
     });
 
     it('refuses once any of its stock has gone out since', function () {

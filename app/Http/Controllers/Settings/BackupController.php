@@ -45,14 +45,18 @@ final class BackupController extends Controller
         // the dump and the password file behind; a closed tab must not stop it halfway either.
         set_time_limit(0);
         ignore_user_abort(true);
-        // FastCGI can still kill a very long one, skipping the `finally`: an hour on, a leftover
-        // folder (the dump and the password file) is nobody's download in progress.
-        foreach (File::glob(storage_path('app/backup-download-*'), GLOB_ONLYDIR) as $stale) {
-            if (filemtime($stale) < time() - 3600) {
-                File::deleteDirectory($stale);
-            }
+        // FastCGI can still kill a very long one, skipping the `finally` and leaving the dump and
+        // the password file behind. Each download holds a lock in its folder until it ends, and
+        // the OS lets go when its process dies: a folder whose lock can be taken is a leftover.
+        foreach (File::glob(storage_path('app/backup-download-*'), GLOB_ONLYDIR) as $other) {
+            self::deleteIfAbandoned($other);
         }
         $directory = storage_path('app/backup-download-'.bin2hex(random_bytes(8)));
+        File::ensureDirectoryExists($directory);
+        $lock = fopen($directory.DIRECTORY_SEPARATOR.self::LOCK_FILE, 'c');
+        if ($lock === false || ! flock($lock, LOCK_EX)) {
+            return response('The backup could not be made: its working folder could not be locked.', 500, ['Content-Type' => 'text/plain']);
+        }
         try {
             $result = BackupService::createBackup($directory, 1);
             $body = (string) file_get_contents($result['path']);
@@ -73,7 +77,31 @@ final class BackupController extends Controller
 
             return response('The backup could not be made: '.$e->getMessage(), 500, ['Content-Type' => 'text/plain']);
         } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
             File::deleteDirectory($directory);
         }
+    }
+
+    /** Held by a download for as long as it runs. */
+    public const LOCK_FILE = 'in-progress.lock';
+
+    /** A download folder no live download holds: delete it. One still held is left alone, however old. */
+    public static function deleteIfAbandoned(string $directory): bool
+    {
+        $lock = @fopen($directory.DIRECTORY_SEPARATOR.self::LOCK_FILE, 'c');
+        if ($lock === false) {
+            return false;
+        }
+        if (! flock($lock, LOCK_EX | LOCK_NB)) {
+            fclose($lock);
+
+            return false;
+        }
+        flock($lock, LOCK_UN);
+        fclose($lock);
+        File::deleteDirectory($directory);
+
+        return true;
     }
 }

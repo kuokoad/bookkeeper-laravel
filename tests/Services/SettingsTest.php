@@ -12,6 +12,7 @@ use App\Services\SettingsService;
 use App\Support\Clock;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\Shop;
 
 beforeEach(function () {
@@ -122,6 +123,13 @@ describe('the audit trail', function () {
 });
 
 describe('the shop logo', function () {
+    it('reads every settings column but the logo itself, so a new column cannot be left out of get()', function () {
+        $schema = array_values(array_diff(Schema::getColumnListing('business_settings'), ['logo_data']));
+        expect(SettingsService::COLUMNS)->toEqualCanonicalizing($schema)
+            ->and(SettingsService::COLUMNS)->not->toContain('logo_data')
+            ->and(array_keys((array) SettingsService::get()))->toEqualCanonicalizing([...$schema, 'has_logo']);
+    });
+
     beforeEach(function () {
         $this->png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
     });

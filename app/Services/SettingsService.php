@@ -13,7 +13,6 @@ use App\Enums\Feature;
 use App\Enums\Look;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * The shop's settings: one row. A port of the old settings.service.ts.
@@ -28,12 +27,17 @@ final class SettingsService
     public const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     /**
-     * Every column but the logo itself, read once per process.
-     * shortcut: a process alive across a migration keeps the old list; update.ps1 stops Apache before migrating.
-     *
-     * @var list<string>|null
+     * Every column but the logo itself. Listed, not read from the schema: PHP
+     * forgets a static between requests, so that was a query on every page.
+     * SettingsTest fails when a migration adds a column this list lacks.
      */
-    private static ?array $columns = null;
+    public const COLUMNS = [
+        'id', 'business_name', 'tagline', 'address', 'phone', 'email', 'logo_mime', 'logo_width', 'logo_height', 'logo_updated_at',
+        'currency_code', 'currency_symbol', 'tax_enabled', 'tax_rate_bp', 'tax_inclusive', 'tax_label', 'low_stock_threshold_milli',
+        'allow_negative_stock', 'expiry_warning_days', 'expiry_blocks_sales', 'allow_overpayment', 'default_terms_days',
+        'financial_year_start_month', 'books_locked_before', 'look', 'business_type', 'feature_expiry_batches', 'feature_quotations',
+        'has_demo_data', 'setup_completed_at', 'created_at', 'updated_at',
+    ];
 
     /**
      * The settings row without the logo (up to 1 MB, and this is read several
@@ -41,9 +45,8 @@ final class SettingsService
      */
     public static function get(): object
     {
-        self::$columns ??= array_values(array_diff(Schema::getColumnListing('business_settings'), ['logo_data']));
         $settings = DB::table('business_settings')->where('id', 1)
-            ->select(array_map(fn (string $c): string => "business_settings.{$c}", self::$columns))
+            ->select(array_map(fn (string $c): string => "business_settings.{$c}", self::COLUMNS))
             ->selectRaw('(`business_settings`.`logo_data` IS NOT NULL AND `business_settings`.`logo_mime` IS NOT NULL) AS has_logo')
             ->first();
         if ($settings === null) {

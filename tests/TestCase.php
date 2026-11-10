@@ -53,10 +53,9 @@ abstract class TestCase extends BaseTestCase
         $connect = fn (): PDO => new PDO("mysql:host={$config['host']};port={$config['port']}", $config['username'], $config['password']);
         $pdo = $connect();
 
-        foreach ($pdo->query("SHOW DATABASES LIKE 'nunabooks\\_test\\_run\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $database) {
-            if (preg_match('/^nunabooks_test_run_(\d+)$/', $database, $m) === 1 && (int) $m[1] !== getmypid() && ! processRunning((int) $m[1])) {
-                $pdo->exec("DROP DATABASE IF EXISTS `{$database}`");
-            }
+        // The same rule the Processes suite sweeps by (run.php): only *_<pid> of a run that has ended.
+        foreach (staleRunDatabases($pdo->query("SHOW DATABASES LIKE 'nunabooks\\_%'")->fetchAll(PDO::FETCH_COLUMN)) as $database) {
+            $pdo->exec("DROP DATABASE IF EXISTS `{$database}`");
         }
         $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin");
         register_shutdown_function(fn () => $connect()->exec("DROP DATABASE IF EXISTS `{$name}`"));

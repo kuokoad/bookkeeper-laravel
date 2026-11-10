@@ -12,12 +12,34 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
 
-/** The databases this suite makes, each followed by _<pid> (and a backup's _scratch_ copies after that). */
-const RUN_DATABASE_PATTERN = '/^nunabooks_(concurrency|import|backup_source|backup_target)_(\d+)($|_)/';
+/**
+ * The databases a test run makes, each followed by _<pid> (and a backup's _scratch_ copies
+ * after that): this suite's, and every run's own nunabooks_test_run_<pid> (TestCase). Only
+ * these are ever swept, so a database pinned with DB_DATABASE is never dropped.
+ */
+const RUN_DATABASE_PATTERN = '/^nunabooks_(test_run|concurrency|import|backup_source|backup_target)_(\d+)($|_)/';
 
 function runDatabase(string $base): string
 {
     return $base.'_'.getmypid();
+}
+
+/**
+ * Of these database names, the ones a run that has since ended left behind.
+ *
+ * @param  iterable<string>  $names
+ * @return list<string>
+ */
+function staleRunDatabases(iterable $names): array
+{
+    $stale = [];
+    foreach ($names as $name) {
+        if (preg_match(RUN_DATABASE_PATTERN, $name, $m) === 1 && (int) $m[2] !== getmypid() && ! processRunning((int) $m[2])) {
+            $stale[] = $name;
+        }
+    }
+
+    return $stale;
 }
 
 function dropRunDatabases(string ...$databases): void
@@ -25,12 +47,7 @@ function dropRunDatabases(string ...$databases): void
     static $swept = false;
     if (! $swept) {
         $swept = true;
-        foreach (DB::select("SHOW DATABASES LIKE 'nunabooks\\_%'") as $row) {
-            $name = (string) array_values((array) $row)[0];
-            if (preg_match(RUN_DATABASE_PATTERN, $name, $m) === 1 && (int) $m[2] !== getmypid() && ! processRunning((int) $m[2])) {
-                $databases[] = $name;
-            }
-        }
+        array_push($databases, ...staleRunDatabases(array_map(fn (object $row): string => (string) array_values((array) $row)[0], DB::select("SHOW DATABASES LIKE 'nunabooks\\_%'"))));
     }
     foreach (array_unique($databases) as $database) {
         DB::statement("DROP DATABASE IF EXISTS `{$database}`");

@@ -12,7 +12,7 @@ NunaBooks is bookkeeping, inventory and point-of-sale software for a small Ghana
 |---|---|
 | Install | `composer install` then `npm ci && npm run build` |
 | Dev server | Laragon (`http://bookkeeper-laravel.com.gh`) or `php artisan serve` |
-| Test (all) | `php artisan test` (needs MySQL databases `nunabooks_test`; the Processes suite creates `nunabooks_concurrency` and `nunabooks_import` itself) |
+| Test (all) | `php artisan test` (each run creates and drops its own `nunabooks_test_<pid>`, so two runs never clash; the Processes suite does the same for `nunabooks_concurrency` and `nunabooks_import`. `DB_DATABASE=<name>` pins one) |
 | Test (single) | `php artisan test --filter=<name>` |
 | Lint / format | `vendor/bin/pint --test` (check) · `vendor/bin/pint` (fix) |
 | Build assets | `npm run build`, before every commit that touches `resources/` or any class name in `app/`. `public/build` is committed: the shop PC has no Node, so the built files ship with the release |

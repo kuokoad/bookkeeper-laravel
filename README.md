@@ -33,11 +33,10 @@ composer install
 cp .env.example .env && php artisan key:generate
 ```
 
-Create the two databases with the binary collation, so text compares the way it did in the old SQLite app:
+Create the database with the binary collation, so text compares the way it did in the old SQLite app. The tests make their own (`nunabooks_test_<pid>`, one per run), so the MySQL user needs `CREATE` and `DROP`:
 
 ```sql
 CREATE DATABASE nunabooks CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin;
-CREATE DATABASE nunabooks_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin;
 ```
 
 ```bash

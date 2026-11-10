@@ -11,7 +11,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /*
-| Tests run against a real MySQL database (nunabooks_test, see phpunit.xml),
+| Tests run against a real MySQL database (nunabooks_test_<pid>, one per run,
+| see TestCase::ownDatabase),
 | never SQLite: the point is to test MySQL's own behaviour — CHECKs,
 | triggers, collation and locking.
 */

@@ -10,7 +10,7 @@ in the app's folder.
 | Command | What it does |
 |---|---|
 | `composer dev` | Runs `php artisan dev` for local development. Laragon serves the app without it, at `http://bookkeeper-laravel.com.gh`; `php artisan serve` also works. |
-| `php artisan test` | Runs the whole suite against MySQL (`nunabooks_test`). Never SQLite. |
+| `php artisan test` | Runs the whole suite against MySQL, in a database of its own for each run (`nunabooks_test_<pid>`). Never SQLite. |
 | `php artisan test --filter=<name>` | Runs the tests whose name matches. |
 | `vendor/bin/pint --test` | Checks formatting. `vendor/bin/pint` fixes it. |
 

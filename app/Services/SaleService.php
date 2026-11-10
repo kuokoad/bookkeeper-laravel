@@ -8,7 +8,6 @@ use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
-use App\Domain\Accounting\PeriodLock;
 use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ForbiddenError;
@@ -721,10 +720,7 @@ final class SaleService
         if (($input['items'] ?? []) === []) {
             throw new ValidationError('Add at least one item to the sale.');
         }
-        $why = JsCompat::trim($why);
-        if (mb_strlen($why) < 3) {
-            throw new ValidationError('Say why this sale is being edited.');
-        }
+        $why = DocumentEdit::reason($why, 'sale');
         $now ??= Clock::now();
         // The owner may price and discount, and sell the last of an expired crate, as on the till.
         $input = [...$input, 'allowPriceOverride' => true, 'allowExpiredStock' => true];
@@ -766,27 +762,20 @@ final class SaleService
             }
 
             PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
-            $lockedBefore = JournalService::readLockDate();
-            PeriodLock::assertOpen((string) $original->business_date, $lockedBefore);
-            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+            DocumentEdit::assertDaysOpen((string) $original->business_date, $input['businessDate']);
 
             $settings = DB::table('business_settings')->where('id', 1)->first() ?? throw new NotFoundError('Business settings', 1);
             $before = self::snapshot($saleId);
             $originalDate = (string) $original->business_date;
             $isDemo = (bool) $original->is_demo;
 
-            // 1. On its own day, the goods go back at the cost they left at, into the crates they came from.
-            $soldFrom = [];
-            foreach ($items as $item) {
-                $soldFrom[(int) $item->product_id] ??= InventoryService::readBatchSplits('SALE', $saleId, (int) $item->product_id);
-            }
-            $residual = 0;
+            // 1. The goods go back at the cost they left at; a line that never left the shelf has nothing to put back.
             $keepCost = [];
+            $takeBack = [];
             $sold = DB::table('stock_ledger')->where('stock_ledger.source_type', 'SALE')->where('stock_ledger.source_id', $saleId)
                 ->where('stock_ledger.id', '>', InventoryService::lastEditMark('SALE', $saleId))->pluck('product_id')->map(fn ($id): int => (int) $id)->countBy()->all();
             foreach ($items as $item) {
                 $productId = (int) $item->product_id;
-                // A line that never left the shelf has nothing to put back.
                 if (($sold[$productId] ?? 0) === 0) {
                     continue;
                 }
@@ -795,34 +784,10 @@ final class SaleService
                     'qty' => Quantity::add($keepCost[$productId]['qty'] ?? 0, (int) $item->qty_milli),
                     'cost' => Money::add($keepCost[$productId]['cost'] ?? 0, (int) $item->total_cost_minor),
                 ];
-                $cameFrom = array_shift($soldFrom[$productId]);
-                $movement = InventoryService::recordStockMovement([
-                    'productId' => $productId,
-                    'direction' => 'IN',
-                    'qty' => (int) $item->qty_milli,
-                    'totalCost' => (int) $item->total_cost_minor,
-                    'movementType' => MovementType::SaleReturn,
-                    'sourceType' => 'SALE_VOID',
-                    'sourceId' => $saleId,
-                    'sourceRef' => $no,
-                    'businessDate' => $originalDate,
-                    'occurredAt' => $now,
-                    'userId' => $actor->id,
-                    'note' => "Edit of {$no}",
-                    'isDemo' => $isDemo,
-                    ...($cameFrom === null || $cameFrom === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $cameFrom]]),
-                ]);
-                $residual = Money::add($residual, $movement['residual']);
+                $takeBack[] = ['productId' => $productId, 'direction' => 'IN', 'qty' => (int) $item->qty_milli, 'totalCost' => (int) $item->total_cost_minor, 'movementType' => MovementType::SaleReturn];
             }
-            if ($original->journal_entry_id !== null) {
-                JournalService::reverse((int) $original->journal_entry_id, $originalDate, JournalSourceType::Sale, $saleId, "Edit of {$no}: {$why}", occurredAt: $now, actor: $actor);
-            }
-            PurchaseService::postCostingResidual($residual, $originalDate, $no, $saleId, "Stock costing difference on editing {$no}", $now, $actor, JournalSourceType::Sale, $isDemo);
-            // The old lines, taxes and tender live on, whole, in the audit row below.
-            $replaced = AuditService::rowsBeingReplaced('sale_id', $saleId, 'sale_items', 'sale_taxes', 'sale_payments');
-            DB::table('sale_items')->where('sale_id', $saleId)->delete();
-            DB::table('sale_taxes')->where('sale_id', $saleId)->delete();
-            DB::table('sale_payments')->where('sale_id', $saleId)->delete();
+            $residual = DocumentEdit::takeBack('SALE', $saleId, $no, $originalDate, $takeBack, (bool) $settings->allow_negative_stock, $isDemo, $now, $actor);
+            $replaced = DocumentEdit::reverseAndClear(JournalSourceType::Sale, $original->journal_entry_id === null ? null : (int) $original->journal_entry_id, $originalDate, $saleId, $no, $why, $residual, $isDemo, 'sale_id', ['sale_items', 'sale_taxes', 'sale_payments'], $now, $actor);
 
             // 2. The sale as it should have been, checked against the customer's balance without the old one.
             ['resolved' => $resolved, 'taxProfile' => $taxProfile, 'totals' => $totals, 'tender' => $tender] = self::priceSale($input, $settings);
@@ -851,13 +816,7 @@ final class SaleService
                 'edited_at' => $at,
                 'updated_at' => $at,
             ]);
-            AuditService::write(AuditAction::Update, 'sale', "Edited {$no}: {$why}", $saleId, $actor, [
-                'edit' => true,
-                'reason' => $why,
-                'before' => $before,
-                'after' => self::snapshot($saleId),
-                'replaced' => $replaced,
-            ], $now);
+            DocumentEdit::record('sale', $saleId, $no, $why, $before, self::snapshot($saleId), $replaced, $actor, $now);
             self::auditExpiredSold($saleId, $no, $expiredSold, $input, $actor, $now);
 
             return [

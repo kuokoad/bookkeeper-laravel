@@ -8,7 +8,6 @@ use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
-use App\Domain\Accounting\PeriodLock;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
@@ -208,10 +207,7 @@ final class CashbookService
         if (JsCompat::trim($input['description'] ?? '') === '') {
             throw new ValidationError('Enter a short description.');
         }
-        $why = JsCompat::trim($why);
-        if (mb_strlen($why) < 3) {
-            throw new ValidationError('Say why this record is being edited.');
-        }
+        $why = DocumentEdit::reason($why, 'record');
         $now ??= Clock::now();
 
         Tx::run(function () use ($direction, $side, $id, $input, $why, $actor, $now): void {
@@ -227,14 +223,11 @@ final class CashbookService
             if (! $account->is_active) {
                 throw new ValidationError("Payment account \"{$account->name}\" is not active.");
             }
-            $lockedBefore = JournalService::readLockDate();
-            PeriodLock::assertOpen((string) $row->business_date, $lockedBefore);
-            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+            DocumentEdit::assertDaysOpen((string) $row->business_date, $input['businessDate']);
 
             $before = self::snapshot($direction, $row);
-            if ($row->journal_entry_id !== null) {
-                JournalService::reverse((int) $row->journal_entry_id, (string) $row->business_date, $side['source'], $id, "Edit of {$documentNo}: {$why}", occurredAt: $now, actor: $actor);
-            }
+            // No stock and no line rows: only the entry comes back out.
+            DocumentEdit::reverseAndClear($side['source'], $row->journal_entry_id === null ? null : (int) $row->journal_entry_id, (string) $row->business_date, $id, $documentNo, $why, 0, (bool) $row->is_demo, 'id', [], $now, $actor);
             $posted = self::postEntry($direction, $id, $documentNo, $input, $categoryName, $account, $now, $actor, (bool) $row->is_demo);
             $at = Clock::stamp($now);
             DB::table($side['table'])->where('id', $id)->update([
@@ -249,12 +242,7 @@ final class CashbookService
                 'edited_at' => $at,
                 'updated_at' => $at,
             ]);
-            AuditService::write(AuditAction::Update, $side['entity'], "Edited {$documentNo}: {$why}", $id, $actor, [
-                'edit' => true,
-                'reason' => $why,
-                'before' => $before,
-                'after' => self::snapshot($direction, DB::table($side['table'])->where('id', $id)->first()),
-            ], $now);
+            DocumentEdit::record($side['entity'], $id, $documentNo, $why, $before, self::snapshot($direction, DB::table($side['table'])->where('id', $id)->first()), [], $actor, $now);
         });
     }
 

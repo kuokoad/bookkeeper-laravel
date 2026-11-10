@@ -368,10 +368,7 @@ final class PurchaseService
             throw new ValidationError('Add at least one stock item to the purchase.');
         }
         self::assertDueDate($input);
-        $why = JsCompat::trim($why);
-        if (mb_strlen($why) < 3) {
-            throw new ValidationError('Say why this purchase is being edited.');
-        }
+        $why = DocumentEdit::reason($why, 'purchase');
         $now ??= Clock::now();
 
         return Tx::run(function () use ($purchaseId, $input, $why, $actor, $now): array {
@@ -405,70 +402,29 @@ final class PurchaseService
             if (self::settledByPayments($purchaseId) > 0) {
                 throw new ConflictError("{$no} has supplier payments set against it, so it cannot be edited. Void those payments first.");
             }
-            $mark = InventoryService::lastEditMark('PURCHASE', $purchaseId);
-            $firstIn = DB::table('stock_ledger')->where('stock_ledger.source_type', 'PURCHASE')->where('stock_ledger.source_id', $purchaseId)->where('stock_ledger.id', '>', $mark)->min('stock_ledger.id');
-            if ($firstIn !== null) {
-                $since = DB::table('stock_ledger')->whereIn('stock_ledger.product_id', $oldProducts)->where('stock_ledger.id', '>', $firstIn)
-                    ->where('stock_ledger.qty_out_milli', '>', 0)->orderBy('stock_ledger.id')->value('stock_ledger.source_ref');
-                if ($since !== null) {
-                    throw new ConflictError("Stock from {$no} has gone out since it arrived (first on {$since}), so it cannot be edited: what that stock cost has already been used. Use \"Correct this purchase\" instead.");
-                }
-            }
+            DocumentEdit::assertNothingWentOutSince('PURCHASE', $purchaseId, $oldProducts, fn (string $since): string => "Stock from {$no} has gone out since it arrived (first on {$since}), so it cannot be edited: what that stock cost has already been used. Use \"Correct this purchase\" instead.");
 
             PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
-            $lockedBefore = JournalService::readLockDate();
-            PeriodLock::assertOpen((string) $original->business_date, $lockedBefore);
-            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+            DocumentEdit::assertDaysOpen((string) $original->business_date, $input['businessDate']);
 
             $before = self::snapshot($purchaseId);
             $originalDate = (string) $original->business_date;
             $isDemo = (bool) $original->is_demo;
-            $allowNegative = (bool) DB::table('business_settings')->where('id', 1)->value('allow_negative_stock');
 
-            // 1. On its own day, the old delivery leaves at the cost it came in at, from the crates it filled.
+            // 1. The old delivery leaves at the cost each line came in at; a line that never went onto the shelf has nothing to take back.
             $wentInAt = self::stockCostQueues($purchaseId);
-            $wentInTo = [];
-            foreach ($items as $item) {
-                $wentInTo[(int) $item->product_id] ??= InventoryService::readBatchSplits('PURCHASE', $purchaseId, (int) $item->product_id);
-            }
-            $residual = 0;
+            $takeBack = [];
             foreach ($items as $item) {
                 $productId = (int) $item->product_id;
                 $wentInAt[$productId] ??= [];
                 $cost = array_shift($wentInAt[$productId]);
-                // A line that never went onto the shelf has nothing to take back off it.
-                if ($cost === null) {
-                    continue;
+                if ($cost !== null) {
+                    $takeBack[] = ['productId' => $productId, 'direction' => 'OUT', 'qty' => (int) $item->qty_milli, 'totalCost' => $cost, 'movementType' => MovementType::PurchaseReturn];
                 }
-                $batches = array_shift($wentInTo[$productId]);
-                $movement = InventoryService::recordStockMovement([
-                    'productId' => $productId,
-                    'direction' => 'OUT',
-                    'qty' => (int) $item->qty_milli,
-                    'totalCost' => $cost,
-                    ...($batches === null || $batches === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $batches]]),
-                    'movementType' => MovementType::PurchaseReturn,
-                    'sourceType' => 'PURCHASE_VOID',
-                    'sourceId' => $purchaseId,
-                    'sourceRef' => $no,
-                    'businessDate' => $originalDate,
-                    'occurredAt' => $now,
-                    'userId' => $actor->id,
-                    'allowNegative' => $allowNegative,
-                    'note' => "Edit of {$no}",
-                    'isDemo' => $isDemo,
-                ]);
-                $residual = Money::add($residual, $movement['residual']);
             }
-            if ($original->journal_entry_id !== null) {
-                JournalService::reverse((int) $original->journal_entry_id, $originalDate, JournalSourceType::Purchase, $purchaseId, "Edit of {$no}: {$why}", occurredAt: $now, actor: $actor);
-            }
-            self::postCostingResidual($residual, $originalDate, $no, $purchaseId, "Stock costing difference on editing {$no}", $now, $actor, JournalSourceType::Purchase, $isDemo);
-            // The old lines, taxes and payments live on, whole, in the audit row below.
-            $replaced = AuditService::rowsBeingReplaced('purchase_id', $purchaseId, 'purchase_items', 'purchase_taxes', 'purchase_payments');
-            DB::table('purchase_items')->where('purchase_id', $purchaseId)->delete();
-            DB::table('purchase_taxes')->where('purchase_id', $purchaseId)->delete();
-            DB::table('purchase_payments')->where('purchase_id', $purchaseId)->delete();
+            $allowNegative = (bool) DB::table('business_settings')->where('id', 1)->value('allow_negative_stock');
+            $residual = DocumentEdit::takeBack('PURCHASE', $purchaseId, $no, $originalDate, $takeBack, $allowNegative, $isDemo, $now, $actor);
+            $replaced = DocumentEdit::reverseAndClear(JournalSourceType::Purchase, $original->journal_entry_id === null ? null : (int) $original->journal_entry_id, $originalDate, $purchaseId, $no, $why, $residual, $isDemo, 'purchase_id', ['purchase_items', 'purchase_taxes', 'purchase_payments'], $now, $actor);
 
             // 2. The delivery as it should have been.
             $priced = self::priceLines($input);
@@ -489,13 +445,7 @@ final class PurchaseService
                 'edited_at' => $at,
                 'updated_at' => $at,
             ]);
-            AuditService::write(AuditAction::Update, 'purchase', "Edited {$no}: {$why}", $purchaseId, $actor, [
-                'edit' => true,
-                'reason' => $why,
-                'before' => $before,
-                'after' => self::snapshot($purchaseId),
-                'replaced' => $replaced,
-            ], $now);
+            DocumentEdit::record('purchase', $purchaseId, $no, $why, $before, self::snapshot($purchaseId), $replaced, $actor, $now);
 
             return [
                 'purchaseId' => $purchaseId,

@@ -8,7 +8,6 @@ use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
-use App\Domain\Accounting\PeriodLock;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -293,10 +292,7 @@ final class StockAdjustmentService
             throw new ValidationError('Add at least one stock item to the adjustment.');
         }
         $reason = $input['reason'] instanceof AdjustmentReason ? $input['reason'] : (AdjustmentReason::tryFrom((string) $input['reason']) ?? throw new ValidationError('Choose a reason for the adjustment.'));
-        $why = JsCompat::trim($why);
-        if (mb_strlen($why) < 3) {
-            throw new ValidationError('Say why this adjustment is being edited.');
-        }
+        $why = DocumentEdit::reason($why, 'adjustment');
         $now ??= Clock::now();
 
         return Tx::run(function () use ($adjustmentId, $input, $reason, $why, $actor, $now): array {
@@ -317,75 +313,29 @@ final class StockAdjustmentService
             if (self::isUnitChange($adjustmentId)) {
                 throw new ConflictError("{$original->adjustment_no} moved stock to a new stock item for a unit change, so it cannot be edited. Correct the new stock item with a stock adjustment instead.");
             }
-            // As editPurchase: stock it brought in that has gone out since was costed with it, so taking it
-            // back at that value would leave those sales' cost wrong. Stock it took out goes back safely.
-            $inProducts = $oldItems->where('direction', 'IN')->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
-            if ($inProducts !== []) {
-                $firstIn = DB::table('stock_ledger')->where('stock_ledger.source_type', 'STOCK_ADJUSTMENT')->where('stock_ledger.source_id', $adjustmentId)
-                    ->where('stock_ledger.id', '>', InventoryService::lastEditMark('STOCK_ADJUSTMENT', $adjustmentId))->whereIn('stock_ledger.product_id', $inProducts)
-                    ->where('stock_ledger.qty_in_milli', '>', 0)->min('stock_ledger.id');
-                $since = $firstIn === null ? null : DB::table('stock_ledger')->whereIn('stock_ledger.product_id', $inProducts)->where('stock_ledger.id', '>', $firstIn)
-                    ->where('stock_ledger.qty_out_milli', '>', 0)
-                    ->whereNot(fn ($q) => $q->where('stock_ledger.source_type', 'STOCK_ADJUSTMENT')->where('stock_ledger.source_id', $adjustmentId))
-                    ->orderBy('stock_ledger.id')->value('stock_ledger.source_ref');
-                if ($since !== null) {
-                    throw new ConflictError("Stock {$original->adjustment_no} brought in has gone out since (first on {$since}), so it cannot be edited: what that stock cost has already been used. Record another stock adjustment for the difference instead.");
-                }
-            }
-            // Both days must be open: the old lines come out on theirs, the new go in on theirs.
-            $lockedBefore = JournalService::readLockDate();
-            PeriodLock::assertOpen((string) $original->business_date, $lockedBefore);
-            PeriodLock::assertOpen($input['businessDate'], $lockedBefore);
+            // Stock it took out goes back safely; stock it brought in must still be on the shelf.
+            DocumentEdit::assertNothingWentOutSince(
+                'STOCK_ADJUSTMENT',
+                $adjustmentId,
+                $oldItems->where('direction', 'IN')->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values()->all(),
+                fn (string $since): string => "Stock {$original->adjustment_no} brought in has gone out since (first on {$since}), so it cannot be edited: what that stock cost has already been used. Record another stock adjustment for the difference instead.",
+            );
+            DocumentEdit::assertDaysOpen((string) $original->business_date, $input['businessDate']);
 
             $before = self::snapshot($adjustmentId);
             $at = Clock::stamp($now);
             $originalDate = (string) $original->business_date;
             $isDemo = (bool) $original->is_demo;
-            $allowNegative = self::allowNegativeStock();
-            $residual = 0;
 
-            // 1. Take the old lines back out, at their original value, on their own day, through the batches they moved.
-            $movedVia = [];
-            foreach ($oldItems as $item) {
-                $movedVia[(int) $item->product_id] ??= InventoryService::readBatchSplits('STOCK_ADJUSTMENT', $adjustmentId, (int) $item->product_id);
-            }
-            foreach ($oldItems as $item) {
-                $opposite = $item->direction === 'IN' ? 'OUT' : 'IN';
-                $batches = array_shift($movedVia[(int) $item->product_id]);
-                $moved = InventoryService::recordStockMovement([
-                    'productId' => (int) $item->product_id,
-                    'direction' => $opposite,
-                    'qty' => (int) $item->qty_milli,
-                    'totalCost' => (int) $item->total_cost_minor,
-                    'movementType' => $opposite === 'IN' ? MovementType::AdjustmentIn : MovementType::AdjustmentOut,
-                    'sourceType' => 'STOCK_ADJUSTMENT_VOID',
-                    'sourceId' => $adjustmentId,
-                    'sourceRef' => $original->adjustment_no,
-                    'businessDate' => $originalDate,
-                    'occurredAt' => $now,
-                    'userId' => $actor->id,
-                    'note' => "Edit of {$original->adjustment_no}",
-                    'allowNegative' => $allowNegative,
-                    'isDemo' => $isDemo,
-                    ...($batches === null || $batches === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $batches]]),
-                ]);
-                $residual = Money::add($residual, $moved['residual']);
-            }
-            if ($original->journal_entry_id !== null) {
-                JournalService::reverse(
-                    (int) $original->journal_entry_id,
-                    $originalDate,
-                    JournalSourceType::StockAdjustment,
-                    $adjustmentId,
-                    "Edit of {$original->adjustment_no}: {$why}",
-                    occurredAt: $now,
-                    actor: $actor,
-                );
-            }
-            PurchaseService::postCostingResidual($residual, $originalDate, $original->adjustment_no, $adjustmentId, "Stock costing difference on editing {$original->adjustment_no}", $now, $actor, JournalSourceType::StockAdjustment, $isDemo);
-            // The old lines live on, whole, in the audit row below; the document now lists the new ones.
-            $replaced = AuditService::rowsBeingReplaced('adjustment_id', $adjustmentId, 'stock_adjustment_items');
-            DB::table('stock_adjustment_items')->where('adjustment_id', $adjustmentId)->delete();
+            // 1. The old lines back out, each the opposite way, at its original value.
+            $residual = DocumentEdit::takeBack('STOCK_ADJUSTMENT', $adjustmentId, $original->adjustment_no, $originalDate, $oldItems->map(fn (object $item): array => [
+                'productId' => (int) $item->product_id,
+                'direction' => $item->direction === 'IN' ? 'OUT' : 'IN',
+                'qty' => (int) $item->qty_milli,
+                'totalCost' => (int) $item->total_cost_minor,
+                'movementType' => $item->direction === 'IN' ? MovementType::AdjustmentOut : MovementType::AdjustmentIn,
+            ])->all(), self::allowNegativeStock(), $isDemo, $now, $actor);
+            $replaced = DocumentEdit::reverseAndClear(JournalSourceType::StockAdjustment, $original->journal_entry_id === null ? null : (int) $original->journal_entry_id, $originalDate, $adjustmentId, $original->adjustment_no, $why, $residual, $isDemo, 'adjustment_id', ['stock_adjustment_items'], $now, $actor);
 
             // 2. Post the lines as they should have been.
             $posted = self::postLines($adjustmentId, $original->adjustment_no, $input, $reason, $now, $actor, $isDemo);
@@ -397,13 +347,7 @@ final class StockAdjustmentService
                 'edited_at' => $at,
                 'updated_at' => $at,
             ]);
-            AuditService::write(AuditAction::Update, 'stock_adjustment', "Edited {$original->adjustment_no}: {$why}", $adjustmentId, $actor, [
-                'edit' => true,
-                'reason' => $why,
-                'before' => $before,
-                'after' => self::snapshot($adjustmentId),
-                'replaced' => $replaced,
-            ], $now);
+            DocumentEdit::record('stock_adjustment', $adjustmentId, $original->adjustment_no, $why, $before, self::snapshot($adjustmentId), $replaced, $actor, $now);
 
             return ['adjustmentId' => $adjustmentId, 'adjustmentNo' => $original->adjustment_no, 'journalEntryId' => $posted['entryId'] ?? 0, 'totalInValue' => $posted['totalIn'], 'totalOutValue' => $posted['totalOut']];
         });

@@ -38,6 +38,7 @@ param(
     [string]$MysqlDir = "C:\laragon\bin\mysql\mysql-8.4.0-winx64",
     [string]$ApacheDir = "C:\laragon\bin\apache\httpd-2.4.62-240904-win64-VS17",
     [string]$DataDir = "C:\NunaBooks\mysql-data",
+    [string]$DeployKeyDir = "C:\NunaBooks\update-key",
     [string]$Database = "nunabooks",
     [string]$HostName = "nunabooks.local",
     [int]$Port = 80,
@@ -344,6 +345,78 @@ $backupDir = [regex]::Match((Get-Content $envFile -Raw), "(?m)^NUNA_BACKUP_DIR=(
 if ($backupDir) {
     if (Test-Path $backupDir) { Lock-Folder $backupDir }
     else { Write-Warning "The backup folder $backupDir is not there (drive unplugged?), so its rights were not restricted. Run this again once it is." }
+}
+
+# --- 6b. Updates from a private GitHub repository: a read-only deploy key --------------
+# "Update now" and the Health page's update check run git as SYSTEM, which has no GitHub sign-in.
+# A deploy key reads this one repository and nothing else. core.sshCommand in the app's own
+# .git/config points git at it, so update.ps1 and UpdateService use it with no change of their own.
+# Windows' OpenSSH, not Git's: it accepts a key only Administrators and SYSTEM can read, and
+# refuses one owned by another user, so the key is owned by Administrators. GitHub's host keys
+# are pinned (from https://api.github.com/meta): a first connection is never trusted blindly.
+$git = (Get-Command git -ErrorAction SilentlyContinue).Source
+$env:GIT_TERMINAL_PROMPT = "0"
+function Invoke-Git([string[]]$Arguments) {
+    $ErrorActionPreference = "Continue"
+    $out = & $git -c "safe.directory=$($AppDir -replace '\\', '/')" -C $AppDir @Arguments 2>&1 | ForEach-Object { "$_" }
+    return [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Output = ($out -join "`n").Trim() }
+}
+$origin = if ($git) { (Invoke-Git @("remote", "get-url", "origin")).Output } else { "" }
+$ssh = "$env:SystemRoot\System32\OpenSSH\ssh.exe"
+$sshKeygen = "$env:SystemRoot\System32\OpenSSH\ssh-keygen.exe"
+if ($origin -notmatch '^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)([^/]+)/([^/]+?)(?:\.git)?/?$') {
+    Write-Host "==> Updates: origin is not a GitHub repository ($origin), so no update key was set up"
+}
+elseif (-not ((Test-Path $ssh) -and (Test-Path $sshKeygen))) {
+    Write-Warning "Windows' OpenSSH Client is missing, so Update now cannot download from GitHub. Add it in Settings > System > Optional features > OpenSSH Client, then run this again."
+}
+else {
+    $repo = "$($Matches[1])/$($Matches[2])"
+    # core.sshCommand is set with no quotes in it: PowerShell 5.1 mangles a double quote inside an
+    # argument to git, and 7 escapes it differently, so no quoting works in both. Hence no spaces.
+    if ("$DeployKeyDir$env:SystemRoot" -match '\s') { throw "-DeployKeyDir must have no spaces in its path ($DeployKeyDir)." }
+    $key = Join-Path $DeployKeyDir "id_ed25519"
+    $knownHosts = Join-Path $DeployKeyDir "known_hosts"
+    New-Item -ItemType Directory -Force $DeployKeyDir | Out-Null
+    if (-not (Test-Path $key)) {
+        # One argument string, so the empty passphrase reaches ssh-keygen under PowerShell 5.1 and 7 alike.
+        $made = Start-Process -FilePath $sshKeygen -ArgumentList "-q -t ed25519 -N `"`" -C nunabooks-update@$env:COMPUTERNAME -f `"$key`"" -Wait -NoNewWindow -PassThru
+        if ($made.ExitCode -ne 0) { throw "Creating the update key failed (exit code $($made.ExitCode))." }
+    }
+    [IO.File]::WriteAllLines($knownHosts, @(
+        "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+        "github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
+    ))
+    Lock-Folder $DeployKeyDir
+    Invoke-Checked "Making Administrators the owner of the update key" "icacls.exe" @($key, "/setowner", "*S-1-5-32-544", "/Q")
+
+    $slash = { param($p) $p -replace '\\', '/' }
+    $sshCommand = "$(& $slash $ssh) -i $(& $slash $key) -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$(& $slash $knownHosts)"
+    foreach ($setting in @(@("remote", "set-url", "origin", "git@github.com:$repo.git"), @("config", "core.sshCommand", $sshCommand))) {
+        $done = Invoke-Git $setting
+        if (-not $done.Ok) { throw "git $($setting -join ' ') failed: $($done.Output)" }
+    }
+
+    $keyNote = Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "NunaBooks update key.txt"
+    $check = Invoke-Git @("ls-remote", "--heads", "origin")
+    if ($check.Ok) {
+        Write-Host "==> Updates: this PC can download new versions from GitHub ($repo)"
+        Remove-Item $keyNote -ErrorAction SilentlyContinue
+    }
+    else {
+        $public = (Get-Content "$key.pub" -Raw).Trim()
+        # The public half is not a secret; a copy on the desktop is easy to email to whoever adds it.
+        [IO.File]::WriteAllLines($keyNote, @($public))
+        Write-Host ""
+        Write-Host "  Update now cannot download yet: GitHub does not know this PC's update key."
+        Write-Host "  Add it ONCE at https://github.com/$repo/settings/keys > Add deploy key,"
+        Write-Host "  title: shop PC, key: the line below (also in 'NunaBooks update key.txt' on the desktop)."
+        Write-Host "  Leave 'Allow write access' UNTICKED. Then run this installer again to check."
+        Write-Host ""
+        Write-Host "      $public"
+        Write-Host ""
+        Write-Warning "GitHub said: $($check.Output)"
+    }
 }
 
 [IO.File]::WriteAllText((Join-Path $AppDir "storage\app\install.json"), (@{

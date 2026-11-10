@@ -94,6 +94,33 @@ it('install.ps1 skips the backup before migrating only on a positive no-owner an
         ->and($script)->not->toContain('migrate:status');
 });
 
+it('install.ps1 gives SYSTEM a read-only deploy key that Windows OpenSSH accepts and update.ps1 picks up', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $section = (string) strstr($script, '# --- 6b.');
+    $command = (string) strstr((string) strstr($section, '$sshCommand = '), "\n", true);
+    $update = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/update.ps1');
+
+    expect($section)->not->toBe('')
+        // After Lock-Folder exists, and the key folder is locked and owned by Administrators:
+        // Windows' OpenSSH refuses a key another user owns, which SYSTEM would see.
+        ->and(strpos($script, '# --- 6b.'))->toBeGreaterThan(strpos($script, 'function Lock-Folder'))
+        ->and($section)->toContain('Lock-Folder $DeployKeyDir')
+        ->and($section)->toContain('"/setowner", "*S-1-5-32-544"')
+        ->and($section)->toContain('\System32\OpenSSH\ssh.exe')
+        // GitHub's host key pinned, never trusted on first use, and never a password prompt.
+        ->and($section)->toContain('github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl')
+        ->and($command)->toContain('StrictHostKeyChecking=yes')
+        ->and($command)->toContain('BatchMode=yes')
+        ->and($command)->toContain('IdentitiesOnly=yes')
+        // PowerShell 5.1 mangles a double quote inside a native argument, so the command has none.
+        ->and(substr_count($command, '`"'))->toBe(0)
+        ->and($section)->toContain('"config", "core.sshCommand", $sshCommand')
+        ->and($section)->toContain('"ls-remote", "--heads", "origin"')
+        // update.ps1 reads core.sshCommand from .git/config, once safe.directory lets git trust the folder.
+        ->and($update)->toContain('$env:GIT_CONFIG_KEY_0 = "safe.directory"')
+        ->and($update)->toContain('"pull", "--ff-only"');
+});
+
 it('install.ps1 sets each MySQL user password even when the user already exists, and never writes root\'s', function () {
     $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
 

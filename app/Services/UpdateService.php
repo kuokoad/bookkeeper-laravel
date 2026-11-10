@@ -70,7 +70,7 @@ final class UpdateService
         try {
             self::git($cwd, ['fetch', '--quiet'], 60);
         } catch (Throwable) {
-            return ['ok' => false, 'reason' => 'Could not reach the update server. Check this computer is online. If the repository is private, set up a deploy key on this computer once: the app cannot sign in to GitHub itself.'];
+            return ['ok' => false, 'reason' => 'Could not reach the update server. Check this computer is online. If it is, run scripts\\install.ps1 again on this computer as Administrator: it checks the update key and shows the line to add on GitHub if it is missing.'];
         }
 
         $log = self::git($cwd, ['log', '--format=%h%x09%s', "HEAD..{$upstream}"]);

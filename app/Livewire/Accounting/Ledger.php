@@ -6,6 +6,7 @@ namespace App\Livewire\Accounting;
 
 use App\Domain\Errors\NotFoundError;
 use App\Services\Reporting\LedgerService;
+use App\Support\Filters\Filters;
 use App\Support\Filters\ListFilters;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -34,9 +35,15 @@ final class Ledger extends Component
     {
         $list = ListFilters::parseLedgerFilters($this->params);
         try {
-            $ledger = LedgerService::getGeneralLedger($this->accountId, $list['filters']);
+            $ledger = LedgerService::getGeneralLedger($this->accountId, [...$list['filters'], 'limit' => $list['pageSize'], 'offset' => ($list['page'] - 1) * $list['pageSize']]);
         } catch (NotFoundError) {
             abort(404);
+        }
+        // Past the last page: show the last page, which the totals above it already describe.
+        $page = Filters::clampPage($list['page'], $ledger['total'], $list['pageSize']);
+        if ($page !== $list['page']) {
+            $list['page'] = $page;
+            $ledger = LedgerService::getGeneralLedger($this->accountId, [...$list['filters'], 'limit' => $list['pageSize'], 'offset' => ($page - 1) * $list['pageSize']]);
         }
 
         return view('livewire.accounting.ledger', [

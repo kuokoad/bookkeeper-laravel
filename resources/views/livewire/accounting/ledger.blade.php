@@ -31,7 +31,7 @@
                 <x-th numeric>Credit</x-th>
                 <x-th numeric>Balance</x-th>
             </x-slot:head>
-            @if ($from)
+            @if ($from && $list['page'] === 1)
                 <tr class="border-b border-line bg-surface-sunken">
                     <x-td><span class="text-content-muted">@date($from)</span></x-td>
                     <x-td /><x-td />
@@ -59,6 +59,7 @@
                 <x-td numeric>{{ \App\View\Format::money($closingBalance, bare: true) }}</x-td>
             </tr>
         </x-table>
+        <x-pagination :list="$list" :total="$total" noun="line" />
     @endif
 
     <p class="mt-4 text-xs text-content-subtle">The running balance is shown the way this kind of account reads — for cash and stock a debit increases it; for what you owe and what you earn a credit does. Click any entry to see the full double entry behind it.</p>

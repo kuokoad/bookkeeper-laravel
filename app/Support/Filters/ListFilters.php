@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  */
 final class ListFilters
 {
+    public const LEDGER_PAGE_SIZE = 100;
+
     private static function one(array $params, string $key): ?string
     {
         $value = $params[$key] ?? null;
@@ -407,7 +409,7 @@ final class ListFilters
      * to. With no valid `to` the ledger runs to today, which `toShown` says
      * (never the junk typed), and the query ends there too.
      *
-     * @return array{filters: array{from: string, to: string}, from: string, to: ?string, toShown: string, carried: array<string, string>}
+     * @return array{filters: array{from: string, to: string}, from: string, to: ?string, toShown: string, page: int, pageSize: int, carried: array<string, string>}
      */
     public static function parseLedgerFilters(array $params, ?string $today = null): array
     {
@@ -420,10 +422,13 @@ final class ListFilters
             $toShown = $from;
         }
         $to = $rawTo === null ? null : $toShown;
+        // A year of the cash account is tens of thousands of lines: one page of them at a time.
+        $paged = Filters::parsePage(self::one($params, 'page'), self::LEDGER_PAGE_SIZE);
 
         return [
             // The query ends where the To box says: a future-dated payment is not in today's balance.
             'filters' => ['from' => $from, 'to' => $toShown], 'from' => $from, 'to' => $to, 'toShown' => $toShown,
+            'page' => $paged['page'], 'pageSize' => $paged['pageSize'],
             'carried' => array_filter(['from' => $rawFrom === null ? null : $from, 'to' => $to]),
         ];
     }

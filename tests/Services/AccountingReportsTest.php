@@ -174,6 +174,21 @@ describe('general ledger', function () {
             ->and($august['closingBalance'])->toBe(100_000);
     });
 
+    it('pages the lines without losing the running balance or the period totals', function () {
+        $categoryId = Shop::expenseCategory('Rent');
+        ($this->expense)('2026-07-01', 'Rent', 50_000, 'July rent');
+        foreach ([1_000, 2_000, 3_000, 4_000] as $i => $amount) {
+            ($this->expense)('2026-08-0'.($i + 1), 'Rent', $amount, "Repair {$i}");
+        }
+
+        $all = LedgerService::getGeneralLedger($categoryId, ['from' => '2026-08-01']);
+        $page2 = LedgerService::getGeneralLedger($categoryId, ['from' => '2026-08-01', 'limit' => 2, 'offset' => 2]);
+        // Page 2 picks up at 50,000 + 1,000 + 2,000, exactly where page 1 ended.
+        expect(array_column($page2['lines'], 'runningBalance'))->toBe([56_000, 60_000])
+            ->and($page2['lines'])->toBe(array_slice($all['lines'], 2, 2))
+            ->and([$page2['total'], $page2['totalDebit'], $page2['closingBalance']])->toBe([4, 10_000, 60_000]);
+    });
+
     it('reads a credit-normal account the right way round', function () {
         $supplierId = Shop::supplier($this->actor, 'Depot');
         $id = Shop::product($this->actor, 'Milo', 500, 800);

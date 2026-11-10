@@ -160,6 +160,14 @@ it('ends the ledger at the To date it shows, leaving out entries dated later', f
         ->assertSeeHtml('value="'.$this->today.'"')->assertDontSee('Rent next week')->assertViewHas('closingBalance', -2_500);
 });
 
+it('shows a ledger page past the end as the last page, with no opening row after page 1', function () {
+    Shop::expense($this->actor, $this->today, Shop::expenseCategory('Transport'), 2_500, 'Taxi');
+
+    $cash = (int) DB::table('payment_accounts')->where('id', Shop::paymentAccount('CASH'))->value('gl_account_id');
+    accountingAs($this->ownerId, Ledger::class, ['page' => '9'], ['id' => (string) $cash])
+        ->assertSee('-25.00')->assertSee('Showing 1–1 of 1 line')->assertViewHas('list', fn (array $list): bool => $list['page'] === 1);
+});
+
 it('narrows who owes you without breaking the ledger check', function () {
     $product = Shop::product($this->actor, 'Cement', 500, 1_000);
     Shop::openingStock($this->actor, $product, 10_000, 5_000, $this->today);

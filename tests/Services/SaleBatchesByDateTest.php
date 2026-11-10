@@ -77,6 +77,19 @@ describe('a sale dated before a delivery', function () {
     });
 });
 
+describe('editing a backdated sale', function () {
+    it('takes the extra stock from what was there that day, not the later delivery', function () {
+        $sale = ($this->sellOn)('2026-08-10', 3);
+        SaleService::editSale($sale['saleId'], [
+            'businessDate' => '2026-08-10',
+            'items' => [['productId' => $this->milk, 'qty' => 4_000]],
+            'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 2_000]],
+        ], 'Sold four, not three', $this->actor);
+
+        expect(($this->leftByArrival)())->toBe(['2026-08-01' => 1, '2026-08-20' => 10]);
+    });
+});
+
 describe('a sale dated today', function () {
     it('still reaches for the stock that expires first', function () {
         ($this->sellOn)('2026-08-25', 3, false);

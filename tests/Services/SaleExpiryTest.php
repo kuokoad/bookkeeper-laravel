@@ -152,6 +152,25 @@ describe('when somebody senior says yes', function () {
             ->and($metadata['reason'])->toBe('Customer was told and still wanted it');
     });
 
+    it('records it again when the owner edits a sale that sold from an expired crate', function () {
+        $milk = ($this->make)();
+        ($this->deliver)($milk, 20, EXPIRY_GONE);
+        ($this->deliver)($milk, 3, EXPIRY_SOON);
+        $sale = ($this->sell)($milk, 5, true);
+
+        SaleService::editSale($sale['saleId'], [
+            'businessDate' => EXPIRY_TODAY,
+            'items' => [['productId' => $milk, 'qty' => 5_000]],
+            'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 2_500]],
+            'note' => 'Customer took the old tins',
+        ], 'Add the note', $this->actor, Clock::fromStamp(EXPIRY_TODAY.' 12:00:00'));
+
+        $rows = ($this->overrides)();
+        expect($rows)->toHaveCount(2)
+            ->and($rows->pluck('entity_id')->unique()->all())->toBe([(string) $sale['saleId']]);
+        ($this->expectHealthy)('edited expired sale');
+    });
+
     it('leaves no override row behind on an ordinary sale', function () {
         $milk = ($this->make)();
         ($this->deliver)($milk, 20, EXPIRY_GONE);

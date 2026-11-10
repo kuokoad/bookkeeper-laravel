@@ -151,7 +151,11 @@ final class LedgerService
 
     /**
      * Every movement on one account, with an opening balance (everything
-     * before the period) and a running balance signed for its type.
+     * before the period) and a running balance signed for its type. With
+     * `limit` (and `offset`) only that page of lines comes back; the totals,
+     * the closing balance and `total` (the line count) are always the whole period's.
+     *
+     * @param  array{from?: string, to?: string, limit?: int, offset?: int}  $range
      */
     public static function getGeneralLedger(int $accountId, array $range = []): array
     {
@@ -168,41 +172,46 @@ final class LedgerService
             $openingBalance = Journal::signedBalance($type, (int) $before->d, (int) $before->c);
         }
 
-        $rows = DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
+        $period = fn () => DB::table('journal_lines')->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.entry_id')
             ->where('journal_lines.account_id', $accountId)
             ->when($from !== null, fn ($q) => $q->where('journal_entries.entry_date', '>=', $from))
-            ->when($to !== null, fn ($q) => $q->where('journal_entries.entry_date', '<=', $to))
-            ->orderBy('journal_entries.entry_date')->orderBy('journal_entries.id')->orderBy('journal_lines.line_no')
-            ->get(['journal_entries.id as entry_id', 'journal_entries.entry_no', 'journal_entries.entry_date', 'journal_entries.source_type', 'journal_entries.source_id',
-                'journal_entries.memo', 'journal_lines.description', 'journal_lines.debit_minor', 'journal_lines.credit_minor']);
+            ->when($to !== null, fn ($q) => $q->where('journal_entries.entry_date', '<=', $to));
+        $totals = $period()->selectRaw('COUNT(*) AS cnt, COALESCE(SUM(journal_lines.debit_minor), 0) AS d, COALESCE(SUM(journal_lines.credit_minor), 0) AS c')->first();
 
-        $running = $openingBalance;
-        $lines = [];
-        foreach ($rows as $row) {
-            $debit = (int) $row->debit_minor;
-            $credit = (int) $row->credit_minor;
-            $running = Money::add($running, Journal::signedBalance($type, $debit, $credit));
-            $lines[] = [
-                'entryId' => (int) $row->entry_id,
-                'entryNo' => $row->entry_no,
-                'entryDate' => (string) $row->entry_date,
-                'sourceType' => $row->source_type,
-                'sourceId' => $row->source_id === null ? null : (int) $row->source_id,
-                'memo' => $row->memo,
-                'description' => $row->description,
-                'debit' => $debit,
-                'credit' => $credit,
-                'runningBalance' => $running,
-            ];
-        }
+        // Summed in SQL over the whole period, in display order, so page 3 starts where page 2 ended.
+        $movement = Journal::signedBalance($type, 1, 0) === 1
+            ? '`journal_lines`.`debit_minor` - `journal_lines`.`credit_minor`'
+            : '`journal_lines`.`credit_minor` - `journal_lines`.`debit_minor`';
+        $rows = $period()
+            ->select(['journal_entries.id as entry_id', 'journal_entries.entry_no', 'journal_entries.entry_date', 'journal_entries.source_type', 'journal_entries.source_id',
+                'journal_entries.memo', 'journal_lines.description', 'journal_lines.debit_minor', 'journal_lines.credit_minor'])
+            ->selectRaw("? + SUM({$movement}) OVER (ORDER BY `journal_entries`.`entry_date`, `journal_entries`.`id`, `journal_lines`.`line_no`
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance", [$openingBalance])
+            ->orderBy('journal_entries.entry_date')->orderBy('journal_entries.id')->orderBy('journal_lines.line_no')
+            ->when(isset($range['limit']), fn ($q) => $q->limit($range['limit'])->offset($range['offset'] ?? 0))
+            ->get();
+
+        $lines = $rows->map(fn (object $row): array => [
+            'entryId' => (int) $row->entry_id,
+            'entryNo' => $row->entry_no,
+            'entryDate' => (string) $row->entry_date,
+            'sourceType' => $row->source_type,
+            'sourceId' => $row->source_id === null ? null : (int) $row->source_id,
+            'memo' => $row->memo,
+            'description' => $row->description,
+            'debit' => (int) $row->debit_minor,
+            'credit' => (int) $row->credit_minor,
+            'runningBalance' => (int) $row->running_balance,
+        ])->all();
 
         return [
             'account' => $account,
             'openingBalance' => $openingBalance,
             'lines' => $lines,
-            'closingBalance' => $running,
-            'totalDebit' => Money::sum(array_column($lines, 'debit')),
-            'totalCredit' => Money::sum(array_column($lines, 'credit')),
+            'closingBalance' => Money::add($openingBalance, Journal::signedBalance($type, (int) $totals->d, (int) $totals->c)),
+            'totalDebit' => (int) $totals->d,
+            'totalCredit' => (int) $totals->c,
+            'total' => (int) $totals->cnt,
         ];
     }
 

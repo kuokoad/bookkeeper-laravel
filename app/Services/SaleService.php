@@ -210,22 +210,7 @@ final class SaleService
             $occurredAt,
         );
 
-        // Its own row, findable by action: who let expired stock go out, and which crate.
-        if ($expiredSold !== []) {
-            AuditService::write(
-                AuditAction::Create,
-                'expiry_override',
-                "{$receiptNo}: sold expired stock from ".implode(', ', $expiredSold),
-                $saleId,
-                $actor,
-                [
-                    'batchRefs' => $expiredSold,
-                    'businessDate' => $input['businessDate'],
-                    ...(isset($input['overrideReason']) ? ['reason' => $input['overrideReason']] : []),
-                ],
-                $occurredAt,
-            );
-        }
+        self::auditExpiredSold($saleId, $receiptNo, $expiredSold, $input, $actor, $occurredAt);
 
         return [
             'saleId' => $saleId,
@@ -326,6 +311,32 @@ final class SaleService
         }
 
         return $customerId;
+    }
+
+    /**
+     * Its own row, findable by action: who let expired stock go out, and which
+     * crate. A new sale and an edited one alike.
+     *
+     * @param  list<string>  $expiredSold
+     */
+    private static function auditExpiredSold(int $saleId, string $receiptNo, array $expiredSold, array $input, Actor $actor, Carbon $at): void
+    {
+        if ($expiredSold === []) {
+            return;
+        }
+        AuditService::write(
+            AuditAction::Create,
+            'expiry_override',
+            "{$receiptNo}: sold expired stock from ".implode(', ', $expiredSold),
+            $saleId,
+            $actor,
+            [
+                'batchRefs' => $expiredSold,
+                'businessDate' => $input['businessDate'],
+                ...(isset($input['overrideReason']) ? ['reason' => $input['overrideReason']] : []),
+            ],
+            $at,
+        );
     }
 
     /**
@@ -718,6 +729,11 @@ final class SaleService
         // The owner may price and discount, and sell the last of an expired crate, as on the till.
         $input = [...$input, 'allowPriceOverride' => true, 'allowExpiredStock' => true];
         unset($input['clientRef']);
+        // As on the till: a backdated sale takes only stock that had arrived by its own day, judged for expiry as of now.
+        $today = Clock::dateOf($now);
+        if (($input['businessDate'] ?? $today) !== $today) {
+            $input += ['expiryAsAt' => $today, 'arrivedBy' => $input['businessDate']];
+        }
 
         return Tx::run(function () use ($saleId, $input, $why, $actor, $now): array {
             // Lock order (Tx): every product either version touches, both customers, then the sale.
@@ -812,7 +828,7 @@ final class SaleService
             $customerId = self::checkCredit($input, $tender);
             $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
             // The goods already on it leave at what they cost on its own day, not today's average.
-            ['cogs' => $cogs, 'posted' => $posted, 'residual' => $emptied] = self::writeSaleBody($saleId, $no, $input, $resolved, $taxProfile, $totals, $tender, $settings, $tenderAccounts, $now, $actor, $isDemo, $keepCost);
+            ['cogs' => $cogs, 'posted' => $posted, 'residual' => $emptied, 'expiredSold' => $expiredSold] = self::writeSaleBody($saleId, $no, $input, $resolved, $taxProfile, $totals, $tender, $settings, $tenderAccounts, $now, $actor, $isDemo, $keepCost);
             PurchaseService::postCostingResidual($emptied, $input['businessDate'], $no, $saleId, "Stock costing difference on {$no}", $now, $actor, JournalSourceType::Sale, $isDemo);
 
             // An unpaid sale is an invoice: it keeps the number it has, or takes the next one.
@@ -840,6 +856,7 @@ final class SaleService
                 'before' => $before,
                 'after' => self::snapshot($saleId),
             ], $now);
+            self::auditExpiredSold($saleId, $no, $expiredSold, $input, $actor, $now);
 
             return [
                 'saleId' => $saleId,

@@ -6,6 +6,7 @@ namespace App\Services\Migration;
 
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Inventory\Costing;
+use App\Enums\AuditAction;
 use App\Services\Reporting\BalancesService;
 use App\Services\Reporting\FinancialService;
 use App\Services\Reporting\LedgerService;
@@ -74,6 +75,7 @@ final class Reconciler
     {
         $newTables = array_map(fn (object $r): string => $r->t, DB::select('SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'));
         $rows = 0;
+        $backups = 0;
 
         foreach (OldDatabase::tables($old) as $table) {
             if (! in_array($table, $newTables, true)) {
@@ -127,8 +129,15 @@ final class Reconciler
                 }
             }
             while ($newIterator->valid()) {
-                $this->differences[] = "{$table} {$key}=".((array) $newIterator->current())[$key].': here, but not in the old database';
+                $extra = (array) $newIterator->current();
                 $newIterator->next();
+                // A backup taken after the import (nuna:backup, the daily one) only adds this audit row; it changes no figure.
+                if ($table === 'audit_logs' && $extra['entity_type'] === 'backup' && $extra['action'] === AuditAction::Create->value) {
+                    $backups++;
+
+                    continue;
+                }
+                $this->differences[] = "{$table} {$key}={$extra[$key]}: here, but not in the old database";
             }
             if ($mismatches > 5) {
                 $this->differences[] = "{$table}: ".($mismatches - 5).' more difference(s) not listed';
@@ -137,6 +146,9 @@ final class Reconciler
 
         $this->checked['tables'] = count(OldDatabase::tables($old));
         $this->checked['rows, every column compared'] = $rows;
+        if ($backups > 0) {
+            $this->checked['backup audit rows added after the import, not compared'] = $backups;
+        }
     }
 
     private function normalise(mixed $value): ?string

@@ -104,6 +104,24 @@ it('reconcile catches a changed name, a moved timestamp and a missing row', func
         ->and($output)->toMatch('/quotation_items id=\d+ (line_no|quotation_id)|quotation_items id=1/');
 });
 
+it('reconcile ignores a backup taken after the import, but not any other new audit row', function () {
+    $copy = oldCopy();
+    expect(artisan('nuna:import-sqlite', $copy)->successful())->toBeTrue();
+    $audit = DB::connection('import')->table('audit_logs');
+    $audit->insert(['action' => 'CREATE', 'entity_type' => 'backup', 'summary' => 'Backup taken by hand (1 journal entries, verified)']);
+
+    $clean = artisan('nuna:reconcile', $copy);
+    expect($clean->successful())->toBeTrue($clean->output())
+        ->and($clean->output())->toContain('Checked 1 backup audit rows added after the import, not compared')
+        ->and($clean->output())->toContain('Zero differences.');
+
+    $id = $audit->insertGetId(['action' => 'VOID', 'entity_type' => 'sale', 'summary' => 'Sale voided']);
+    $dirty = artisan('nuna:reconcile', $copy);
+    expect($dirty->successful())->toBeFalse()
+        ->and($dirty->output())->toContain("audit_logs id={$id}: here, but not in the old database")
+        ->and($dirty->output())->toContain('1 difference(s)');
+});
+
 it('refuses a target that already holds data, writing nothing', function () {
     $copy = oldCopy();
     expect(artisan('nuna:import-sqlite', $copy)->successful())->toBeTrue();

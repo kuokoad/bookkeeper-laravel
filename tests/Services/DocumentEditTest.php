@@ -95,6 +95,27 @@ describe('editing a stock adjustment', function () {
             ->and(Shop::balance(ChartOfAccounts::INVENTORY_SHRINKAGE, ['from' => '2026-08-18', 'to' => '2026-08-18']))->toBe(2_000);
     });
 
+    it('refuses once stock it brought in has gone out since, but not stock it took out', function () {
+        // Opening stock 10 at GHS 5.00; 4 written off since, costed with it.
+        $opening = (int) DB::table('stock_adjustments')->orderBy('id')->value('id');
+        Shop::stockOut($this->actor, $this->product, 4_000, EDIT_DAY);
+        $reprice = fn (): array => StockAdjustmentService::editStockAdjustment(
+            $opening,
+            ['businessDate' => EDIT_DAY, 'reason' => AdjustmentReason::OpeningStock, 'items' => [['productId' => $this->product, 'direction' => 'IN', 'qty' => 10_000, 'totalCost' => 6_000]]],
+            'Cost was 6.00',
+            $this->actor,
+        );
+
+        expect($reprice)->toThrow(ConflictError::class, 'gone out since');
+        expect(CatalogService::getProduct($this->product)['stockValue'])->toBe(3_000);
+
+        // A later write-off still edits: its goods go back at what they left at.
+        $damage = ($this->damage)(2_000);
+        ($this->edit)($damage['adjustmentId'], 1_000);
+        expect(CatalogService::getProduct($this->product)['qtyOnHand'])->toBe(5_000);
+        Shop::assertBooksHealthy('after the refused edit and the allowed one');
+    });
+
     it('keeps what it said before, who changed it and why', function () {
         $damage = ($this->damage)(4_000);
         ($this->edit)($damage['adjustmentId'], 2_000, 'Only two tins were dented');
@@ -387,6 +408,22 @@ describe('editing a sale', function () {
         Shop::setSingleTax(1_500, inclusive: true);
         $note();
         expect((int) DB::table('sales')->where('id', $sale['saleId'])->value('total_minor'))->toBe(800);
+    });
+
+    it('keeps the replaced lines, taxes and payments whole in the audit row, cost and rate included', function () {
+        Shop::setSingleTax(1_500, inclusive: true);
+        $sale = ($this->sell)(3_000, ['tenders' => [['paymentAccountId' => $this->cash, 'amount' => 2_400, 'reference' => 'TILL-7']]]);
+        $old = DB::table('sale_items')->where('sale_id', $sale['saleId'])->first();
+        SaleService::editSale($sale['saleId'], ($this->saleInput)(2_000), 'Rang up 3, sold 2', $this->actor);
+
+        $replaced = json_decode((string) DB::table('audit_logs')->where('entity_type', 'sale')->where('action', 'UPDATE')->value('metadata'), true)['replaced'];
+        expect($replaced['sale_items'])->toHaveCount(1)
+            ->and($replaced['sale_items'][0]['qty_milli'])->toBe(3_000)
+            ->and($replaced['sale_items'][0]['total_cost_minor'])->toBe((int) $old->total_cost_minor)
+            ->and($replaced['sale_items'][0]['total_cost_minor'])->toBe(1_500)
+            ->and($replaced['sale_taxes'][0]['rate_bp'])->toBe(1_500)
+            ->and($replaced['sale_payments'][0]['reference'])->toBe('TILL-7')
+            ->and(DB::table('sale_items')->where('sale_id', $sale['saleId'])->value('qty_milli'))->toBe(2_000);
     });
 
     it('leaves stock, cash, revenue and cost as if the corrected sale had been rung up', function () {

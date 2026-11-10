@@ -91,6 +91,25 @@ final class AuditService
     }
 
     /**
+     * D34: every row an edit is about to replace, column for column (costs,
+     * tax rates, payment references, batches). The document's tables then hold
+     * only the current version, so the edit's audit row is where the history
+     * lives, and it must be whole, not just the summary editHistory shows.
+     *
+     * @return array<string, list<array<string, mixed>>> by table
+     */
+    public static function rowsBeingReplaced(string $foreignKey, int $documentId, string ...$tables): array
+    {
+        $rows = [];
+        foreach ($tables as $table) {
+            $rows[$table] = DB::table($table)->where("{$table}.{$foreignKey}", $documentId)->orderBy("{$table}.id")->get()
+                ->map(fn (object $row): array => (array) $row)->all();
+        }
+
+        return $rows;
+    }
+
+    /**
      * Every edit of one document, newest first: who, when, why, and what it
      * said before and after (D34).
      *

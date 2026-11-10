@@ -464,7 +464,8 @@ final class PurchaseService
                 JournalService::reverse((int) $original->journal_entry_id, $originalDate, JournalSourceType::Purchase, $purchaseId, "Edit of {$no}: {$why}", occurredAt: $now, actor: $actor);
             }
             self::postCostingResidual($residual, $originalDate, $no, $purchaseId, "Stock costing difference on editing {$no}", $now, $actor, JournalSourceType::Purchase, $isDemo);
-            // The old lines, taxes and payments live on in the audit row below.
+            // The old lines, taxes and payments live on, whole, in the audit row below.
+            $replaced = AuditService::rowsBeingReplaced('purchase_id', $purchaseId, 'purchase_items', 'purchase_taxes', 'purchase_payments');
             DB::table('purchase_items')->where('purchase_id', $purchaseId)->delete();
             DB::table('purchase_taxes')->where('purchase_id', $purchaseId)->delete();
             DB::table('purchase_payments')->where('purchase_id', $purchaseId)->delete();
@@ -493,6 +494,7 @@ final class PurchaseService
                 'reason' => $why,
                 'before' => $before,
                 'after' => self::snapshot($purchaseId),
+                'replaced' => $replaced,
             ], $now);
 
             return [

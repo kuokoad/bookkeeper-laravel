@@ -337,6 +337,21 @@ final class StockAdjustmentService
             if (self::isUnitChange($adjustmentId)) {
                 throw new ConflictError("{$original->adjustment_no} moved stock to a new stock item for a unit change, so it cannot be edited. Correct the new stock item with a stock adjustment instead.");
             }
+            // As editPurchase: stock it brought in that has gone out since was costed with it, so taking it
+            // back at that value would leave those sales' cost wrong. Stock it took out goes back safely.
+            $inProducts = $oldItems->where('direction', 'IN')->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+            if ($inProducts !== []) {
+                $firstIn = DB::table('stock_ledger')->where('stock_ledger.source_type', 'STOCK_ADJUSTMENT')->where('stock_ledger.source_id', $adjustmentId)
+                    ->where('stock_ledger.id', '>', InventoryService::lastEditMark('STOCK_ADJUSTMENT', $adjustmentId))->whereIn('stock_ledger.product_id', $inProducts)
+                    ->where('stock_ledger.qty_in_milli', '>', 0)->min('stock_ledger.id');
+                $since = $firstIn === null ? null : DB::table('stock_ledger')->whereIn('stock_ledger.product_id', $inProducts)->where('stock_ledger.id', '>', $firstIn)
+                    ->where('stock_ledger.qty_out_milli', '>', 0)
+                    ->whereNot(fn ($q) => $q->where('stock_ledger.source_type', 'STOCK_ADJUSTMENT')->where('stock_ledger.source_id', $adjustmentId))
+                    ->orderBy('stock_ledger.id')->value('stock_ledger.source_ref');
+                if ($since !== null) {
+                    throw new ConflictError("Stock {$original->adjustment_no} brought in has gone out since (first on {$since}), so it cannot be edited: what that stock cost has already been used. Record another stock adjustment for the difference instead.");
+                }
+            }
             // Both days must be open: the old lines come out on theirs, the new go in on theirs.
             $lockedBefore = JournalService::readLockDate();
             PeriodLock::assertOpen((string) $original->business_date, $lockedBefore);
@@ -388,7 +403,8 @@ final class StockAdjustmentService
                 );
             }
             PurchaseService::postCostingResidual($residual, $originalDate, $original->adjustment_no, $adjustmentId, "Stock costing difference on editing {$original->adjustment_no}", $now, $actor, JournalSourceType::StockAdjustment, $isDemo);
-            // The old lines live on in the audit row below; the document now lists the new ones.
+            // The old lines live on, whole, in the audit row below; the document now lists the new ones.
+            $replaced = AuditService::rowsBeingReplaced('adjustment_id', $adjustmentId, 'stock_adjustment_items');
             DB::table('stock_adjustment_items')->where('adjustment_id', $adjustmentId)->delete();
 
             // 2. Post the lines as they should have been.
@@ -406,6 +422,7 @@ final class StockAdjustmentService
                 'reason' => $why,
                 'before' => $before,
                 'after' => self::snapshot($adjustmentId),
+                'replaced' => $replaced,
             ], $now);
 
             return ['adjustmentId' => $adjustmentId, 'adjustmentNo' => $original->adjustment_no, 'journalEntryId' => $posted['entryId'] ?? 0, 'totalInValue' => $posted['totalIn'], 'totalOutValue' => $posted['totalOut']];

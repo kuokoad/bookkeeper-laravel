@@ -818,7 +818,8 @@ final class SaleService
                 JournalService::reverse((int) $original->journal_entry_id, $originalDate, JournalSourceType::Sale, $saleId, "Edit of {$no}: {$why}", occurredAt: $now, actor: $actor);
             }
             PurchaseService::postCostingResidual($residual, $originalDate, $no, $saleId, "Stock costing difference on editing {$no}", $now, $actor, JournalSourceType::Sale, $isDemo);
-            // The old lines, taxes and tender live on in the audit row below.
+            // The old lines, taxes and tender live on, whole, in the audit row below.
+            $replaced = AuditService::rowsBeingReplaced('sale_id', $saleId, 'sale_items', 'sale_taxes', 'sale_payments');
             DB::table('sale_items')->where('sale_id', $saleId)->delete();
             DB::table('sale_taxes')->where('sale_id', $saleId)->delete();
             DB::table('sale_payments')->where('sale_id', $saleId)->delete();
@@ -855,6 +856,7 @@ final class SaleService
                 'reason' => $why,
                 'before' => $before,
                 'after' => self::snapshot($saleId),
+                'replaced' => $replaced,
             ], $now);
             self::auditExpiredSold($saleId, $no, $expiredSold, $input, $actor, $now);
 

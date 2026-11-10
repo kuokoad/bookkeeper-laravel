@@ -9,6 +9,7 @@ declare(strict_types=1);
 use App\Domain\Errors\ValidationError;
 use App\Enums\BusinessType;
 use App\Services\SettingsService;
+use App\Support\Clock;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
@@ -136,6 +137,25 @@ describe('the shop logo', function () {
     it('lives in the database, so a backup carries it', function () {
         SettingsService::setLogo($this->png, 'image/png', 1, 1, $this->actor);
         expect(DB::selectOne('SELECT logo_data FROM business_settings WHERE id = 1')->logo_data)->toBe($this->png);
+    });
+
+    it('leaves the logo bytes out of the settings every page reads, saying only whether there is one', function () {
+        expect(SettingsService::get()->has_logo)->toBe(0);
+        SettingsService::setLogo($this->png, 'image/png', 1, 1, $this->actor);
+        $settings = SettingsService::get();
+        expect(property_exists($settings, 'logo_data'))->toBeFalse()
+            ->and((bool) $settings->has_logo)->toBeTrue()
+            ->and($settings->business_name)->not->toBeNull();
+    });
+
+    it('still prints the logo on a receipt, and none without one', function () {
+        $product = Shop::product($this->actor, 'Milo 400g', 500, 800);
+        Shop::openingStock($this->actor, $product, 10_000, 5_000, Clock::today());
+        $sale = Shop::sell($this->actor, [[$product, 1_000]], [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 800]]);
+
+        signedIn($this->actor->id)->get("/sales/{$sale['saleId']}/receipt")->assertOk()->assertDontSee('src="/logo?v=', false);
+        SettingsService::setLogo($this->png, 'image/png', 1, 1, $this->actor);
+        signedIn($this->actor->id)->get("/sales/{$sale['saleId']}/receipt")->assertOk()->assertSee('src="/logo?v=', false);
     });
 
     it('reports no logo before one is set', function () {

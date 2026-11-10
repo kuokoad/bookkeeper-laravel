@@ -10,6 +10,7 @@ use App\Auth\RoleGuard;
 use App\Auth\Sessions;
 use App\Database\Tx;
 use App\Domain\Errors\ConflictError;
+use App\Domain\Errors\ForbiddenError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
 use App\Domain\JsCompat;
@@ -167,6 +168,8 @@ final class UserService
             if ($existing->role === UserRole::Owner->value) {
                 throw new ValidationError('An owner already has full access, so there is nothing to set here.');
             }
+            // Taking every right away switches someone off as surely as setUserActive does, so the same check.
+            self::assertMayTakeOver($existing, $actor, 'change what this person can do');
 
             $at = Clock::stamp($now);
             $before = Principal::permissionMap($id);
@@ -296,7 +299,11 @@ final class UserService
 
             return;
         }
-        RoleGuard::assertPermissionsGrantable($actor, Principal::permissionMap((int) $target->id));
+        try {
+            RoleGuard::assertPermissionsGrantable($actor, Principal::permissionMap((int) $target->id));
+        } catch (ForbiddenError) {
+            throw new ForbiddenError("only an owner can {$what}, because they hold rights you do not");
+        }
     }
 
     /** Every owner and the target, locked in id order; returns the target. */

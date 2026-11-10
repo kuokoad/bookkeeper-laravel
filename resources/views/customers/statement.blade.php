@@ -25,7 +25,7 @@
         <article class="rounded-xl border border-line bg-surface-raised p-6 text-sm">
             <header class="mb-6 flex items-start justify-between gap-4">
                 <div class="min-w-0">
-                    @if ($settings->logo_data !== null)
+                    @if ($settings->has_logo)
                         <img src="/logo?v={{ $settings->logo_updated_at ? strtotime((string) $settings->logo_updated_at) : 0 }}" alt="" class="mb-2 max-h-14 max-w-36 object-contain">
                     @endif
                     <h1 class="text-lg font-semibold text-content">{{ $settings->business_name ?? 'NunaBooks' }}</h1>

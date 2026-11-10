@@ -13,6 +13,7 @@ use App\Enums\Feature;
 use App\Enums\Look;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * The shop's settings: one row. A port of the old settings.service.ts.
@@ -26,9 +27,25 @@ final class SettingsService
 {
     public const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+    /**
+     * Every column but the logo itself, read once per process.
+     * shortcut: a process alive across a migration keeps the old list; update.ps1 stops Apache before migrating.
+     *
+     * @var list<string>|null
+     */
+    private static ?array $columns = null;
+
+    /**
+     * The settings row without the logo (up to 1 MB, and this is read several
+     * times a page): `has_logo` says whether there is one, logo() reads it.
+     */
     public static function get(): object
     {
-        $settings = DB::table('business_settings')->where('id', 1)->first();
+        self::$columns ??= array_values(array_diff(Schema::getColumnListing('business_settings'), ['logo_data']));
+        $settings = DB::table('business_settings')->where('id', 1)
+            ->select(array_map(fn (string $c): string => "business_settings.{$c}", self::$columns))
+            ->selectRaw('(`business_settings`.`logo_data` IS NOT NULL AND `business_settings`.`logo_mime` IS NOT NULL) AS has_logo')
+            ->first();
         if ($settings === null) {
             throw new NotFoundError('Business settings', 1);
         }
@@ -181,14 +198,16 @@ final class SettingsService
     /** @return array{hasLogo: bool, mime: ?string, width: ?int, height: ?int, bytes: int, updatedAt: ?string} */
     public static function logoSummary(): array
     {
-        $s = self::get();
+        $s = DB::table('business_settings')->where('id', 1)
+            ->selectRaw('logo_mime, logo_width, logo_height, logo_updated_at, logo_data IS NOT NULL AS has_data, COALESCE(LENGTH(logo_data), 0) AS bytes')
+            ->first() ?? throw new NotFoundError('Business settings', 1);
 
         return [
-            'hasLogo' => $s->logo_data !== null,
+            'hasLogo' => (bool) $s->has_data,
             'mime' => $s->logo_mime,
             'width' => $s->logo_width,
             'height' => $s->logo_height,
-            'bytes' => $s->logo_data === null ? 0 : strlen($s->logo_data),
+            'bytes' => (int) $s->bytes,
             'updatedAt' => $s->logo_updated_at,
         ];
     }
@@ -196,7 +215,8 @@ final class SettingsService
     /** @return array{data: string, mime: string, updatedAt: ?string}|null */
     public static function logo(): ?array
     {
-        $s = self::get();
+        $s = DB::table('business_settings')->where('id', 1)->first(['logo_data', 'logo_mime', 'logo_updated_at'])
+            ?? throw new NotFoundError('Business settings', 1);
         if ($s->logo_data === null || $s->logo_mime === null) {
             return null;
         }

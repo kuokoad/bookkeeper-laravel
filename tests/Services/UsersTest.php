@@ -51,6 +51,17 @@ function sessionCount(int $userId): int
 }
 
 describe('protecting the shop from locking itself out', function () {
+    it('refuses a supervisor stripping the rights of someone who holds more than they do', function () {
+        $supervisor = AuthService::createUser(['username' => 'yaw', 'displayName' => 'Yaw Boateng', 'password' => 'staff-password-2026', 'role' => UserRole::Staff, 'permissions' => ['users' => Permissions::FULL_ACCESS, 'sales' => Permissions::FULL_ACCESS]]);
+        $bookkeeper = AuthService::createUser(['username' => 'efua', 'displayName' => 'Efua Ansah', 'password' => 'staff-password-2026', 'role' => UserRole::Staff, 'permissions' => ['accounts' => Permissions::FULL_ACCESS]]);
+        $yaw = new Actor($supervisor, 'yaw');
+
+        expect(fn () => UserService::setUserPermissions($bookkeeper, [], $yaw))->toThrow('change what this person can do')
+            ->and(Principal::permissionMap($bookkeeper)['accounts']['canEdit'])->toBeTrue();
+        // Someone with no more than the supervisor holds is still theirs to manage.
+        UserService::setUserPermissions(makeStaff(), [], $yaw);
+    });
+
     it('refuses to switch off the only owner', function () {
         makeStaff();
         $someone = new Actor(makeStaff('esi'), 'esi');

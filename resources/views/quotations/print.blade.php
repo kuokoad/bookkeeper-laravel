@@ -16,7 +16,7 @@
         <article class="rounded-xl border border-line bg-surface-raised p-6 text-sm">
             <header class="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
                 <div class="min-w-0">
-                    @if ($settings->logo_data !== null)
+                    @if ($settings->has_logo)
                         <img src="/logo" alt="" class="mb-2 max-h-14 max-w-36 object-contain">
                     @endif
                     <p class="text-lg font-semibold text-content">{{ $settings->business_name ?? 'NunaBooks' }}</p>

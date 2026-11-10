@@ -24,7 +24,7 @@
 
         <article class="receipt-paper rounded-xl border border-line bg-surface-raised p-6 text-sm print:mx-0">
             <header class="mb-4 text-center">
-                @if ($settings->logo_data !== null)
+                @if ($settings->has_logo)
                     <img src="/logo?v={{ $settings->logo_updated_at ? strtotime((string) $settings->logo_updated_at) : 0 }}" alt="" class="mx-auto mb-2 max-h-16 max-w-40 object-contain">
                 @endif
                 <h1 class="text-lg font-semibold text-content">{{ $settings->business_name ?? 'NunaBooks' }}</h1>

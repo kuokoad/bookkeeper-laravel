@@ -115,7 +115,10 @@ Each "port X" task means: the Laravel test asserts the same shop-owner-visible f
 
 ## Phase 9: Proof and cut-over
 - [x] `nuna:reconcile` reports zero differences on a copy of the real shop data (Jocee Global backup 2026-11-09T14:57, 4,202 rows, 611 report figures, into `nunabooks_jocee`)
-- [x] Backup → restore into an empty DB → reports match (Jocee Global data: `nuna:backup` of `nunabooks_jocee`, `nuna:restore` into empty `nunabooks_jocee_restore`, `nuna:reconcile` zero differences on 4,202 rows and 611 report figures)
+- [x] Backup → restore into an empty DB → reports match (Jocee Global data: `nuna:backup` of `nunabooks_jocee`, `nuna:restore` into empty `nunabooks_jocee_restore`, `nuna:reconcile` zero differences on 4,202 rows and 611 report figures). `nunabooks_jocee_restore` was dropped 2026-11-10, after test use in the app (purchase #2 voided) had moved its figures
+- [x] `nuna:reconcile` skips the audit row a backup writes after the import (`CREATE` / `backup`) and counts it on its own line; any other row added after the import is still a difference (`cc3bbed`, `ImportTest`)
+- [x] The dev `.env` uses `nunabooks_jocee`, the untouched import: `nuna:reconcile` zero differences on 4,202 rows and 611 report figures (2026-11-10)
+- [x] Each `php artisan test` run makes and drops its own `nunabooks_test_<pid>` and sweeps those of runs that were killed, so two runs never clash; `DB_DATABASE=<name>` pins one (`493044e`, `tests/TestCase.php`). The old shared test and scratch databases were dropped; `nunabooks_demo` stays for the `design-review` and `practical-jones-9db069` worktrees
 - [x] Playwright CLI click-through of every module, screenshots in `screenshots/`, figures match the old app: done, 96 screenshots in `screenshots/final/`, every module passed, the figure checks agree with the old app
 - [x] README and ARCHITECTURE list every behaviour difference and why (README table; ARCHITECTURE §4.1 links it; open owner decisions in PLAN §10, D1 to D24)
 

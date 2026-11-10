@@ -39,21 +39,22 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * nunabooks_test_<pid>: two runs on one MySQL server (two agents, a run in
+     * nunabooks_test_run_<pid>: two runs on one MySQL server (two agents, a run in
      * a terminal) never migrate, seed or truncate each other's tables. Dropped
      * when this run ends; what a killed run left behind goes on the next run.
-     * Child processes (artisan in a test) inherit the name.
+     * Child processes (artisan in a test) inherit the name. Only *_run_<pid> is
+     * ever swept, so a database pinned with DB_DATABASE is never dropped.
      *
      * @param  array<string, mixed>  $config
      */
     private static function ownDatabase(array $config): string
     {
-        $name = 'nunabooks_test_'.getmypid();
+        $name = 'nunabooks_test_run_'.getmypid();
         $connect = fn (): PDO => new PDO("mysql:host={$config['host']};port={$config['port']}", $config['username'], $config['password']);
         $pdo = $connect();
 
-        foreach ($pdo->query("SHOW DATABASES LIKE 'nunabooks\\_test\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $database) {
-            if (preg_match('/^nunabooks_test_(\d+)$/', $database, $m) === 1 && (int) $m[1] !== getmypid() && ! processRunning((int) $m[1])) {
+        foreach ($pdo->query("SHOW DATABASES LIKE 'nunabooks\\_test\\_run\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $database) {
+            if (preg_match('/^nunabooks_test_run_(\d+)$/', $database, $m) === 1 && (int) $m[1] !== getmypid() && ! processRunning((int) $m[1])) {
                 $pdo->exec("DROP DATABASE IF EXISTS `{$database}`");
             }
         }

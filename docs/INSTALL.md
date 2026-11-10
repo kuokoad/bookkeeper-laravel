@@ -53,11 +53,19 @@ Laragon's Apache doesn't include this module, so you add it yourself.
 ## Step 4. Get the NunaBooks app onto the PC
 
 1. Click **Start**, type **PowerShell**, right-click **Windows PowerShell** and choose **Run as Administrator**. Click **Yes** when Windows asks.
-2. A blue or black window opens. Type the following and press **Enter**:
+2. A blue or black window opens. Type these three commands, pressing **Enter** after each one:
 
    ```powershell
-   git clone https://github.com/kuokoad/bookkeeper-laravel.git C:\NunaBooks\app
+   mkdir C:\NunaBooks
    ```
+   ```powershell
+   cd C:\NunaBooks
+   ```
+   ```powershell
+   git clone https://github.com/kuokoad/bookkeeper-laravel.git app
+   ```
+
+   If `mkdir` says the folder already exists, that's fine: carry on.
 
    The code is private, so a GitHub sign-in window opens the first time. Sign in with the GitHub account that has been given access to it, or ask whoever looks after the app to sign in for you.
 
@@ -71,21 +79,39 @@ Laragon's Apache doesn't include this module, so you add it yourself.
 
 ## Step 5. Run the installer
 
-In the **same** Administrator PowerShell window, type the command below **on one line**. Replace the three folder names in angle brackets with the ones you wrote down in step 1:
+In the **same** Administrator PowerShell window, type the commands below, pressing **Enter** after each one.
+
+First, allow this window to run the installer. This changes nothing else on the PC, and it ends when you close the window:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Firewall -PhpDir "C:\laragon\bin\php\<php folder>" -MysqlDir "C:\laragon\bin\mysql\<mysql folder>" -ApacheDir "C:\laragon\bin\apache\<httpd folder>"
+Set-ExecutionPolicy Bypass -Scope Process -Force
 ```
 
-For example:
+Next, tell it where the three Laragon folders are. Replace each name in angle brackets with the one you wrote down in step 1, and keep the quotation marks:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Firewall -PhpDir "C:\laragon\bin\php\php-8.4.19-nts-Win32-vs17-x64" -MysqlDir "C:\laragon\bin\mysql\mysql-8.4.0-winx64" -ApacheDir "C:\laragon\bin\apache\httpd-2.4.62-240904-win64-VS17"
+$p = "C:\laragon\bin\php\<php folder>"
+```
+```powershell
+$m = "C:\laragon\bin\mysql\<mysql folder>"
+```
+```powershell
+$a = "C:\laragon\bin\apache\<httpd folder>"
+```
+
+For example, `$p = "C:\laragon\bin\php\php-8.4.19-nts-Win32-vs17-x64"`.
+
+Then start the installer:
+
+```powershell
+.\scripts\install.ps1 -Firewall -PhpDir $p -MysqlDir $m -ApacheDir $a
 ```
 
 - **`-Firewall`** lets a second till on the shop's network open NunaBooks. If this PC will be the only one using it, leave `-Firewall` out.
 - The installer prints lines starting with `==>` as it works. It takes several minutes. **Don't close the window.**
 - Near the end it prints `Restricting ... to Administrators and SYSTEM` for the app, PHP, MySQL and Apache folders. That's expected: it stops a cashier's Windows account from changing NunaBooks' files. From then on, only an administrator account can open those folders.
+
+**Running step 5 again later** (this guide sometimes says to): open an Administrator PowerShell window (step 4, item 1), type `cd C:\NunaBooks\app`, then type every command in step 5 again. A new window has forgotten `$p`, `$m` and `$a`.
 
 ### Write down the MySQL password
 
@@ -125,7 +151,7 @@ Someone who manages the NunaBooks code on GitHub adds it **once**:
 
    (From a PC with the GitHub command line: `gh repo deploy-key add "NunaBooks update key.txt" --repo kuokoad/bookkeeper-laravel --title "shop PC"`.)
 
-Then run the step 5 command again. This time it should say `Updates: this PC can download new versions from GitHub`, and the desktop file is removed. Running it again changes nothing else.
+Then run step 5 again. This time it should say `Updates: this PC can download new versions from GitHub`, and the desktop file is removed. Running it again changes nothing else.
 
 ### The checklist
 
@@ -140,11 +166,19 @@ Above the last lines is a checklist from the health check (`nuna:preflight`). Tw
 
 ## Step 7. Take the first backup
 
-In the Administrator PowerShell window (still in `C:\NunaBooks\app`), type:
+In the Administrator PowerShell window (still in `C:\NunaBooks\app`), first tell it where PHP is, using the PHP folder name from step 1:
 
 ```powershell
-C:\laragon\bin\php\<php folder>\php.exe artisan nuna:backup
+$php = "C:\laragon\bin\php\<php folder>\php.exe"
 ```
+
+Then take the backup:
+
+```powershell
+& $php artisan nuna:backup
+```
+
+In a new PowerShell window, type `cd C:\NunaBooks\app` and the `$php` line again first. Steps 9 and "Restoring from a backup" need the same.
 
 It should finish by saying the backup was saved and checked.
 
@@ -166,13 +200,16 @@ Whoever looks after the app usually does this step, because the figures have to 
 
 1. **Close the old app completely.**
 2. Copy its database file, `bookkeeper.db`, from the old app's `data` folder to another folder, for example `C:\NunaBooks\old-copy\bookkeeper.db`. Always work from a copy, never the original.
-3. In the Administrator PowerShell window, type (one command at a time):
+3. In the Administrator PowerShell window, with `$php` set as in step 7, type (one command at a time):
 
    ```powershell
-   C:\laragon\bin\php\<php folder>\php.exe artisan nuna:import-sqlite C:\NunaBooks\old-copy\bookkeeper.db
+   cd C:\NunaBooks\app
    ```
    ```powershell
-   C:\laragon\bin\php\<php folder>\php.exe artisan nuna:reconcile
+   & $php artisan nuna:import-sqlite C:\NunaBooks\old-copy\bookkeeper.db
+   ```
+   ```powershell
+   & $php artisan nuna:reconcile
    ```
 
 4. The second command compares every figure with the old app. It must end with **zero differences**. If it doesn't, **don't start trading on NunaBooks**: keep using the old app and send the output to whoever looks after the app.
@@ -188,7 +225,7 @@ Whoever looks after the app usually does this step, because the figures have to 
 
 ## Restoring from a backup
 
-Restoring replaces **everything** in NunaBooks with the backup's contents, so only do it when you really need to (for example, a damaged PC). In an Administrator PowerShell window:
+Restoring replaces **everything** in NunaBooks with the backup's contents, so only do it when you really need to (for example, a damaged PC). In an Administrator PowerShell window, with `$php` set as in step 7:
 
 ```powershell
 cd C:\NunaBooks\app
@@ -197,7 +234,7 @@ cd C:\NunaBooks\app
 Stop-Service NunaBooksApache
 ```
 ```powershell
-C:\laragon\bin\php\<php folder>\php.exe artisan nuna:restore storage\backups\<backup file name> --force
+& $php artisan nuna:restore storage\backups\<file name> --force
 ```
 ```powershell
 Start-Service NunaBooksApache
@@ -212,11 +249,12 @@ Start-Service NunaBooksApache
 | `Open PowerShell with 'Run as Administrator'` | Close the window and open PowerShell again by right-clicking it and choosing **Run as Administrator** (step 4.1). |
 | `Not found: ...mod_fcgid.so` | Step 2 wasn't done, or the file went into the wrong folder. It must be in the `modules` folder of the same Apache folder you typed after `-ApacheDir`. |
 | `Not found: ...php.exe` (or `mysql`, `httpd`) | One of the folder names in step 5 is mistyped. Check it against File Explorer. |
-| `running scripts is disabled on this system` | You typed `.\scripts\install.ps1` by itself. Use the full command in step 5, which starts with `powershell -ExecutionPolicy Bypass`. |
+| `running scripts is disabled on this system` | The `Set-ExecutionPolicy` line at the start of step 5 was skipped, or typed in a different window. Type it in this window, then the installer line again. |
+| `Cannot bind argument to parameter 'Path' because it is an empty string` | This window doesn't know `$p`, `$m` and `$a` (it's a new window). Type those three lines from step 5 again, then the installer line. |
 | It asks for **MySQL root password** | MySQL was set up before. Type the root password you wrote down the first time. |
 | `Checking the Apache configuration failed` or Apache won't start | Another program is using port 80. Usually it's Laragon or Skype: close Laragon (right-click its tray icon → Exit) and run step 5 again. |
 | The shortcut opens a page that won't load | Wait a minute and try again. If it still won't load, restart the PC. Then run step 5 again: running it twice is safe and keeps your records. |
-| The Health page says it **could not reach the update server** | Check the PC is online. If it is, run the step 5 command again: it checks the update key and shows the line to add on GitHub if it's missing (see "If it shows an update key"). |
+| The Health page says it **could not reach the update server** | Check the PC is online. If it is, run step 5 again: it checks the update key and shows the line to add on GitHub if it's missing (see "If it shows an update key"). |
 | `-DeployKeyDir must have no spaces in its path` | You added `-DeployKeyDir` with a folder name containing a space. Leave it out (the default is fine), or choose a folder without spaces. |
 | Anything else | Don't delete any folders. Take a photo of the PowerShell window and send it to whoever looks after the app. |
 

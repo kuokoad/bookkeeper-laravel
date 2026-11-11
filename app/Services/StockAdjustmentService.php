@@ -337,8 +337,17 @@ final class StockAdjustmentService
             ])->all(), self::allowNegativeStock(), $isDemo, $now, $actor);
             $replaced = DocumentEdit::reverseAndClear(JournalSourceType::StockAdjustment, $original->journal_entry_id === null ? null : (int) $original->journal_entry_id, $originalDate, $adjustmentId, $original->adjustment_no, $why, $residual, $isDemo, 'adjustment_id', ['stock_adjustment_items'], $now, $actor);
 
-            // 2. Post the lines as they should have been.
-            $posted = self::postLines($adjustmentId, $original->adjustment_no, $input, $reason, $now, $actor, $isDemo);
+            // 2. Post the lines as they should have been. What the old lines took out leaves again at
+            // the cost it left at on the adjustment's own day, as an edited sale's goods do (D34).
+            $keepCost = [];
+            foreach ($oldItems->where('direction', 'OUT') as $item) {
+                $productId = (int) $item->product_id;
+                $keepCost[$productId] = [
+                    'qty' => Quantity::add($keepCost[$productId]['qty'] ?? 0, (int) $item->qty_milli),
+                    'cost' => Money::add($keepCost[$productId]['cost'] ?? 0, (int) $item->total_cost_minor),
+                ];
+            }
+            $posted = self::postLines($adjustmentId, $original->adjustment_no, $input, $reason, $now, $actor, $isDemo, $keepCost);
             DB::table('stock_adjustments')->where('id', $adjustmentId)->update([
                 'business_date' => $input['businessDate'],
                 'reason' => $reason->value,
@@ -395,7 +404,8 @@ final class StockAdjustmentService
      *
      * @return array{entryId: ?int, entryNo: ?string, totalIn: int, totalOut: int}
      */
-    private static function postLines(int $adjustmentId, string $adjustmentNo, array $input, AdjustmentReason $reason, Carbon $occurredAt, Actor $actor, bool $isDemo): array
+    /** @param  array<int, array{qty: int, cost: int}>  $keepCost  edit only: see DocumentEdit::keptCost */
+    private static function postLines(int $adjustmentId, string $adjustmentNo, array $input, AdjustmentReason $reason, Carbon $occurredAt, Actor $actor, bool $isDemo, array $keepCost = []): array
     {
         $at = Clock::stamp($occurredAt);
         $allowNegative = self::allowNegativeStock();
@@ -445,6 +455,8 @@ final class StockAdjustmentService
             ];
             if (isset($item['totalCost'])) {
                 $movement['totalCost'] = $item['totalCost'];
+            } elseif ($item['direction'] === 'OUT' && ($kept = DocumentEdit::keptCost($keepCost, (int) $item['productId'], $item['qty'])) !== null) {
+                $movement['totalCost'] = $kept;
             }
             // A named crate is taken exactly; an unnamed expired write-off takes
             // whatever has turned, oldest first, before anything else.

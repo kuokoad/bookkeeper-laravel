@@ -25,6 +25,7 @@ use App\Enums\JournalSourceType;
 use App\Enums\MovementType;
 use App\Enums\TaxBasis;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use App\Support\Row;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
@@ -979,7 +980,7 @@ final class PurchaseService
         self::applyConditions($q, $query);
         self::applyOrder($q, $query);
 
-        $rows = $q->limit(min($query['limit'] ?? 100, 500))->offset($query['offset'] ?? 0)->selectRaw(
+        $rows = $q->limit(min($query['limit'] ?? 100, Filters::MAX_LIST_ROWS))->offset($query['offset'] ?? 0)->selectRaw(
             '`purchases`.`id`, `purchases`.`purchase_no`, `purchases`.`kind`, `purchases`.`business_date`, `purchases`.`occurred_at`,
              `purchases`.`invoice_no`, `purchases`.`supplier_id`, `suppliers`.`name` AS supplier_name, `purchases`.`total_minor`, `purchases`.`status`,
              (SELECT COUNT(*) FROM `purchase_items` WHERE `purchase_items`.`purchase_id` = `purchases`.`id`) AS item_count, '

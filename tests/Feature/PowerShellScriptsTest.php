@@ -47,7 +47,7 @@ it('update.ps1 restores the books, not just the code, on any failure once migrat
         ->and(substr_count($script, '"reset", "--hard"'))->toBe(1)
         ->and($undo)->toContain('"reset", "--hard"')
         ->and($branch)->toContain('nuna:restore')
-        ->and(strpos($branch, 'exit 1'))->toBeLessThan(strpos($branch, 'if ($codeBack -and (Test-Serving))'))
+        ->and(strpos($branch, 'exit 1'))->toBeLessThan(strpos($branch, '$serving = Test-Serving'))
         // Every failure after the flag ends in Undo-Update, the catch included.
         ->and(substr($script, $migrate))->toContain('Undo-Update')
         ->and((string) strstr($script, "\ncatch {"))->toContain('Undo-Update')
@@ -131,4 +131,29 @@ it('install.ps1 sets each MySQL user password even when the user already exists,
     }
     expect($script)->not->toMatch('/Set-EnvValue[^\n]*rootPassword/')
         ->and($script)->not->toMatch('/(Set-Content|Add-Content|Out-File|WriteAll\w+)[^\n]*rootPassword/');
+});
+
+it('runs Composer as composer.phar under the installed PHP, never composer.bat, which needs php on SYSTEM\'s PATH', function () {
+    $install = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $update = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/update.ps1');
+
+    // install.ps1 keeps its own copy in the PHP folder, which Lock-Folder restricts to Administrators and SYSTEM.
+    expect($install)->toContain('$composer = Join-Path $PhpDir "composer.phar"')
+        ->toContain('Invoke-Checked "Installing PHP packages" $php @($composer, "install"')
+        ->toContain('$env:Path = "$PhpDir;$env:Path"')
+        ->toContain('$PhpDir, $ApacheDir, $MysqlDir)) { Lock-Folder $dir }')
+        ->not->toContain('composer.bat"')
+        ->and($update)->toContain('$composer = Join-Path (Split-Path $php) "composer.phar"')
+        ->toContain('Invoke-Native "Installing PHP packages" $php @($composer, "install"')
+        ->toContain('$env:Path = (Split-Path $php) + ";" + $env:Path');
+});
+
+it('update.ps1 opens the shop again after a failed package install, since the books were not touched', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/update.ps1');
+    $undo = (string) strstr((string) strstr($script, 'function Undo-Update'), "\ntry {", true);
+    $untouched = substr($undo, (int) strrpos($undo, "exit 1\n    }") ?: 0);
+
+    // Not behind "$codeBack -and": a failed composer step must not keep Apache stopped.
+    expect($untouched)->toContain('$serving = Test-Serving')
+        ->and(strpos($untouched, '$serving = Test-Serving'))->toBeLessThan(strpos($untouched, 'if ($codeBack -and $serving)'));
 });

@@ -80,7 +80,7 @@ function Test-Serving {
 }
 
 function Install-Packages {
-    return Invoke-Native "Installing PHP packages" $composer @("install", "--no-dev", "--optimize-autoloader", "--no-interaction")
+    return Invoke-Native "Installing PHP packages" $php @($composer, "install", "--no-dev", "--optimize-autoloader", "--no-interaction")
 }
 
 function Install-Code {
@@ -109,7 +109,9 @@ function Undo-Update {
         }
         exit 1
     }
-    if ($codeBack -and (Test-Serving)) {
+    # The books were not touched: open the shop again whatever the code step did, rather than leave the tills closed.
+    $serving = Test-Serving
+    if ($codeBack -and $serving) {
         Write-Status "failed" "The update could not be installed, so the app was put back on the version it was. Details are in storage/logs/update.log."
     }
     else {
@@ -124,7 +126,10 @@ try {
 
     $install = Get-Content (Join-Path $root "storage\app\install.json") -Raw | ConvertFrom-Json
     $php = $install.php
-    $composer = $install.composer
+    # The copy install.ps1 keeps in the PHP folder, which only Administrators and SYSTEM can change, run by
+    # this PHP: SYSTEM's PATH has no php, so composer.bat would fail and leave the shop closed.
+    $composer = Join-Path (Split-Path $php) "composer.phar"
+    $env:Path = (Split-Path $php) + ";" + $env:Path
     $service = $install.apacheService
     $healthUrl = "http://127.0.0.1:$($install.port)/up"
 

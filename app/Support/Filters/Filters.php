@@ -31,6 +31,9 @@ final class Filters
 
     public const MAX_PAGE_SIZE = 200;
 
+    /** The most rows a list service returns in one call: what a CSV download can hold (Csv::EXPORT_LIMIT). */
+    public const MAX_LIST_ROWS = 5_000;
+
     public static function isValidBusinessDate(string $value): bool
     {
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) !== 1) {

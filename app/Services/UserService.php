@@ -272,6 +272,8 @@ final class UserService
 
         Tx::run(function () use ($id, $actor, $now): void {
             $existing = DB::table('users')->where('users.id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('User', $id);
+            // Clearing the count lets a guesser skip the growing delay (D16) and wipes the warning the owner would see.
+            self::assertMayTakeOver($existing, $actor, 'unlock this person');
             DB::table('users')->where('users.id', $id)->update(['failed_login_count' => 0, 'locked_until' => null, 'updated_at' => Clock::stamp($now)]);
             AuditService::write(AuditAction::Update, 'user', "Unlocked {$existing->username} after failed sign-in attempts", $id, $actor, at: $now);
         });

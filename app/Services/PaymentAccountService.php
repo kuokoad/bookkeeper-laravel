@@ -15,6 +15,7 @@ use App\Enums\AccountType;
 use App\Enums\AuditAction;
 use App\Enums\PaymentAccountKind;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use App\Support\Row;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -415,7 +416,7 @@ final class PaymentAccountService
                     OVER (ORDER BY `journal_entries`.`entry_date` ASC, `journal_entries`.`id` ASC, `journal_lines`.`id` ASC
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance', [$opening])
             ->orderByDesc('journal_entries.entry_date')->orderByDesc('journal_entries.id')->orderByDesc('journal_lines.id')
-            ->limit(min($query['limit'] ?? 200, 500))->offset($query['offset'] ?? 0)
+            ->limit(min($query['limit'] ?? 200, Filters::MAX_LIST_ROWS))->offset($query['offset'] ?? 0)
             ->get();
 
         $moneyIn = (int) $totals->money_in;

@@ -21,6 +21,7 @@ use App\Enums\AuditAction;
 use App\Enums\DocType;
 use App\Enums\MovementType;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -1051,7 +1052,7 @@ final class InventoryService
         self::applyLedgerConditions($q, $query);
 
         return $q->orderByDesc('stock_ledger.business_date')->orderByDesc('stock_ledger.id')
-            ->limit(min($query['limit'] ?? 100, 500))
+            ->limit(min($query['limit'] ?? 100, Filters::MAX_LIST_ROWS))
             ->offset($query['offset'] ?? 0)
             ->get([
                 'stock_ledger.id', 'stock_ledger.product_id', 'products.name as product_name', 'products.unit as product_unit',

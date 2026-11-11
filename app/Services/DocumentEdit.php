@@ -7,8 +7,11 @@ namespace App\Services;
 use App\Domain\Accounting\PeriodLock;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ValidationError;
+use App\Domain\Inventory\Costing;
+use App\Domain\Inventory\StockState;
 use App\Domain\JsCompat;
 use App\Domain\Money;
+use App\Domain\Quantity;
 use App\Enums\AuditAction;
 use App\Enums\JournalSourceType;
 use App\Enums\MovementType;
@@ -113,6 +116,35 @@ final class DocumentEdit
         }
 
         return $residual;
+    }
+
+    /**
+     * What an OUT line of the new version costs. Up to the quantity the old
+     * version took, it leaves at the old version's cost, so fixing a note or
+     * a price never re-costs goods at today's average; anything more is
+     * costed at the average of the rest of the shelf, as a new document would
+     * be. Null when the old version took none of this product: cost it as new.
+     * Takes what it uses out of $budget.
+     *
+     * @param  array<int, array{qty: int, cost: int}>  $budget  per product, what the old version took out: quantity and cost
+     */
+    public static function keptCost(array &$budget, int $productId, int $qty): ?int
+    {
+        if (($budget[$productId]['qty'] ?? 0) <= 0) {
+            return null;
+        }
+        $held = $budget[$productId];
+        $take = min($qty, $held['qty']);
+        $kept = Money::mulDiv($held['cost'], $take, $held['qty']);
+        $budget[$productId] = ['qty' => Quantity::subtract($held['qty'], $take), 'cost' => Money::subtract($held['cost'], $kept)];
+        if ($qty > $take) {
+            // The extra units, at the average of what else is on the shelf.
+            $shelf = DB::table('products')->where('id', $productId)->first(['qty_on_hand_milli', 'stock_value_minor', 'cost_price_minor']);
+            $rest = new StockState(Quantity::subtract((int) $shelf->qty_on_hand_milli, $take), Money::subtract((int) $shelf->stock_value_minor, $kept));
+            $kept = Money::add($kept, Costing::stockOut($rest, Quantity::subtract($qty, $take), (int) $shelf->cost_price_minor, true)->totalCost);
+        }
+
+        return Money::atLeastZero($kept);
     }
 
     /**

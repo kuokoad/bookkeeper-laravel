@@ -55,6 +55,8 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 $php = Join-Path $PhpDir "php.exe"
+# Anything that looks php up by name (Composer's scripts) finds this one.
+$env:Path = "$PhpDir;$env:Path"
 $mysql = Join-Path $MysqlDir "bin\mysql.exe"
 $mysqld = Join-Path $MysqlDir "bin\mysqld.exe"
 $httpd = Join-Path $ApacheDir "bin\httpd.exe"
@@ -229,9 +231,15 @@ FLUSH PRIVILEGES;
 # --- 4. The app: packages, key, backup, migrations, caches ----------------------------
 
 Set-Location $AppDir
-$composer = (Get-Command composer -ErrorAction SilentlyContinue).Source
-if (-not $composer) { $composer = "C:\laragon\bin\composer\composer.bat" }
-Invoke-Checked "Installing PHP packages" $composer @("install", "--no-dev", "--optimize-autoloader", "--no-interaction")
+# Composer runs as composer.phar under this PHP, from the PHP folder (restricted below to Administrators
+# and SYSTEM): composer.bat needs php on the PATH, which SYSTEM's update task does not have, and it sits
+# in a folder any Windows account can change, so whoever edits it would have their code run as SYSTEM.
+$found = (Get-Command composer -ErrorAction SilentlyContinue).Source
+$sourcePhar = if ($found) { Join-Path (Split-Path $found) "composer.phar" } else { "C:\laragon\bin\composer\composer.phar" }
+$composer = Join-Path $PhpDir "composer.phar"
+if (Test-Path $sourcePhar) { Copy-Item $sourcePhar $composer -Force }
+if (-not (Test-Path $composer)) { throw "composer.phar not found next to $found or in C:\laragon\bin\composer. Install Composer, then run this again." }
+Invoke-Checked "Installing PHP packages" $php @($composer, "install", "--no-dev", "--optimize-autoloader", "--no-interaction")
 if ((Get-Content $envFile -Raw) -match "(?m)^APP_KEY=\s*$") {
     Invoke-Checked "Generating the app key" $php @("artisan", "key:generate", "--force")
 }

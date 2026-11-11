@@ -18,6 +18,7 @@ use App\Enums\AuditAction;
 use App\Enums\DocType;
 use App\Enums\JournalSourceType;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use App\Support\Row;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
@@ -473,7 +474,7 @@ final class CashbookService
         self::applyConditions($q, $t, $query);
         self::applyOrder($q, $t, $query);
 
-        return $q->limit(min($query['limit'] ?? 200, 500))->offset($query['offset'] ?? 0)->get([
+        return $q->limit(min($query['limit'] ?? 200, Filters::MAX_LIST_ROWS))->offset($query['offset'] ?? 0)->get([
             "{$t}.id", "{$t}.{$side['no']} AS document_no", "{$t}.business_date", "{$t}.occurred_at", "{$t}.description",
             "{$t}.amount_minor", 'accounts.name AS category_name', "{$t}.category_account_id", "{$t}.payment_account_id",
             'payment_accounts.name AS payment_account_name', "{$t}.reference", "{$t}.note", "{$t}.status", "{$t}.created_by", "{$t}.edited_at",

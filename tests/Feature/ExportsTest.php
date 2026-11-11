@@ -9,6 +9,7 @@ declare(strict_types=1);
 | tests/Services/CsvExportsTest.
 */
 
+use App\Reports\Csv\ListExport;
 use App\Services\Actor;
 use App\Support\HttpThrottle;
 use Tests\Support\Shop;
@@ -97,4 +98,15 @@ it('throttles one person after 30 downloads a minute, lists and reports counted 
 
     // Somebody else at another till is not slowed by it.
     signedIn(staff(['sales' => viewOnly()]))->get('/export/list/sales')->assertOk();
+});
+
+it('downloads every row of a list past 500, with no "not the whole set" line', function () {
+    $actor = new Actor($this->ownerId, 'kwame');
+    for ($i = 1; $i <= 501; $i++) {
+        Shop::customer($actor, sprintf('Customer %03d', $i));
+    }
+
+    $table = ListExport::table('customers', [], '2026-08-31');
+    expect($table['rows'])->toHaveCount(501)
+        ->and(implode(' ', array_merge(...$table['rows'])))->not->toContain('NOT THE WHOLE SET');
 });

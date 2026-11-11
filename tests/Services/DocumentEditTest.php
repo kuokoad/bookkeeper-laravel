@@ -63,6 +63,28 @@ describe('editing a stock adjustment', function () {
         Shop::assertBooksHealthy('after edit');
     });
 
+    it('keeps what a write-off cost on its own day after the average has moved, costing only extra units at the new average', function () {
+        $damage = ($this->damage)(2_000);
+        // Next day, 10 more arrive at GHS 10.00: the average rises above GHS 5.00.
+        StockAdjustmentService::createStockAdjustment(['businessDate' => '2026-08-17', 'reason' => AdjustmentReason::Found,
+            'items' => [['productId' => $this->product, 'direction' => 'IN', 'qty' => 10_000, 'totalCost' => 10_000]]], $this->actor);
+        $lossOnTheDay = fn (): int => Shop::balance(ChartOfAccounts::INVENTORY_SHRINKAGE, ['from' => EDIT_DAY, 'to' => EDIT_DAY]);
+        $lineCost = fn (): int => (int) DB::table('stock_adjustment_items')->where('adjustment_id', $damage['adjustmentId'])->value('total_cost_minor');
+
+        // Only the note changes: the loss stays GHS 10.00 and the shelf keeps its value.
+        StockAdjustmentService::editStockAdjustment($damage['adjustmentId'], ['businessDate' => EDIT_DAY, 'reason' => AdjustmentReason::Damaged, 'note' => 'Dropped in the store room',
+            'items' => [['productId' => $this->product, 'direction' => 'OUT', 'qty' => 2_000]]], 'Add the note', $this->actor);
+        expect($lossOnTheDay())->toBe(1_000)
+            ->and($lineCost())->toBe(1_000)
+            ->and(CatalogService::getProduct($this->product)['stockValue'])->toBe(14_000);
+
+        // Up to 3: the 2 keep GHS 5.00; the 1 added is costed at the rest of the shelf (18 tins worth 14,000).
+        ($this->edit)($damage['adjustmentId'], 3_000);
+        expect($lineCost())->toBe(1_000 + 778)
+            ->and(CatalogService::getProduct($this->product)['stockValue'])->toBe(14_000 - 778);
+        Shop::assertBooksHealthy('after write-off edits');
+    });
+
     it('keeps the same document and number, marked edited, listing the new lines', function () {
         $damage = ($this->damage)(4_000);
         ($this->edit)($damage['adjustmentId'], 2_000);

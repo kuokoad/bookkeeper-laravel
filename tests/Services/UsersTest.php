@@ -212,6 +212,18 @@ describe('passwords', function () {
         UserService::unlockUser($staffId, $this->owner);
         expect(AuthService::login('ama', 'staff-password-2026')['ok'])->toBeTrue();
     });
+
+    it('refuses a supervisor clearing the failed sign-ins of the owner, but lets them unlock their own staff', function () {
+        $supervisor = AuthService::createUser(['username' => 'yaw', 'displayName' => 'Yaw Boateng', 'password' => 'staff-password-2026', 'role' => UserRole::Staff, 'permissions' => ['users' => Permissions::FULL_ACCESS, 'sales' => Permissions::FULL_ACCESS]]);
+        $yaw = new Actor($supervisor, 'yaw');
+        for ($i = 0; $i < 3; $i++) {
+            AuthService::login('kwame', 'a-guess');
+        }
+
+        expect(fn () => UserService::unlockUser($this->owner->id, $yaw))->toThrow('unlock this person')
+            ->and((int) DB::table('users')->where('id', $this->owner->id)->value('failed_login_count'))->toBe(3);
+        UserService::unlockUser(makeStaff(), $yaw);
+    });
 });
 
 describe('till PIN', function () {

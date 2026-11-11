@@ -6,6 +6,7 @@ namespace App\Reports\Csv;
 
 use App\Domain\Money;
 use App\Domain\Quantity;
+use App\Support\Filters\Filters;
 
 /**
  * CSV text. Money is a plain decimal with no symbol and no grouping, so a
@@ -14,8 +15,8 @@ use App\Domain\Quantity;
  */
 final class Csv
 {
-    /** How many rows one download may contain. Beyond this, narrow the filter. */
-    public const EXPORT_LIMIT = 5000;
+    /** How many rows one download may contain: what every list service returns at most, so a file that stops here says so (ListExport). */
+    public const EXPORT_LIMIT = Filters::MAX_LIST_ROWS;
 
     /**
      * One field. Text that a spreadsheet would run as a formula (=, +, -, @,

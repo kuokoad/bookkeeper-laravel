@@ -14,6 +14,7 @@ use App\Domain\Money;
 use App\Domain\Sales\SaleCalculator;
 use App\Enums\AuditAction;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -203,7 +204,7 @@ final class CustomerService
             $q->orderByRaw('LOWER(`customers`.`name`) '.($ascending ? 'ASC' : 'DESC'));
         }
 
-        $rows = $q->limit(min($query['limit'] ?? 200, 500))->offset($query['offset'] ?? 0)->get(['customers.*']);
+        $rows = $q->limit(min($query['limit'] ?? 200, Filters::MAX_LIST_ROWS))->offset($query['offset'] ?? 0)->get(['customers.*']);
         $balances = self::getAllCustomerBalances($rows->map(fn (object $row): int => (int) $row->id)->all());
 
         return $rows->map(fn (object $row): array => self::item($row, $balances[(int) $row->id] ?? 0))->all();

@@ -15,6 +15,7 @@ use App\Domain\JsCompat;
 use App\Domain\Quantity;
 use App\Enums\AuditAction;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -526,7 +527,7 @@ final class CatalogService
         self::applyProductConditions($q, $query);
         self::applyProductOrder($q, $query);
 
-        return $q->limit(min($query['limit'] ?? 200, 500))->offset($query['offset'] ?? 0)->get()
+        return $q->limit(min($query['limit'] ?? 200, Filters::MAX_LIST_ROWS))->offset($query['offset'] ?? 0)->get()
             ->map(fn (object $row): array => self::productItem($row, $fallbackMin))
             ->all();
     }

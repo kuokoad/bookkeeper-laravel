@@ -13,8 +13,6 @@ use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ForbiddenError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
-use App\Domain\Inventory\Costing;
-use App\Domain\Inventory\StockState;
 use App\Domain\JsCompat;
 use App\Domain\Money;
 use App\Domain\Quantity;
@@ -27,6 +25,7 @@ use App\Enums\JournalSourceType;
 use App\Enums\MovementType;
 use App\Enums\TaxBasis;
 use App\Support\Clock;
+use App\Support\Filters\Filters;
 use App\Support\Row;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\QueryException;
@@ -369,26 +368,13 @@ final class SaleService
             if ($entry['product']->track_inventory) {
                 $productId = (int) $entry['product']->id;
                 $qty = $entry['lineUnit']['baseQty'];
-                $keptAt = null;
-                if (($keepCost[$productId]['qty'] ?? 0) > 0) {
-                    $budget = $keepCost[$productId];
-                    $take = min($qty, $budget['qty']);
-                    $kept = Money::mulDiv($budget['cost'], $take, $budget['qty']);
-                    $keepCost[$productId] = ['qty' => Quantity::subtract($budget['qty'], $take), 'cost' => Money::subtract($budget['cost'], $kept)];
-                    $keptAt = $kept;
-                    if ($qty > $take) {
-                        // The extra units, at the average of what else is on the shelf.
-                        $shelf = DB::table('products')->where('id', $productId)->first(['qty_on_hand_milli', 'stock_value_minor', 'cost_price_minor']);
-                        $rest = new StockState(Quantity::subtract((int) $shelf->qty_on_hand_milli, $take), Money::subtract((int) $shelf->stock_value_minor, $kept));
-                        $keptAt = Money::add($kept, Costing::stockOut($rest, Quantity::subtract($qty, $take), (int) $shelf->cost_price_minor, true)->totalCost);
-                    }
-                }
+                $keptAt = DocumentEdit::keptCost($keepCost, $productId, $qty);
                 // First-expiry-first-out; expired stock only with the right, and only when nothing else is left.
                 $movement = InventoryService::recordStockMovement([
                     'productId' => $productId,
                     'direction' => 'OUT',
                     'qty' => $qty,
-                    ...($keptAt === null ? [] : ['totalCost' => Money::atLeastZero($keptAt)]),
+                    ...($keptAt === null ? [] : ['totalCost' => $keptAt]),
                     'movementType' => MovementType::Sale,
                     'sourceType' => 'SALE',
                     'sourceId' => $saleId,
@@ -1071,7 +1057,7 @@ final class SaleService
         self::applyConditions($q, $query);
         self::applyOrder($q, $query);
 
-        $rows = $q->limit(min($query['limit'] ?? 100, 500))->offset($query['offset'] ?? 0)->selectRaw(
+        $rows = $q->limit(min($query['limit'] ?? 100, Filters::MAX_LIST_ROWS))->offset($query['offset'] ?? 0)->selectRaw(
             '`sales`.`id`, `sales`.`receipt_no`, `sales`.`invoice_no`, `sales`.`kind`, `sales`.`business_date`, `sales`.`occurred_at`,
              `sales`.`customer_id`, `customers`.`name` AS customer_name, `sales`.`total_minor`, `sales`.`discount_minor`, `sales`.`tax_minor`,
              `sales`.`cogs_minor`, `sales`.`status`, `sales`.`voids_sale_id`, `sales`.`created_by`, `users`.`display_name` AS staff_name,

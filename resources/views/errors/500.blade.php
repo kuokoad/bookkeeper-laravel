@@ -2,7 +2,10 @@
     The old (app)/error.tsx and global-error.tsx. Self-contained on purpose:
     no layout, no database, no built assets, so it still renders when the
     failure is in one of those. It must say what happened to the person's
-    data: every write is one transaction, so a failure saved nothing.
+    data: every write is one transaction, so nothing is ever half-written.
+    It must not say "nothing was saved": this can be the page shown after a
+    save that went through (a sale opens its own page next), and an owner
+    told otherwise enters it twice.
 --}}
 <!DOCTYPE html>
 <html lang="en">
@@ -38,7 +41,7 @@
     <h1>Something went wrong</h1>
     <p class="lead">This page could not be loaded.</p>
     <div class="box">
-        <p><strong>Nothing was saved.</strong> Any figures you were entering were not recorded, so nothing has been half-written to the books.</p>
+        <p><strong>Nothing has been half-written to the books.</strong> Each save goes through whole or not at all. If you had just saved something, it may already be recorded: look for it in its list before entering it again, so it is not entered twice.</p>
         <p class="muted">Try again. If it keeps happening, note the time below — it identifies this failure in the server log.</p>
         <p class="ref">Reference: {{ now()->utc()->format('Y-m-d H:i:s') }} UTC</p>
         <div class="actions">

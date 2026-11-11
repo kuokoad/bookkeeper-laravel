@@ -47,8 +47,12 @@ it('answers an unknown guide with not found', function () {
     signedIn($id)->get('/help/developer-setup')->assertNotFound();
 });
 
-it('says nothing was saved on the 500 page', function () {
-    expect(view('errors.500')->render())->toContain('Something went wrong')->toContain('Nothing was saved.');
+// It cannot know whether a save went through just before (a sale opens its page next), so it never says nothing was saved.
+it('tells the owner to check before re-entering on the 500 page, never that nothing was saved', function () {
+    expect(view('errors.500')->render())->toContain('Something went wrong')
+        ->toContain('Nothing has been half-written to the books.')
+        ->toContain('look for it in its list before entering it again')
+        ->not->toContain('Nothing was saved');
 });
 
 /*

@@ -29,4 +29,28 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+        // Files updated but `migrate` not run: pages die on missing columns. Say so, instead of "something went wrong".
+        // Checked only on an error that would be a 500, so a working page pays nothing.
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (config('app.debug') // a developer wants the stack trace
+                || $e instanceof Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+                || $e instanceof Illuminate\Http\Exceptions\HttpResponseException
+                || $e instanceof Illuminate\Auth\AuthenticationException
+                || $e instanceof Illuminate\Validation\ValidationException) {
+                return null;
+            }
+            try {
+                $pending = App\Services\PreflightService::pendingMigrations();
+            } catch (Throwable) {
+                return null; // database unreachable: the ordinary error page
+            }
+            if ($pending === []) {
+                return null;
+            }
+            $message = 'The last update was not finished: the database has not been brought up to date. Run scripts\update.ps1 again (or `php artisan migrate --force` with the full path to php.exe).';
+
+            return $request->is('api/*') || $request->expectsJson()
+                ? response()->json(['message' => $message], 503)
+                : response()->view('errors.update-pending', ['count' => $pending === null ? null : count($pending)], 503);
+        });
     })->create();

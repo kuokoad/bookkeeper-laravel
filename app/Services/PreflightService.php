@@ -94,15 +94,14 @@ final class PreflightService
             ? 'no backup scratch copies remain'
             : count($leftovers).' left over from an interrupted backup or restore: '.implode(', ', $leftovers).'. Drop them once no backup is running.');
 
-        if (! Schema::hasTable('migrations')) {
+        $pending = self::pendingMigrations();
+        if ($pending === null) {
             $add('Migrations applied', 'fail', 'No migration history. Run `php artisan migrate`.');
 
             return $checks;
         }
-        $migrator = app('migrator');
-        $pending = array_diff(array_keys($migrator->getMigrationFiles(database_path('migrations'))), $migrator->getRepository()->getRan());
         $add('Migrations applied', $pending === [] ? 'pass' : 'fail', $pending === []
-            ? count($migrator->getRepository()->getRan()).' migration(s) recorded'
+            ? count(app('migrator')->getRepository()->getRan()).' migration(s) recorded'
             : count($pending).' migration(s) not applied. Run `php artisan migrate --force`.');
         if ($pending !== []) {
             return $checks;
@@ -159,6 +158,22 @@ final class PreflightService
         $add('A backup has been taken', $backup['state'] === 'never' ? 'warn' : 'pass', BackupStatusService::describe($backup));
 
         return $checks;
+    }
+
+    /**
+     * The migration files not yet run, or null when there is no migration
+     * history at all. Also read by the error page (bootstrap/app.php).
+     *
+     * @return list<string>|null
+     */
+    public static function pendingMigrations(): ?array
+    {
+        if (! Schema::hasTable('migrations')) {
+            return null;
+        }
+        $migrator = app('migrator');
+
+        return array_values(array_diff(array_keys($migrator->getMigrationFiles(database_path('migrations'))), $migrator->getRepository()->getRan()));
     }
 
     /**

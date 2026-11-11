@@ -125,6 +125,7 @@ function checkBreakers(): array
         ],
         'sales' => [
             'ck_sales_status' => ['status' => 'DELETED'],
+            'ck_sales_change_not_negative' => ['change_minor' => -1],
             'ck_sales_kind' => ['kind' => 'GIFT'],
             // A sale is all non-negative; its mirror all non-positive. Never mixed.
             'ck_sales_signs_consistent' => ['subtotal_minor' => 1_000, 'discount_minor' => -100, 'total_minor' => 1_100],

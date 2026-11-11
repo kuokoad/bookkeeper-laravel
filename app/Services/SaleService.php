@@ -178,6 +178,8 @@ final class SaleService
             'tax_minor' => $totals->tax,
             'total_minor' => $totals->total,
             'tax_inclusive' => (bool) $settings->tax_inclusive,
+            // Handed back at the till, for the receipt: only what was applied to the total is kept as tender.
+            'change_minor' => $tender['change'],
             'cogs_minor' => 0,
             'status' => 'POSTED',
             'client_ref' => $clientRef,
@@ -817,6 +819,8 @@ final class SaleService
                 'tax_minor' => $totals->tax,
                 'total_minor' => $totals->total,
                 'tax_inclusive' => (bool) $settings->tax_inclusive,
+                // Handed back at the till, for the receipt: only what was applied to the total is kept as tender.
+                'change_minor' => $tender['change'],
                 'note' => $input['note'] ?? null,
                 'edited_at' => $at,
                 'updated_at' => $at,

@@ -124,6 +124,17 @@ describe('MoMo and split payments', function () {
         Shop::assertBooksHealthy('change from cash');
     });
 
+    it('keeps the change handed back on the sale for the receipt, and an edit replaces it', function () {
+        $id = ($this->make)('Milo 400g', 500, 800);
+        ($this->addStock)($id, 10, 5_000);
+        $sale = ($this->sale)(['items' => [['productId' => $id, 'qty' => 2_000]], 'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 2_000]]]);
+        $change = fn (): int => (int) DB::table('sales')->where('id', $sale['saleId'])->value('change_minor');
+        expect($change())->toBe(400);
+
+        SaleService::editSale($sale['saleId'], ['businessDate' => SALES_TODAY, 'items' => [['productId' => $id, 'qty' => 2_000]], 'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 5_000]]], 'Customer gave a 50', $this->actor);
+        expect($change())->toBe(3_400);
+    });
+
     it('refuses change on a sale paid only by MoMo, since nobody can give change from a transfer', function () {
         $id = ($this->make)('Milo 400g', 500, 800);
         ($this->addStock)($id, 10, 5_000);

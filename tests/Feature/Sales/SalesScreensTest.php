@@ -157,11 +157,13 @@ it('says the customer balance was updated only when the sale had a customer', fu
     expect(session('status'))->toBe("Return recorded. Stock and the customer's balance were updated.");
 });
 
-it('prints a receipt, and says a cash sale has no invoice', function () {
+it('prints a receipt with the change given, and says a cash sale has no invoice', function () {
     stockRice($this);
     $sale = Shop::sell($this->actor, [[$this->rice, 2_000]], [['paymentAccountId' => $this->cash, 'amount' => 5_000]], ['businessDate' => $this->today]);
+    $total = (int) DB::table('sales')->where('id', $sale['saleId'])->value('total_minor');
+    expect((int) DB::table('sales')->where('id', $sale['saleId'])->value('change_minor'))->toBe(5_000 - $total);
     signedIn($this->ownerId)->get("/sales/{$sale['saleId']}/receipt?print=1")->assertOk()
-        ->assertSee('Paid by')->assertSee('window.print()', false)->assertSee('history.replaceState', false);
+        ->assertSeeInOrder(['Paid by', 'Change', Format::money(5_000 - $total, bare: true)])->assertSee('window.print()', false)->assertSee('history.replaceState', false);
     signedIn($this->ownerId)->get("/sales/{$sale['saleId']}/invoice")->assertOk()->assertSee('This sale has no invoice');
 });
 

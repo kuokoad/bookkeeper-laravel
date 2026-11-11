@@ -46,6 +46,7 @@ final class SaleDocumentController extends Controller
             'sale' => $sale,
             'settings' => SettingsService::get(),
             'totals' => self::totals($sale),
+            'change' => (int) $sale['changeMinor'],
             // `?print=1` comes from "Print receipt" at the till.
             'autoPrint' => $request->query('print') === '1',
         ]);

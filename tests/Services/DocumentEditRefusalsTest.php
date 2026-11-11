@@ -94,6 +94,22 @@ describe('a sale edit', function () {
     });
 });
 
+describe('a sale to a customer archived since', function () {
+    it('can still be corrected while it leaves nothing owed, but not put on their account', function () {
+        $customer = Shop::customer($this->actor);
+        $sale = SaleService::createSale(($this->saleInput)(3_000, ['customerId' => $customer]), $this->actor);
+        DB::table('customers')->where('id', $customer)->update(['is_active' => false]);
+
+        SaleService::editSale($sale['saleId'], ($this->saleInput)(2_000, ['customerId' => $customer]), 'Sold 2, not 3', $this->actor);
+        expect((int) DB::table('sales')->where('id', $sale['saleId'])->value('customer_id'))->toBe($customer)
+            ->and(($this->onShelf)())->toBe(8_000);
+
+        expect(fn () => SaleService::editSale($sale['saleId'], ($this->saleInput)(2_000, ['customerId' => $customer, 'tenders' => []]), 'On account', $this->actor))
+            ->toThrow(ValidationError::class, 'archived')
+            ->and(SaleService::getSaleOutstanding($sale['saleId']))->toBe(0);
+    });
+});
+
 describe('a purchase edit', function () {
     it('is refused in a locked period, changing nothing', function () {
         $purchase = PurchaseService::createPurchase(($this->purchaseInput)(20_000, 600), $this->actor);

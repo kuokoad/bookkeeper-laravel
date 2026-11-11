@@ -168,6 +168,16 @@ it('shows a ledger page past the end as the last page, with no opening row after
         ->assertSee('-25.00')->assertSee('Showing 1–1 of 1 line')->assertViewHas('list', fn (array $list): bool => $list['page'] === 1);
 });
 
+it('pages the journal, saying how many entries there are, and shows a page past the end as the last', function () {
+    foreach (range(1, 101) as $i) {
+        Shop::expense($this->actor, $this->today, Shop::expenseCategory('Transport'), 100, "Taxi {$i}");
+    }
+
+    accountingAs($this->ownerId, Journal::class)->assertSee('Showing 1–100 of 101 entries')->assertSee('Page 1 of 2');
+    accountingAs($this->ownerId, Journal::class, ['page' => '9'])->assertSee('Showing 101–101 of 101 entries')
+        ->assertViewHas('entries', fn (array $entries): bool => count($entries) === 1);
+});
+
 it('narrows who owes you without breaking the ledger check', function () {
     $product = Shop::product($this->actor, 'Cement', 500, 1_000);
     Shop::openingStock($this->actor, $product, 10_000, 5_000, $this->today);

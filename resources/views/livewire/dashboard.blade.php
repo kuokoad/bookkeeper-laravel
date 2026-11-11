@@ -57,7 +57,7 @@
         @if ($rangeSales !== null)
             <x-dashboard.card title="Sales" icon="sales" :href="$salesHref">
                 @include('livewire.dashboard-period', ['label' => 'Sales', 'param' => 'sales'])
-                <x-dashboard.figure :value="$rangeSales['total']" :hint="$rangeSales['count'].' posted sale'.($rangeSales['count'] === 1 ? '' : 's').' · transaction total'" />
+                <x-dashboard.figure :value="$rangeSales['total']" :hint="$rangeSales['count'].' sale'.($rangeSales['count'] === 1 ? '' : 's').' rung up · transaction total'" />
             </x-dashboard.card>
         @endif
         @if ($spendTotal !== null)

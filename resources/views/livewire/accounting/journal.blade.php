@@ -46,6 +46,7 @@
                 </tr>
             @endforeach
         </x-table>
+        <x-pagination :list="$list" :total="$total" noun="entry" noun-plural="entries" />
     @endif
 
     <p class="mt-4 text-xs text-content-subtle">Showing @date($from) to @date($to). Nothing here can be edited — a mistake is corrected by posting a reversing entry, so both the error and the correction stay visible.</p>

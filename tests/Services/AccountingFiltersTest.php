@@ -71,6 +71,10 @@ it('runs a ledger asked only for a From after today to that day, not backwards t
     expect(ListFilters::parseLedgerFilters(['from' => '2026-09-01'], AF_TODAY))->toMatchArray(['filters' => ['from' => '2026-09-01', 'to' => '2026-09-01'], 'to' => null, 'toShown' => '2026-09-01']);
 });
 
+it('runs a journal asked only for a From after today to that day, not backwards to today', function () {
+    expect(ListFilters::parseJournalFilters(['from' => '2026-09-01'], AF_TODAY)['filters'])->toBe(['from' => '2026-09-01', 'to' => '2026-09-01']);
+});
+
 it('starts a ledger at the 1st of the month when no from is given', function () {
     expect(ListFilters::parseLedgerFilters([], AF_TODAY))->toMatchArray(['from' => '2026-08-01', 'filters' => ['from' => '2026-08-01', 'to' => AF_TODAY], 'toShown' => AF_TODAY, 'carried' => []]);
 });

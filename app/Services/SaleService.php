@@ -284,7 +284,8 @@ final class SaleService
     }
 
     /** Who the sale is to, held to the credit rules: an unpaid balance needs a customer, inside their limit. */
-    private static function checkCredit(array $input, array $tender): ?int
+    /** $keepCustomerId (edit only): the sale's own customer, kept even if archived since, as long as nothing is owed. */
+    private static function checkCredit(array $input, array $tender, ?int $keepCustomerId = null): ?int
     {
         // --- credit rules -----------------------------------------------
         $customerId = $input['customerId'] ?? null;
@@ -294,7 +295,9 @@ final class SaleService
         if ($customerId !== null) {
             // Locked (Tx order: after products), so two tills cannot both fit under one limit.
             $customer = CustomerService::lockCustomer($customerId) ?? throw new NotFoundError('Customer', $customerId);
-            if (! $customer->is_active) {
+            // Fixing a paid sale's price must not be blocked because its customer was archived since; credit still is.
+            $keepsOwn = (int) $customerId === $keepCustomerId && $tender['outstanding'] === 0;
+            if (! $customer->is_active && ! $keepsOwn) {
                 throw new ValidationError("\"{$customer->name}\" is archived and cannot be given credit.");
             }
             if ($tender['outstanding'] !== 0) {
@@ -741,7 +744,7 @@ final class SaleService
             $items = DB::table('sale_items')->where('sale_id', $saleId)->orderBy('id')->lockForUpdate()->get();
             $return = DB::table('sales')->where('returns_sale_id', $saleId)->where('status', 'POSTED')->value('receipt_no');
             if ($return !== null || $items->contains(fn (object $item): bool => (int) $item->returned_qty_milli > 0)) {
-                throw new ConflictError("Goods from {$no} have been returned".($return === null ? '' : " ({$return})").', so it cannot be edited. Void the return first, or void the sale and ring it up again.');
+                throw new ConflictError("Goods from {$no} have been returned".($return === null ? '' : " ({$return})").', so it cannot be edited. Void the sale and ring it up again instead.');
             }
             if (self::settledByPayments($saleId) > 0) {
                 throw new ConflictError("{$no} has customer payments set against it, so it cannot be edited. Void those payments first.");
@@ -754,6 +757,13 @@ final class SaleService
             $before = self::snapshot($saleId);
             $originalDate = (string) $original->business_date;
             $isDemo = (bool) $original->is_demo;
+
+            // Priced, and an invoice number taken if it becomes one, before the old entry's reversal takes a
+            // journal number: Tx's lock order is a document's own number first, then the journal. Prices read
+            // no stock, so nothing below changes them; a refusal below rolls the number back with the rest.
+            ['resolved' => $resolved, 'taxProfile' => $taxProfile, 'totals' => $totals, 'tender' => $tender] = self::priceSale($input, $settings);
+            $becomesInvoice = $tender['outstanding'] !== 0 && ($input['customerId'] ?? null) !== null;
+            $invoiceNo = $becomesInvoice && $original->invoice_no === null ? SequenceService::next(DocType::Invoice) : $original->invoice_no;
 
             // 1. The goods go back at the cost they left at; a line that never left the shelf has nothing to put back.
             $keepCost = [];
@@ -776,8 +786,7 @@ final class SaleService
             $replaced = DocumentEdit::reverseAndClear(JournalSourceType::Sale, $original->journal_entry_id === null ? null : (int) $original->journal_entry_id, $originalDate, $saleId, $no, $why, $residual, $isDemo, 'sale_id', ['sale_items', 'sale_taxes', 'sale_payments'], $now, $actor);
 
             // 2. The sale as it should have been, checked against the customer's balance without the old one.
-            ['resolved' => $resolved, 'taxProfile' => $taxProfile, 'totals' => $totals, 'tender' => $tender] = self::priceSale($input, $settings);
-            $customerId = self::checkCredit($input, $tender);
+            $customerId = self::checkCredit($input, $tender, $original->customer_id === null ? null : (int) $original->customer_id);
             $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
             // The goods already on it leave at what they cost on its own day, not today's average.
             ['cogs' => $cogs, 'posted' => $posted, 'residual' => $emptied, 'expiredSold' => $expiredSold] = self::writeSaleBody($saleId, $no, $input, $resolved, $taxProfile, $totals, $tender, $settings, $tenderAccounts, $now, $actor, $isDemo, $keepCost);
@@ -788,7 +797,7 @@ final class SaleService
             $termsDays = $isCredit ? ($input['termsDays'] ?? ($original->terms_days === null ? (int) ($settings->default_terms_days ?? 30) : (int) $original->terms_days)) : null;
             $at = Clock::stamp($now);
             DB::table('sales')->where('id', $saleId)->update([
-                'invoice_no' => $isCredit && $original->invoice_no === null ? SequenceService::next(DocType::Invoice) : $original->invoice_no,
+                'invoice_no' => $isCredit ? $invoiceNo : $original->invoice_no,
                 'terms_days' => $termsDays,
                 'due_date' => $termsDays === null ? null : BusinessDate::dueDateFor($input['businessDate'], $termsDays),
                 'business_date' => $input['businessDate'],
@@ -1162,7 +1171,9 @@ final class SaleService
 
     /**
      * Totals for a period: every sale document dated in it, voided ones too,
-     * so the figure agrees with the P&L; count is sales rung up.
+     * so the figure agrees with the P&L; count is sales rung up, voided ones
+     * included (the old app's count), so the dashboard says "rung up", not
+     * "posted": the Sales report counts only those still standing (D23).
      *
      * @return array{count: int, total: int, cogs: int, grossProfit: int}
      */

@@ -544,7 +544,8 @@ describe('editing a sale', function () {
         $itemId = (int) DB::table('sale_items')->where('sale_id', $sale['saleId'])->value('id');
         ReturnsService::createCustomerReturn($sale['saleId'], ['businessDate' => EDIT_DAY, 'items' => [['itemId' => $itemId, 'qty' => 1_000]], 'refunds' => [['paymentAccountId' => $this->cash, 'amount' => 800]], 'reason' => 'Dented'], $this->actor);
 
-        expect(fn () => SaleService::editSale($sale['saleId'], ($this->saleInput)(2_000), 'Fix it', $this->actor))->toThrow(ConflictError::class, 'returned');
+        expect(fn () => SaleService::editSale($sale['saleId'], ($this->saleInput)(2_000), 'Fix it', $this->actor))->toThrow(ConflictError::class, 'have been returned (');
+        expect(fn () => SaleService::editSale($sale['saleId'], ($this->saleInput)(2_000), 'Fix it', $this->actor))->toThrow(ConflictError::class, 'Void the sale and ring it up again instead.');
     });
 
     it('is for the owner only, and keeps what it said before', function () {

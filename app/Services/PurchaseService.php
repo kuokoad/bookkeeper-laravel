@@ -398,7 +398,7 @@ final class PurchaseService
             $items = DB::table('purchase_items')->where('purchase_id', $purchaseId)->orderBy('id')->lockForUpdate()->get();
             $return = DB::table('purchases')->where('returns_purchase_id', $purchaseId)->where('status', 'POSTED')->value('purchase_no');
             if ($return !== null || $items->contains(fn (object $item): bool => (int) $item->returned_qty_milli > 0)) {
-                throw new ConflictError("Goods from {$no} have been returned".($return === null ? '' : " ({$return})").', so it cannot be edited. Void the return first, or correct the purchase instead.');
+                throw new ConflictError("Goods from {$no} have been returned".($return === null ? '' : " ({$return})").', so it cannot be edited. Use "Correct this purchase" instead.');
             }
             if (self::settledByPayments($purchaseId) > 0) {
                 throw new ConflictError("{$no} has supplier payments set against it, so it cannot be edited. Void those payments first.");
@@ -424,6 +424,9 @@ final class PurchaseService
                 }
             }
             $allowNegative = (bool) DB::table('business_settings')->where('id', 1)->value('allow_negative_stock');
+            // shortcut: the reversal takes a journal number before writeBody takes batch numbers for dated lines,
+            // against Tx's lock order, so an edit and a new dated delivery saved at the same moment can deadlock
+            // and one is retried (Tx::run). Take the batch numbers first if the shop ever runs several receiving desks.
             $residual = DocumentEdit::takeBack('PURCHASE', $purchaseId, $no, $originalDate, $takeBack, $allowNegative, $isDemo, $now, $actor);
             $replaced = DocumentEdit::reverseAndClear(JournalSourceType::Purchase, $original->journal_entry_id === null ? null : (int) $original->journal_entry_id, $originalDate, $purchaseId, $no, $why, $residual, $isDemo, 'purchase_id', ['purchase_items', 'purchase_taxes', 'purchase_payments'], $now, $actor);
 

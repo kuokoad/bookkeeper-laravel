@@ -392,12 +392,19 @@ final class ListFilters
     public static function parseJournalFilters(array $params, ?string $today = null): array
     {
         $today ??= Clock::today();
-        ['from' => $from, 'to' => $to] = self::monthByDefault(Filters::parseDate(self::one($params, 'from')), Filters::parseDate(self::one($params, 'to')), $today);
+        $rawTo = Filters::parseDate(self::one($params, 'to'));
+        ['from' => $from, 'to' => $to] = self::monthByDefault(Filters::parseDate(self::one($params, 'from')), $rawTo, $today);
+        // Only a From later than today: run to that day, never a To before the From (as the ledger).
+        if ($rawTo === null && $from > $to) {
+            $to = $from;
+        }
         $source = Filters::parseEnum(self::one($params, 'source'), self::JOURNAL_SOURCES);
+        $paged = Filters::parsePage(self::one($params, 'page'), self::LEDGER_PAGE_SIZE);
 
         return [
             'filters' => ['from' => $from, 'to' => $to, ...($source === null ? [] : ['sourceType' => $source])],
             'from' => $from, 'to' => $to, 'source' => $source,
+            'page' => $paged['page'], 'pageSize' => $paged['pageSize'],
             // Only what the URL set (and was valid), in resolved order: the defaults are not a filter somebody chose.
             'carried' => array_filter(['from' => Filters::parseDate(self::one($params, 'from')) === null ? null : $from, 'to' => Filters::parseDate(self::one($params, 'to')) === null ? null : $to, 'source' => $source]),
         ];

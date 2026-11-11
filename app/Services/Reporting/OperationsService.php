@@ -183,8 +183,11 @@ final class OperationsService
         // at 146,000 lines). Over more than a quarter, a hash join of the period's sales against one scan
         // of every line beats looking each sale's lines up (about 0.45 s against 0.8 s for that year);
         // over a short period the lookups win. Revisit when a year runs to millions of lines.
-        $long = (new \DateTimeImmutable($query['from']))->diff(new \DateTimeImmutable($query['to']))->days > 92;
-        for ($year = new \DateTimeImmutable($query['from']); $year->format('Y-m-d') <= $query['to']; $year = $year->modify('first day of january next year')) {
+        // "All" starts at 0000-01-01: begin at the first sale, not one query per empty year before it.
+        $firstSale = DB::table('sales')->min('sales.business_date');
+        $start = $firstSale === null ? '9999-12-31' : max($query['from'], (string) $firstSale);
+        $long = $start <= $query['to'] && (new \DateTimeImmutable($start))->diff(new \DateTimeImmutable($query['to']))->days > 92;
+        for ($year = new \DateTimeImmutable($start); $year->format('Y-m-d') <= $query['to']; $year = $year->modify('first day of january next year')) {
             $sql = self::salesDatedIn($long
                 ? DB::table('sales')->straightJoin(DB::raw('`sale_items` IGNORE INDEX (`uq_sale_items_sale_line`, `sale_items_product_id_foreign`)'), 'sales.id', '=', 'sale_items.sale_id')
                 : DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id'),

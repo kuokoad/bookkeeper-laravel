@@ -62,6 +62,7 @@ final class BackupService
             throw new RuntimeException("Could not create the backup folder {$directory}.");
         }
 
+        self::sweepLeftovers();
         $target = self::targetPath($directory, $now, $label);
         $source = self::connectionConfig();
         // A mismatch can be a sale committing across the snapshot edge; a second dump settles it.
@@ -321,10 +322,41 @@ final class BackupService
      * @param  callable(): T  $check  run with the default connection pointed at the copy
      * @return T
      */
+    /**
+     * What a backup killed part-way left behind (the web server cutting off a
+     * long download, the PC switched off during the evening backup): a scratch
+     * copy of the whole books, and a MySQL options file holding the password.
+     * Cleanup runs in `finally`, which a killed process never reaches, so each
+     * backup clears what is over $minutes old first. A backup running at the
+     * same moment is younger than that, and only this database's copies count.
+     */
+    public static function sweepLeftovers(int $minutes = 60): void
+    {
+        $prefix = self::scratchPrefix(self::connectionConfig()['database']);
+        $stale = DB::table('information_schema.TABLES')
+            ->where('TABLE_SCHEMA', 'like', str_replace('_', '\\_', $prefix).'%')
+            ->groupBy('TABLE_SCHEMA')
+            ->havingRaw('MAX(GREATEST(CREATE_TIME, COALESCE(UPDATE_TIME, CREATE_TIME))) < NOW() - INTERVAL ? MINUTE', [$minutes])
+            ->pluck('TABLE_SCHEMA');
+        foreach ($stale as $schema) {
+            DB::statement('DROP DATABASE IF EXISTS `'.str_replace('`', '', (string) $schema).'`');
+        }
+        foreach (glob(sys_get_temp_dir().DIRECTORY_SEPARATOR.'nuna-my-*.cnf') ?: [] as $file) {
+            if (filemtime($file) < time() - $minutes * 60) {
+                @unlink($file);
+            }
+        }
+    }
+
+    private static function scratchPrefix(string $database): string
+    {
+        return substr($database, 0, 40).'_scratch_';
+    }
+
     private static function withScratchCopy(string $file, callable $check): mixed
     {
         $c = self::connectionConfig();
-        $scratch = substr($c['database'], 0, 40).'_scratch_'.bin2hex(random_bytes(4));
+        $scratch = self::scratchPrefix($c['database']).bin2hex(random_bytes(4));
         DB::statement("CREATE DATABASE `{$scratch}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin");
         $previous = DB::getDefaultConnection();
         try {
@@ -444,7 +476,10 @@ final class BackupService
         $user = (string) ($dumpUser ?? $c['username']);
         $password = (string) ($dumpUser === null ? $c['password'] : config('nuna.backup.db_password'));
         $quote = fn (string $v): string => '"'.addcslashes($v, '\\"').'"';
-        $path = tempnam(sys_get_temp_dir(), 'nuna-my-');
+        // Named by us, not tempnam (which keeps only 3 letters of the prefix on Windows), so sweepLeftovers can find it.
+        $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'nuna-my-'.bin2hex(random_bytes(8)).'.cnf';
+        touch($path);
+        chmod($path, 0600);
         file_put_contents($path, "[client]\nhost={$quote($c['host'])}\nport={$c['port']}\nuser={$quote($user)}\npassword={$quote($password)}\n");
         try {
             $work($path);

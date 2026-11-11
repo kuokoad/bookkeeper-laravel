@@ -13,6 +13,7 @@ use App\Enums\AccountType;
 use App\Services\PurchaseService;
 use App\Services\SaleService;
 use App\Support\Row;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -82,12 +83,7 @@ final class LedgerService
      */
     public static function listJournalEntries(array $query = []): array
     {
-        $page = DB::table('journal_entries')
-            ->when(isset($query['from']), fn ($q) => $q->where('journal_entries.entry_date', '>=', $query['from']))
-            ->when(isset($query['to']), fn ($q) => $q->where('journal_entries.entry_date', '<=', $query['to']))
-            ->when(isset($query['sourceType']), fn ($q) => $q->where('journal_entries.source_type', $query['sourceType']))
-            ->when(isset($query['accountId']), fn ($q) => $q->whereExists(fn ($e) => $e->selectRaw('1')->from('journal_lines')
-                ->whereColumn('journal_lines.entry_id', 'journal_entries.id')->where('journal_lines.account_id', $query['accountId'])))
+        $page = self::journalEntriesIn($query)
             ->orderByDesc('journal_entries.entry_date')->orderByDesc('journal_entries.id')
             ->limit(min($query['limit'] ?? 100, 500))->offset($query['offset'] ?? 0)
             ->get(['journal_entries.id', 'journal_entries.entry_no', 'journal_entries.entry_date', 'journal_entries.occurred_at', 'journal_entries.source_type',
@@ -125,6 +121,22 @@ final class LedgerService
     }
 
     /** @return array{entry: array, lines: list<array>, totalDebit: int, totalCredit: int, balanced: bool} */
+    /** How many entries match, ignoring the page: the same conditions as listJournalEntries. */
+    public static function countJournalEntries(array $query = []): int
+    {
+        return self::journalEntriesIn($query)->count();
+    }
+
+    private static function journalEntriesIn(array $query): Builder
+    {
+        return DB::table('journal_entries')
+            ->when(isset($query['from']), fn ($q) => $q->where('journal_entries.entry_date', '>=', $query['from']))
+            ->when(isset($query['to']), fn ($q) => $q->where('journal_entries.entry_date', '<=', $query['to']))
+            ->when(isset($query['sourceType']), fn ($q) => $q->where('journal_entries.source_type', $query['sourceType']))
+            ->when(isset($query['accountId']), fn ($q) => $q->whereExists(fn ($e) => $e->selectRaw('1')->from('journal_lines')
+                ->whereColumn('journal_lines.entry_id', 'journal_entries.id')->where('journal_lines.account_id', $query['accountId'])));
+    }
+
     public static function getJournalEntry(int $entryId): array
     {
         $entry = DB::table('journal_entries')->where('journal_entries.id', $entryId)->first();

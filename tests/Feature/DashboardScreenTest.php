@@ -54,7 +54,7 @@ it('groups the approved layout without losing independently dated charts', funct
 });
 
 it('shows the sales figure the services hold, formatted by the domain', function () {
-    dashboardAs($this->ownerId)->assertSeeHtml('GHS 100.00')->assertSee('1 posted sale · transaction total');
+    dashboardAs($this->ownerId)->assertSeeHtml('GHS 100.00')->assertSee('1 sale rung up · transaction total');
 });
 
 it('keeps product sales summaries when inventory access is denied', function () {
@@ -145,7 +145,7 @@ it('lays the dashboard out attention first under the Modern look, with the same 
         ->and(strpos($html, 'id="attention-heading"'))->toBeLessThan(strpos($html, 'aria-label="Primary financial figures"'))
         // The amount is split for display only: the code, then the figure the services hold.
         ->and($html)->toContain('<span class="modern-cur">GHS</span>100.00')
-        ->toContain('1 posted sale · transaction total')
+        ->toContain('1 sale rung up · transaction total')
         ->toContain('Daily sales')->toContain('Daily expenses')->toContain('Cash movements')
         ->toContain('Top selling stock item')->toContain('Dashboard rice')
         ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')

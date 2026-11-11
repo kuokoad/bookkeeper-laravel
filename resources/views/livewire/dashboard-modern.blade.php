@@ -80,7 +80,7 @@
                 <h3 class="modern-label"><a href="{{ $salesHref }}" class="rounded hover:text-accent focus-visible:outline-2 focus-visible:outline-accent">Sales</a></h3>
                 @include('livewire.dashboard-period', ['label' => 'Sales', 'param' => 'sales'])
                 <p class="text-[1.7rem]"><x-dashboard.amount :value="$rangeSales['total']" /></p>
-                <p class="mt-1 text-xs text-content-muted">{{ $rangeSales['count'] }} posted sale{{ $rangeSales['count'] === 1 ? '' : 's' }} · transaction total</p>
+                <p class="mt-1 text-xs text-content-muted">{{ $rangeSales['count'] }} sale{{ $rangeSales['count'] === 1 ? '' : 's' }} rung up · transaction total</p>
                 <p class="mt-2 border-t border-line pt-2 text-sm text-content-muted">Today (@date($today)): <span class="tabular font-semibold text-content">@money($todaySales['total'])</span></p>
             </section>
         @endif

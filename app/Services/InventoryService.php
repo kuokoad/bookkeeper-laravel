@@ -660,21 +660,24 @@ final class InventoryService
 
     /**
      * Stock by how long it has left. Quantity, never value: a batch carries no
-     * cost. Undated stock has its own bucket: unknown is not distant.
+     * cost. Undated stock has its own bucket: unknown is not distant. qtyMilli
+     * adds every unit together, so it only means something in one unit; byUnit
+     * is what a screen shows.
      *
-     * @return list<array{bucket: string, label: string, batchCount: int, qtyMilli: int}>
+     * @return list<array{bucket: string, label: string, batchCount: int, qtyMilli: int, byUnit: array<string, int>}>
      */
     public static function getExpiryAgeing(string $asAt): array
     {
-        $totals = array_fill_keys(self::EXPIRY_BUCKETS, ['batchCount' => 0, 'qtyMilli' => 0]);
+        $totals = array_fill_keys(self::EXPIRY_BUCKETS, ['batchCount' => 0, 'qtyMilli' => 0, 'byUnit' => []]);
         $in7 = BusinessDate::addDays($asAt, 7);
         $in30 = BusinessDate::addDays($asAt, 30);
         $in90 = BusinessDate::addDays($asAt, 90);
 
         $rows = DB::table('product_batches')
+            ->join('products', 'products.id', '=', 'product_batches.product_id')
             ->where('product_batches.is_closed', false)
             ->where('product_batches.qty_milli', '>', 0)
-            ->get(['expiry_date', 'qty_milli']);
+            ->get(['product_batches.expiry_date', 'product_batches.qty_milli', 'products.unit']);
         foreach ($rows as $row) {
             $date = $row->expiry_date;
             $bucket = match (true) {
@@ -687,6 +690,8 @@ final class InventoryService
             };
             $totals[$bucket]['batchCount']++;
             $totals[$bucket]['qtyMilli'] = Quantity::add($totals[$bucket]['qtyMilli'], (int) $row->qty_milli);
+            // Kilograms and tins do not add up: shown per unit, so the quantity column means something.
+            $totals[$bucket]['byUnit'][$row->unit] = Quantity::add($totals[$bucket]['byUnit'][$row->unit] ?? 0, (int) $row->qty_milli);
         }
 
         return array_map(

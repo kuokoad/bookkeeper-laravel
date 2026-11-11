@@ -293,6 +293,27 @@ describe('owner capital and drawings', function () {
         Shop::assertBooksHealthy('owner drawings');
     });
 
+    it('voids a mistyped drawing, putting the stake and the cash back, and refuses a second void', function () {
+        CashbookService::recordOwnerCapital(['businessDate' => CB_TODAY, 'paymentAccountId' => $this->cash, 'amount' => 300_000], $this->actor);
+        $typo = CashbookService::recordOwnerDrawings(['businessDate' => CB_TODAY, 'paymentAccountId' => $this->cash, 'amount' => 50_000], $this->actor);
+
+        CashbookService::voidOwnerMovement($typo['id'], 'Typed 500 as 50,000', $this->actor);
+        expect(Shop::balance('1001'))->toBe(300_000)
+            ->and(Shop::balance(ChartOfAccounts::OWNERS_DRAWINGS))->toBe(0)
+            ->and(Shop::balance(ChartOfAccounts::OWNERS_CAPITAL))->toBe(300_000)
+            ->and(DB::table('owner_movements')->where('id', $typo['id'])->value('status'))->toBe('VOIDED')
+            ->and(fn () => CashbookService::voidOwnerMovement($typo['id'], 'Again', $this->actor))->toThrow(ConflictError::class, 'already been voided');
+        Shop::assertBooksHealthy('drawings voided');
+    });
+
+    it('refuses owner money through an archived account', function () {
+        $till2 = PaymentAccountService::createPaymentAccount(['name' => 'Old till', 'kind' => PaymentAccountKind::Cash], $this->actor);
+        PaymentAccountService::setPaymentAccountActive($till2, false, $this->actor);
+
+        expect(fn () => CashbookService::recordOwnerCapital(['businessDate' => CB_TODAY, 'paymentAccountId' => $till2, 'amount' => 1_000], $this->actor))
+            ->toThrow(ValidationError::class, 'is archived');
+    });
+
     it('creates a real source row so the entry is traceable', function () {
         $result = CashbookService::recordOwnerCapital(['businessDate' => CB_TODAY, 'paymentAccountId' => $this->cash, 'amount' => 1_000], $this->actor);
 

@@ -195,7 +195,7 @@ final class ReturnsService
                 $tracked = (bool) DB::table('products')->where('id', $item->product_id)->value('track_inventory');
                 // D27: always back on the shelf, even at no cost (stockIn takes a zero).
                 if ($tracked) {
-                    $cameFrom = $soldFrom[(int) $item->id] ?? null;
+                    $cameFrom = self::notYetReturned($soldFrom[(int) $item->id] ?? null, 'sales', 'returns_sale_id', $originalSaleId, 'SALE_RETURN', (int) $item->product_id, $line['request']['qty']);
                     $movement = InventoryService::recordStockMovement([
                         'productId' => (int) $item->product_id,
                         'direction' => 'IN',
@@ -478,7 +478,7 @@ final class ReturnsService
                 $item = $line['item'];
                 if ($line['tracked']) {
                     // From the crate THIS supplier delivered, at what it cost the shop.
-                    $cameFrom = $sourceBatches[(int) $item->id] ?? null;
+                    $cameFrom = self::notYetReturned($sourceBatches[(int) $item->id] ?? null, 'purchases', 'returns_purchase_id', $originalPurchaseId, 'PURCHASE_RETURN', (int) $item->product_id, $line['request']['qty']);
                     $movement = InventoryService::recordStockMovement([
                         'productId' => (int) $item->product_id,
                         'direction' => 'OUT',
@@ -678,5 +678,42 @@ final class ReturnsService
             ->filter(fn (array $item): bool => $item['returnableMilli'] > 0)
             ->values()
             ->all();
+    }
+
+    /**
+     * What of a line's batch split earlier returns against the same document
+     * have not yet taken back. Without it every partial return re-splits the
+     * whole line, and three one-unit returns of a three-unit sale left one
+     * batch holding more than it ever gave. Per product, since a return line
+     * does not name the line it came from; if that leaves too little for this
+     * return (one product on several lines), the line's own split is used.
+     *
+     * @param  list<array{batchId: int, batchRef: string, qtyMilli: int}>|null  $split
+     * @return list<array{batchId: int, batchRef: string, qtyMilli: int}>|null
+     */
+    private static function notYetReturned(?array $split, string $table, string $returnsColumn, int $originalId, string $returnSourceType, int $productId, int $qty): ?array
+    {
+        if ($split === null || $split === []) {
+            return $split;
+        }
+        $returned = [];
+        $earlier = DB::table($table)->where("{$table}.{$returnsColumn}", $originalId)->where("{$table}.status", 'POSTED')->pluck("{$table}.id");
+        foreach ($earlier as $returnId) {
+            foreach (InventoryService::readBatchSplits($returnSourceType, (int) $returnId, $productId) as $movement) {
+                foreach ($movement as $allocation) {
+                    $returned[$allocation['batchId']] = ($returned[$allocation['batchId']] ?? 0) + $allocation['qtyMilli'];
+                }
+            }
+        }
+        $left = [];
+        foreach ($split as $allocation) {
+            $already = min($allocation['qtyMilli'], $returned[$allocation['batchId']] ?? 0);
+            $returned[$allocation['batchId']] = ($returned[$allocation['batchId']] ?? 0) - $already;
+            if ($allocation['qtyMilli'] > $already) {
+                $left[] = [...$allocation, 'qtyMilli' => $allocation['qtyMilli'] - $already];
+            }
+        }
+
+        return array_sum(array_column($left, 'qtyMilli')) >= $qty ? $left : $split;
     }
 }

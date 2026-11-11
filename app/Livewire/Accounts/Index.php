@@ -205,6 +205,30 @@ final class Index extends Component
         $this->dispatch('toast', message: 'Recorded. The account balance was updated.', tone: 'success');
     }
 
+    /** @var array<int, string> reason typed per owner-money row (livewire.cashbook.row-void) */
+    public array $reasons = [];
+
+    public function voidOwnerMoney(int $id): void
+    {
+        $this->authorize('accounts.void');
+        $this->resetErrorBag();
+        $reason = trim($this->reasons[$id] ?? '');
+        if (mb_strlen($reason) < 3) {
+            $this->addError("reason.{$id}", 'Give a reason for voiding this.');
+
+            return;
+        }
+        try {
+            CashbookService::voidOwnerMovement($id, $reason, $this->actor());
+        } catch (DomainError $e) {
+            $this->addError("void.{$id}", $e->userMessage);
+
+            return;
+        }
+        unset($this->reasons[$id]);
+        $this->dispatch('toast', message: 'Voided. A reversing entry was posted today; the record was kept.', tone: 'success');
+    }
+
     public function setDirection(string $direction): void
     {
         $this->direction = $direction === 'OUT' ? 'OUT' : 'IN';
@@ -224,6 +248,8 @@ final class Index extends Component
             'trial' => BalancesService::getTrialBalance(),
             'negative' => array_values(array_filter($active, fn (array $a): bool => $a['balance'] < 0)),
             'canCreate' => Gate::allows('accounts.create'),
+            'canVoid' => Gate::allows('accounts.void'),
+            'ownerMoney' => CashbookService::listOwnerMovements(),
         ]);
     }
 

@@ -46,7 +46,8 @@ it('gives the same stock item and stock group tables as tallying every earned li
         }
         $discount = mt_rand(0, 2) === 0 ? mt_rand(1, 333) : 0;
         // The first 12, on credit, are returned or voided below.
-        $sale = Shop::sell($actor, $lines, $n < 12 ? [] : [['paymentAccountId' => $n % 3 === 0 ? $momo : $cash, 'amount' => 10_000_000]], [
+        // Paid well over in cash so any total is covered (change comes from cash); every third sale also part by MoMo.
+        $sale = Shop::sell($actor, $lines, $n < 12 ? [] : [...($n % 3 === 0 ? [['paymentAccountId' => $momo, 'amount' => 100]] : []), ['paymentAccountId' => $cash, 'amount' => 10_000_000]], [
             'businessDate' => '2026-08-'.sprintf('%02d', mt_rand(2, 28)),
             'customerId' => $n < 12 || mt_rand(0, 1) === 0 ? $customer : null,
             ...($discount > 0 ? ['invoiceDiscount' => $discount, 'allowPriceOverride' => true] : []),

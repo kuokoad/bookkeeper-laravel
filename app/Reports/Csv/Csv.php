@@ -16,7 +16,7 @@ use App\Support\Filters\Filters;
 final class Csv
 {
     /** How many rows one download may contain: what every list service returns at most, so a file that stops here says so (ListExport). */
-    public const EXPORT_LIMIT = Filters::MAX_LIST_ROWS;
+    public const EXPORT_LIMIT = Filters::MAX_LIST_ROWS - 1;
 
     /**
      * One field. Text that a spreadsheet would run as a formula (=, +, -, @,

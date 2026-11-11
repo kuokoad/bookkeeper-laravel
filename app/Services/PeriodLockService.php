@@ -55,6 +55,12 @@ final class PeriodLockService
                 return;
             }
 
+            // Before a closed year's end, a sale could be dated into a year already swept to Retained
+            // Earnings, and no later close would sweep it: that year's figures would stop agreeing.
+            $closed = DB::table('year_end_closings')->whereNull('year_end_closings.reversed_at')->orderByDesc('year_end_closings.period_end')->first();
+            if ($closed !== null && ($lockedBefore === null || $lockedBefore < (string) $closed->period_end)) {
+                throw new ValidationError("The year ending {$closed->period_end} is closed, so the books stay locked to at least that day. Reopen that year first to change anything in it.");
+            }
             $relaxing = PeriodLock::isRelaxation($current, $lockedBefore);
             DB::table('business_settings')->where('id', 1)->update([
                 'books_locked_before' => $lockedBefore,

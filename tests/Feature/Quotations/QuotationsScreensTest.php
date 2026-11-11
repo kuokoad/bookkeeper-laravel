@@ -105,6 +105,16 @@ it('writes a quote through the service and shows its validation messages', funct
     expect((int) $quote->total_minor)->toBe(16_000)->and($quote->customer_name)->toBe('Mensah & Sons');
 });
 
+it('refuses a quote line with no price instead of quoting it at GHS 0.00', function () {
+    $cement = Shop::product($this->actor, 'Cement 50kg', 6_000, 8_000);
+    $form = quotesAs($this->ownerId, Form::class)->set('customerName', 'Mensah & Sons');
+    $key = array_key_first($form->get('lines'));
+    $form->set("lines.{$key}.productId", (string) $cement)->set("lines.{$key}.qty", '2')->set("lines.{$key}.unitPrice", '  ')
+        ->call('save')->assertHasErrors(['lines'])->assertSee('Enter a price on line 1.');
+
+    expect(DB::table('quotations')->count())->toBe(0);
+});
+
 it('changes an open quote and sends a closed one back to its page', function () {
     $open = openQuote($this);
     $form = quotesAs($this->ownerId, Form::class, ['id' => $open['quotationId']])->assertSet('customerName', 'Adom Construction');

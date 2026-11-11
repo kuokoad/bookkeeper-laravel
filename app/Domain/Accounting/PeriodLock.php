@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Accounting;
 
+use App\Domain\BusinessDate;
 use App\Domain\Errors\PeriodLockedError;
 
 /**
@@ -28,6 +29,8 @@ final class PeriodLock
 
     public static function assertOpen(string $businessDate, ?string $lockedBefore, bool $allowOverride = false): void
     {
+        // Dates compare as text, so "2026-1-5" would sort after "2026-06-30" and slip into a locked period.
+        BusinessDate::assert($businessDate);
         if ($allowOverride || self::isOpen($businessDate, $lockedBefore)) {
             return;
         }

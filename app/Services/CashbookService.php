@@ -40,6 +40,12 @@ final class CashbookService
     public const CASHBOOK_SORTS = ['date', 'amount', 'category', 'reference'];
 
     /** The table, number column, document type, journal source and entity of each direction. */
+    /** Owner money voids the way an expense does, by a reversal; kept apart from SIDES, which also numbers new records. */
+    private const OWNER_SIDES = [
+        'CAPITAL' => ['table' => 'owner_movements', 'no' => 'movement_no', 'source' => JournalSourceType::Capital, 'entity' => 'owner_capital', 'name' => 'Owner capital'],
+        'DRAWINGS' => ['table' => 'owner_movements', 'no' => 'movement_no', 'source' => JournalSourceType::Drawings, 'entity' => 'owner_drawings', 'name' => 'Owner drawings'],
+    ];
+
     private const SIDES = [
         'EXPENSE' => ['table' => 'expenses', 'no' => 'expense_no', 'doc' => DocType::Expense, 'source' => JournalSourceType::Expense, 'entity' => 'expense', 'name' => 'Expense'],
         'INCOME' => ['table' => 'incomes', 'no' => 'income_no', 'doc' => DocType::Income, 'source' => JournalSourceType::Income, 'entity' => 'income', 'name' => 'Income'],
@@ -282,7 +288,7 @@ final class CashbookService
             throw new ValidationError('Give a reason for voiding this record.');
         }
         $now ??= Clock::now();
-        $side = self::SIDES[$direction];
+        $side = self::SIDES[$direction] ?? self::OWNER_SIDES[$direction];
 
         Tx::run(function () use ($side, $id, $why, $actor, $now): void {
             $row = DB::table($side['table'])->where('id', $id)->lockForUpdate()->first() ?? throw new NotFoundError($side['name'], $id);
@@ -350,8 +356,12 @@ final class CashbookService
         return Tx::run(function () use ($direction, $input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
             $at = Clock::stamp($occurredAt);
-            // Not refused when archived: the old app did not check it here.
             $account = PaymentAccountService::lockAccounts([$input['paymentAccountId']])[$input['paymentAccountId']] ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
+            // An archived account is hidden from "Total held", counts and transfers: money put in or taken out
+            // through it would be out of sight (the old app did not check this).
+            if (! $account->is_active) {
+                throw new ValidationError("Payment account \"{$account->name}\" is archived. Restore it, or choose another account.");
+            }
 
             $isCapital = $direction === 'CAPITAL';
             $equityId = JournalService::accountIdByCode($isCapital ? ChartOfAccounts::OWNERS_CAPITAL : ChartOfAccounts::OWNERS_DRAWINGS);
@@ -411,6 +421,35 @@ final class CashbookService
     public static function recordOwnerDrawings(array $input, Actor $actor): array
     {
         return self::recordOwnerMovement('DRAWINGS', $input, $actor);
+    }
+
+    /**
+     * A mistyped capital or drawings voided like an expense: a reversing entry
+     * dated today, the record kept. Without it, the only fix was an opposite
+     * entry, which leaves Owner's Capital and Retained Earnings both wrong.
+     */
+    public static function voidOwnerMovement(int $id, string $reason, Actor $actor, ?Carbon $now = null): void
+    {
+        $kind = DB::table('owner_movements')->where('owner_movements.id', $id)->value('kind') ?? throw new NotFoundError('Owner money', $id);
+        self::voidRecord((string) $kind, $id, $reason, $actor, $now);
+    }
+
+    /**
+     * The newest owner money, for voiding a mistake in its row.
+     *
+     * @return list<array{id: int, movementNo: string, kind: string, businessDate: string, accountName: string, amountMinor: int, description: string, status: string, voidReason: ?string}>
+     */
+    public static function listOwnerMovements(int $limit = 20): array
+    {
+        return DB::table('owner_movements')->join('payment_accounts', 'payment_accounts.id', '=', 'owner_movements.payment_account_id')
+            ->orderByDesc('owner_movements.business_date')->orderByDesc('owner_movements.id')->limit($limit)
+            ->get(['owner_movements.id', 'owner_movements.movement_no', 'owner_movements.kind', 'owner_movements.business_date', 'payment_accounts.name AS account_name',
+                'owner_movements.amount_minor', 'owner_movements.description', 'owner_movements.status', 'owner_movements.void_reason'])
+            ->map(fn (object $r): array => [
+                'id' => (int) $r->id, 'movementNo' => $r->movement_no, 'kind' => $r->kind, 'businessDate' => (string) $r->business_date,
+                'accountName' => $r->account_name, 'amountMinor' => (int) $r->amount_minor, 'description' => $r->description,
+                'status' => $r->status, 'voidReason' => $r->void_reason,
+            ])->all();
     }
 
     // --- reads --------------------------------------------------------------

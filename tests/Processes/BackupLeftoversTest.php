@@ -50,3 +50,23 @@ it('drops a left-behind scratch copy of these books and its password file, and n
         @unlink($newFile);
     }
 });
+
+it('drops a copy killed before any table loaded, by the time in its name, and keeps a fresh one', function () {
+    $prefix = substr((string) DB::getDatabaseName(), 0, 40).'_scratch_';
+    $named = fn (int $at): string => $prefix.str_pad(base_convert((string) $at, 10, 36), 6, '0', STR_PAD_LEFT).'beef';
+    [$old, $fresh] = [$named(time() - 7_200), $named(time())];
+    try {
+        foreach ([$old, $fresh] as $db) {
+            DB::statement("CREATE DATABASE `{$db}`");
+        }
+
+        BackupService::sweepLeftovers();
+        expect(databaseExists($old))->toBeFalse()
+            ->and(databaseExists($fresh))->toBeTrue()
+            ->and(strlen($old))->toBeLessThanOrEqual(64);
+    } finally {
+        foreach ([$old, $fresh] as $db) {
+            DB::statement("DROP DATABASE IF EXISTS `{$db}`");
+        }
+    }
+});

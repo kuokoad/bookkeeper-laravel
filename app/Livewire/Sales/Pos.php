@@ -489,7 +489,14 @@ final class Pos extends Component
     #[Computed(persist: true)]
     public function customers(): array
     {
-        return CustomerService::listCustomers(['limit' => 200]);
+        $customers = CustomerService::listCustomers(['limit' => 200]);
+        // An edited sale keeps its own customer, archived since or past the first 200: a list without them
+        // would show "Walk-in" and drop them on save.
+        if ($this->editingId !== null && $this->customerId !== '' && ! in_array((int) $this->customerId, array_column($customers, 'id'), true)) {
+            $customers[] = CustomerService::getCustomer((int) $this->customerId);
+        }
+
+        return $customers;
     }
 
     /**

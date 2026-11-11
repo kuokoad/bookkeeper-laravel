@@ -10,6 +10,7 @@ declare(strict_types=1);
 | BalancesService::getTrialBalance.
 */
 
+use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\ValidationError;
 use App\Enums\AuditAction;
@@ -341,5 +342,22 @@ describe('a shop that prices tax-inclusive', function () {
         $quote = QuotationService::getQuotation(($this->quoteFor)(['quoteDiscount' => 10_000])['quotationId']);
 
         expect($quote['quoteDiscountMinor'])->toBe(10_000)->and($quote['discountMinor'])->toBeLessThan(10_000);
+    });
+
+    it('refuses to convert a quote the tax would now total differently, selling nothing', function () {
+        Shop::setSingleTax(1_500);
+        $created = ($this->quoteFor)();
+        Shop::setSingleTax(2_000);
+
+        expect(fn () => ($this->convert)($created['quotationId']))->toThrow(ConflictError::class, 'tax settings have changed since quote')
+            ->and(DB::table('sales')->count())->toBe(0)
+            ->and(QuotationService::getQuotation($created['quotationId'])['status'])->toBe('OPEN');
+    });
+
+    it('prints a tax-inclusive quote with the subtotal of its lines and the discount as typed, as the receipt will', function () {
+        Shop::setGhanaTaxes(true);
+        $created = ($this->quoteFor)(['quoteDiscount' => 10_000]);
+        signedIn($this->actor->id)->get("/quotations/{$created['quotationId']}/print")->assertOk()
+            ->assertSeeInOrder(['Subtotal', 'GHS 3,200.00', 'Discount', 'GHS 100.00']);
     });
 });

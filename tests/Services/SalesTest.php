@@ -17,8 +17,10 @@ use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
+use App\Services\PaymentAccountService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
+use App\Services\TransferService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
@@ -105,6 +107,30 @@ describe('MoMo and split payments', function () {
             ->and(Shop::balance('1011'))->toBe(2_500)
             ->and(DB::table('sale_payments')->where('sale_id', $sale['saleId'])->count())->toBe(2);
         Shop::assertBooksHealthy('split payment');
+    });
+
+    it('gives change from the cash, whatever order the payments were typed in', function () {
+        $id = ($this->make)('Milo 400g', 500, 800);
+        ($this->addStock)($id, 20, 10_000);
+        // GHS 120.00 of Milo; cash 100 typed first, then MoMo 50: the GHS 30 change leaves the drawer.
+        $sale = ($this->sale)(['items' => [['productId' => $id, 'qty' => 15_000]], 'tenders' => [
+            ['paymentAccountId' => $this->cash, 'amount' => 10_000],
+            ['paymentAccountId' => $this->momo, 'amount' => 5_000],
+        ]]);
+
+        expect($sale['change'])->toBe(3_000)
+            ->and(Shop::balance('1001'))->toBe(7_000)
+            ->and(Shop::balance('1011'))->toBe(5_000);
+        Shop::assertBooksHealthy('change from cash');
+    });
+
+    it('refuses change on a sale paid only by MoMo, since nobody can give change from a transfer', function () {
+        $id = ($this->make)('Milo 400g', 500, 800);
+        ($this->addStock)($id, 10, 5_000);
+
+        expect(fn () => ($this->sale)(['items' => [['productId' => $id, 'qty' => 5_000]], 'tenders' => [['paymentAccountId' => $this->momo, 'amount' => 5_000]]]))
+            ->toThrow(ValidationError::class, 'Change can only be given from cash')
+            ->and(DB::table('sales')->count())->toBe(0);
     });
 });
 
@@ -365,6 +391,21 @@ describe('voiding a sale', function () {
         $sale = ($this->sale)(['items' => [['productId' => $id, 'qty' => 1_000]], 'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 800]]]);
 
         expect(fn () => SaleService::voidSale($sale['saleId'], 'x', $this->actor))->toThrow(ValidationError::class);
+    });
+});
+
+describe('voiding through an account archived since (third audit 6)', function () {
+    it('refuses the void instead of leaving money in an account nobody can see', function () {
+        $id = ($this->make)('Milo 400g', 500, 800);
+        ($this->addStock)($id, 10, 5_000);
+        $customer = Shop::customer($this->actor);
+        ($this->sale)(['items' => [['productId' => $id, 'qty' => 1_000]], 'tenders' => [], 'customerId' => $customer]);
+        $payment = CustomerPaymentService::recordCustomerPayment(['customerId' => $customer, 'businessDate' => SALES_TODAY, 'paymentAccountId' => $this->momo, 'amount' => 800], $this->actor);
+        TransferService::recordTransfer(['businessDate' => SALES_TODAY, 'fromAccountId' => $this->momo, 'toAccountId' => $this->cash, 'amount' => 800], $this->actor);
+        PaymentAccountService::setPaymentAccountActive($this->momo, false, $this->actor);
+
+        expect(fn () => CustomerPaymentService::voidCustomerPayment($payment['paymentId'], 'Typed twice', $this->actor))->toThrow(ValidationError::class, 'archived since')
+            ->and(Shop::balance('1011'))->toBe(0);
     });
 });
 

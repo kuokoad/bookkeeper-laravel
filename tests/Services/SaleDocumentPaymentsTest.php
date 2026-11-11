@@ -19,13 +19,13 @@ function documentSale(int $total, array $tenders, int $outstanding, int $credite
 
 it('prints a sale paid in full at the till', function () {
     expect(SaleService::documentPayments(documentSale(2_000, [2_000], 0)))
-        ->toBe(['change' => 0, 'alreadyPaid' => 2_000, 'amountDue' => 0, 'inCredit' => 0, 'settled' => true]);
+        ->toBe(['alreadyPaid' => 2_000, 'amountDue' => 0, 'inCredit' => 0, 'settled' => true]);
 });
 
 it('prints a part-paid sale with what is still due', function () {
     // GHS 50.00 sale, GHS 20.00 at the till, GHS 30.00 on account.
     expect(SaleService::documentPayments(documentSale(5_000, [2_000], 3_000)))
-        ->toBe(['change' => 0, 'alreadyPaid' => 2_000, 'amountDue' => 3_000, 'inCredit' => 0, 'settled' => false]);
+        ->toBe(['alreadyPaid' => 2_000, 'amountDue' => 3_000, 'inCredit' => 0, 'settled' => false]);
     // A GHS 10.00 return credited to the account is not money received.
     expect(SaleService::documentPayments(documentSale(5_000, [2_000], 2_000, 1_000)))
         ->toMatchArray(['alreadyPaid' => 2_000, 'amountDue' => 2_000]);
@@ -34,7 +34,7 @@ it('prints a part-paid sale with what is still due', function () {
 it('prints an overpaid sale as credit in hand, not as money due', function () {
     // Paid GHS 20.00 in full, then GHS 10.00 of it came back on account: GHS 10.00 in credit.
     expect(SaleService::documentPayments(documentSale(2_000, [2_000], -1_000, 1_000)))
-        ->toBe(['change' => 0, 'alreadyPaid' => 2_000, 'amountDue' => 0, 'inCredit' => 1_000, 'settled' => true]);
+        ->toBe(['alreadyPaid' => 2_000, 'amountDue' => 0, 'inCredit' => 1_000, 'settled' => true]);
 });
 
 it('reads the same figures from real sales: cash in full, and part paid on credit', function () {
@@ -51,5 +51,5 @@ it('reads the same figures from real sales: cash in full, and part paid on credi
 
     $part = Shop::sell($actor, [[$rice, 3_000]], [['paymentAccountId' => $cash, 'amount' => 1_000]], ['customerId' => $customer]);
     expect(SaleService::documentPayments(SaleService::getSale($part['saleId'])))
-        ->toBe(['change' => 0, 'alreadyPaid' => 1_000, 'amountDue' => 2_000, 'inCredit' => 0, 'settled' => false]);
+        ->toBe(['alreadyPaid' => 1_000, 'amountDue' => 2_000, 'inCredit' => 0, 'settled' => false]);
 });

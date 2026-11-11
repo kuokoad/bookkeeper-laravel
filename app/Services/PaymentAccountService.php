@@ -229,9 +229,16 @@ final class PaymentAccountService
         if ($entryId === null) {
             return;
         }
-        self::lockAccounts(DB::table('payment_accounts')
+        $accounts = self::lockAccounts(DB::table('payment_accounts')
             ->whereIn('payment_accounts.gl_account_id', DB::table('journal_lines')->where('journal_lines.entry_id', $entryId)->select('journal_lines.account_id'))
             ->pluck('payment_accounts.id')->map(fn ($id): int => (int) $id)->all());
+        // Archiving needs a zero balance and hides the account from "Total held" and from counts and
+        // transfers: a reversal into it would leave money nobody can see or move.
+        foreach ($accounts as $account) {
+            if (! $account->is_active) {
+                throw new ValidationError("This moved money through \"{$account->name}\", which has been archived since. Restore that account first, then try again.");
+            }
+        }
     }
 
     /**

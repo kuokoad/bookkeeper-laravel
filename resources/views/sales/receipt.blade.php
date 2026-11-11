@@ -93,9 +93,6 @@
                 @foreach ($sale['tenders'] as $tender)
                     <div class="flex justify-between"><dt class="text-content-muted">Paid by {{ $tender['accountName'] }}</dt><dd class="tabular text-content">{{ Format::money((int) $tender['amountMinor'], bare: true) }}</dd></div>
                 @endforeach
-                @if ($change > 0)
-                    <div class="flex justify-between font-semibold"><dt class="text-content">Change</dt><dd class="tabular text-content">{{ Format::money($change, bare: true) }}</dd></div>
-                @endif
                 @if ($sale['outstandingMinor'] > 0)
                     <div class="flex justify-between font-semibold"><dt class="text-content">Balance owing</dt><dd class="tabular text-content">{{ Format::money((int) $sale['outstandingMinor'], bare: true) }}</dd></div>
                 @endif

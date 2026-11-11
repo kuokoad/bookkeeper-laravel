@@ -5,7 +5,7 @@
 
     @if ($unbalanced !== [])
         <x-alert tone="danger" title="Some entries do not balance" class="mb-4">
-            {{ implode(', ', array_column($unbalanced, 'entryNo')) }}. This should be impossible — please report it.
+            {{ implode(', ', $unbalanced) }}. This should be impossible — please report it.
         </x-alert>
     @endif
 

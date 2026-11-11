@@ -9,9 +9,11 @@ declare(strict_types=1);
 | tests/Services/CsvExportsTest.
 */
 
+use App\Reports\Csv\Csv;
 use App\Reports\Csv\ListExport;
 use App\Services\Actor;
 use App\Support\HttpThrottle;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
 beforeEach(function () {
@@ -109,4 +111,19 @@ it('downloads every row of a list past 500, with no "not the whole set" line', f
     $table = ListExport::table('customers', [], '2026-08-31');
     expect($table['rows'])->toHaveCount(501)
         ->and(implode(' ', array_merge(...$table['rows'])))->not->toContain('NOT THE WHOLE SET');
+});
+
+it('warns that a download stops short only when there really is more than the limit', function () {
+    $insert = fn (int $from, int $to) => DB::table('customers')->insert(array_map(fn (int $i): array => ['name' => sprintf('Bulk customer %05d', $i), 'created_at' => now(), 'updated_at' => now()], range($from, $to)));
+    $insert(1, Csv::EXPORT_LIMIT);
+    $lines = fn (): array => explode("\r\n", trim(ListExport::download('customers', [], '2026-08-31')['body']));
+
+    // Exactly the limit: the whole set, header plus every row, and no warning.
+    expect($lines())->toHaveCount(Csv::EXPORT_LIMIT + 1)
+        ->and(implode("\n", $lines()))->not->toContain('NOT THE WHOLE SET');
+
+    $insert(Csv::EXPORT_LIMIT + 1, Csv::EXPORT_LIMIT + 1);
+    $file = $lines();
+    expect($file)->toHaveCount(Csv::EXPORT_LIMIT + 2)
+        ->and($file[array_key_last($file)])->toContain('NOT THE WHOLE SET');
 });

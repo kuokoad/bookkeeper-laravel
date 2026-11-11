@@ -128,6 +128,17 @@ describe('a shortage', function () {
         expect($overview['unresolvedDifference'])->toBe(-5_000);
     });
 
+    it('counts a shortfall found twice once, and clears it once a count adjusts it', function () {
+        ($this->fund)($this->cash, 100_000);
+        ($this->count)(['actual' => 99_000, 'explanation' => 'Will look tomorrow', 'adjust' => false, 'businessDate' => '2026-08-10']);
+        ($this->count)(['actual' => 99_000, 'explanation' => 'Still short', 'adjust' => false, 'businessDate' => '2026-08-11']);
+        $unresolved = fn (): int => collect(ReconciliationService::getReconciliationOverview())->firstWhere('paymentAccountId', $this->cash)['unresolvedDifference'];
+        expect($unresolved())->toBe(-1_000);
+
+        ($this->count)(['actual' => 99_000, 'explanation' => 'Gave up looking', 'adjust' => true, 'businessDate' => '2026-08-12']);
+        expect($unresolved())->toBe(0);
+    });
+
     it('refuses a difference with no explanation', function () {
         ($this->fund)($this->cash, 245_000);
         expect(fn () => ($this->count)(['actual' => 240_000]))->toThrow(ValidationError::class, 'Explain what you think happened');

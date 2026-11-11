@@ -12,6 +12,7 @@ use App\Livewire\Accounts\Show;
 use App\Livewire\Accounts\Transfers;
 use App\Models\User;
 use App\Services\Actor;
+use App\Services\CashbookService;
 use App\Services\PaymentAccountService;
 use App\Services\TransferService;
 use App\Support\Clock;
@@ -103,6 +104,15 @@ it('records owner money in and out through the cashbook', function () {
         ->set('ownerAmount', '30')->call('recordOwnerMoney')->assertHasNoErrors()
         ->assertDispatched('toast', message: 'Recorded. The account balance was updated.', tone: 'success');
     expect(PaymentAccountService::getPaymentAccountBalance($this->cash))->toBe(7_000);
+});
+
+it('lists recent owner money and voids a mistake in its row', function () {
+    $drawing = CashbookService::recordOwnerDrawings(['businessDate' => $this->today, 'paymentAccountId' => $this->cash, 'amount' => 5_000_000, 'description' => 'School fees'], $this->actor);
+    accountsAs($this->ownerId, Index::class)->assertSee('Recent owner money')->assertSee($drawing['documentNo'])
+        ->call('voidOwnerMoney', $drawing['id'])->assertHasErrors(['reason.'.$drawing['id'] => 'Give a reason for voiding this.'])
+        ->set('reasons.'.$drawing['id'], 'Typed 50,000 for 500')->call('voidOwnerMoney', $drawing['id'])->assertHasNoErrors()
+        ->assertDispatched('toast', message: 'Voided. A reversing entry was posted today; the record was kept.', tone: 'success');
+    expect(DB::table('owner_movements')->where('id', $drawing['id'])->value('status'))->toBe('VOIDED');
 });
 
 it('voids a transfer with a reason', function () {

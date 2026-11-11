@@ -9,6 +9,7 @@ use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
 use App\Domain\JsCompat;
+use App\Domain\Money;
 use App\Domain\Quantity;
 use App\Domain\Sales\SaleCalculator;
 use App\Domain\Sales\SaleTotals;
@@ -341,6 +342,26 @@ final class QuotationService
                 }
             }
 
+            // --- the tax it was quoted with -----------------------------------------
+            // The sale is taxed with today's setup. Re-priced from the quote's own lines and prices, any
+            // difference is the tax: the customer would pay a total the printed quote never showed.
+            $lines = array_map(fn (array $item): array => [
+                'productId' => $item['productId'],
+                'qty' => $item['entryQtyMilli'] ?? $item['qtyMilli'],
+                'alt' => $item['entryUnit'] !== null,
+                'altFactor' => $item['entryFactorMilli'],
+                'unitPrice' => $item['unitPriceMinor'],
+                'discount' => $item['discountMinor'],
+            ], $quote['items']);
+            $repriced = self::priceLines(['lines' => $lines, 'quoteDiscount' => $quote['quoteDiscountMinor']])['totals']->total;
+            if ($repriced !== (int) $locked->total_minor) {
+                throw new ConflictError(
+                    "The tax settings have changed since quote {$quote['quoteNo']} was issued: it would now come to "
+                        .Money::format($repriced).', not the '.Money::format((int) $locked->total_minor).' quoted. Edit the quote to re-price it, then convert it.',
+                    ['quoted' => (int) $locked->total_minor, 'now' => $repriced],
+                );
+            }
+
             // --- who is being billed -------------------------------------------
             $customerId = $input['customerId'] ?? $quote['customerId'] ?? null;
             if (($input['createCustomer'] ?? false) === true && $customerId === null) {
@@ -357,15 +378,8 @@ final class QuotationService
             $sale = SaleService::createSale([
                 'businessDate' => $businessDate,
                 'customerId' => $customerId,
-                'items' => array_map(fn (array $item): array => [
-                    'productId' => $item['productId'],
-                    // As quoted: "2 Carton" stays 2 Carton, at the size checked above.
-                    'qty' => $item['entryQtyMilli'] ?? $item['qtyMilli'],
-                    'alt' => $item['entryUnit'] !== null,
-                    'altFactor' => $item['entryFactorMilli'],
-                    'unitPrice' => $item['unitPriceMinor'],
-                    'discount' => $item['discountMinor'],
-                ], $quote['items']),
+                // As quoted: "2 Carton" stays 2 Carton, at the size checked above.
+                'items' => $lines,
                 // The discount as typed, not the net figure stored beside it.
                 ...($quote['quoteDiscountMinor'] !== 0 ? ['invoiceDiscount' => $quote['quoteDiscountMinor']] : []),
                 'tenders' => $input['tenders'],

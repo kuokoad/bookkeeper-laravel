@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Quotations;
 
 use App\Domain\Errors\NotFoundError;
+use App\Domain\Sales\SaleCalculator;
 use App\Http\Controllers\Controller;
 use App\Services\QuotationService;
 use App\Services\SettingsService;
@@ -28,6 +29,12 @@ final class PrintController extends Controller
 
         return view('quotations.print', [
             'quote' => $quote,
+            // As a receipt prints them: with tax-inclusive prices, the subtotal is the lines as printed and
+            // the discount as typed, not the net-of-tax figures stored, which would not add up on paper.
+            'totals' => SaleCalculator::documentTotals(
+                (int) $quote['subtotalMinor'], (int) $quote['discountMinor'], (int) $quote['taxMinor'], (int) $quote['totalMinor'],
+                (bool) $quote['taxInclusive'], array_map(fn (array $item): int => (int) $item['lineTotalMinor'], $quote['items']),
+            ),
             'settings' => SettingsService::get(),
             'expired' => QuotationService::isExpired($quote, Clock::today()),
         ]);

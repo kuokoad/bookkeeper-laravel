@@ -333,13 +333,21 @@ final class BackupService
     public static function sweepLeftovers(int $minutes = 60): void
     {
         $prefix = self::scratchPrefix(self::connectionConfig()['database']);
-        $stale = DB::table('information_schema.TABLES')
-            ->where('TABLE_SCHEMA', 'like', str_replace('_', '\\_', $prefix).'%')
-            ->groupBy('TABLE_SCHEMA')
-            ->havingRaw('MAX(GREATEST(CREATE_TIME, COALESCE(UPDATE_TIME, CREATE_TIME))) < NOW() - INTERVAL ? MINUTE', [$minutes])
-            ->pluck('TABLE_SCHEMA');
-        foreach ($stale as $schema) {
-            DB::statement('DROP DATABASE IF EXISTS `'.str_replace('`', '', (string) $schema).'`');
+        $cutoff = time() - $minutes * 60;
+        // By name, not through its tables: a backup killed before its first table loaded leaves a copy with none.
+        $copies = DB::table('information_schema.SCHEMATA')->where('SCHEMA_NAME', 'like', str_replace('_', '\\_', $prefix).'%')->pluck('SCHEMA_NAME');
+        foreach ($copies as $schema) {
+            $schema = (string) $schema;
+            $made = self::scratchMadeAt(substr($schema, strlen($prefix)));
+            if ($made === null) {
+                // Named before the time went into the name: as old as its newest table; with none, a leftover.
+                $newest = DB::table('information_schema.TABLES')->where('TABLE_SCHEMA', $schema)
+                    ->selectRaw('UNIX_TIMESTAMP(MAX(GREATEST(CREATE_TIME, COALESCE(UPDATE_TIME, CREATE_TIME)))) AS at')->value('at');
+                $made = $newest === null ? 0 : (int) $newest;
+            }
+            if ($made < $cutoff) {
+                DB::statement('DROP DATABASE IF EXISTS `'.str_replace('`', '', $schema).'`');
+            }
         }
         foreach (glob(sys_get_temp_dir().DIRECTORY_SEPARATOR.'nuna-my-*.cnf') ?: [] as $file) {
             if (filemtime($file) < time() - $minutes * 60) {
@@ -353,10 +361,19 @@ final class BackupService
         return substr($database, 0, 40).'_scratch_';
     }
 
+    /**
+     * After the prefix: when it was made, as six base-36 digits of the Unix time (a date-time would
+     * not fit MySQL's 64-character name), then 4 random hex digits. Null for a name without them.
+     */
+    private static function scratchMadeAt(string $suffix): ?int
+    {
+        return preg_match('/^([0-9a-z]{6})[0-9a-f]{4}$/D', $suffix, $m) === 1 ? (int) base_convert($m[1], 36, 10) : null;
+    }
+
     private static function withScratchCopy(string $file, callable $check): mixed
     {
         $c = self::connectionConfig();
-        $scratch = self::scratchPrefix($c['database']).bin2hex(random_bytes(4));
+        $scratch = self::scratchPrefix($c['database']).str_pad(base_convert((string) time(), 10, 36), 6, '0', STR_PAD_LEFT).bin2hex(random_bytes(2));
         DB::statement("CREATE DATABASE `{$scratch}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin");
         $previous = DB::getDefaultConnection();
         try {

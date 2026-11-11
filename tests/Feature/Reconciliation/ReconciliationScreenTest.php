@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 /* The reconciliation screen: the old (app)/reconciliation page, count form and reconciliation.actions. */
 
+use App\Domain\BusinessDate;
 use App\Livewire\Reconciliation\Index;
 use App\Models\User;
 use App\Services\Actor;
@@ -57,6 +58,15 @@ it('previews the difference and saves the service figure', function () {
         ->assertSee('was posted to Cash Over / Short, so the books now match what you counted.');
     expect(DB::table('reconciliations')->value('difference_minor'))->toBe(-500)
         ->and(PaymentAccountService::getPaymentAccountBalance($this->cash))->toBe(9_500);
+});
+
+it('previews a count for an earlier day against that day, not today', function () {
+    $yesterday = BusinessDate::addDays($this->today, -1);
+    Shop::capital($this->actor, $this->cash, 10_000, $yesterday);
+    Shop::capital($this->actor, $this->cash, 20_000, $this->today);
+
+    countAs($this->ownerId)->set('paymentAccountId', (string) $this->cash)->set('businessDate', $yesterday)
+        ->set('actual', '100')->assertSee('Agrees exactly');
 });
 
 it('asks for an amount and refuses a negative count', function () {

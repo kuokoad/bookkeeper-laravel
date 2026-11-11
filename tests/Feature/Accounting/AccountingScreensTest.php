@@ -178,6 +178,18 @@ it('pages the journal, saying how many entries there are, and shows a page past 
         ->assertViewHas('entries', fn (array $entries): bool => count($entries) === 1);
 });
 
+it('warns of an entry that does not balance even when it is on a later page', function () {
+    foreach (range(1, 101) as $i) {
+        Shop::expense($this->actor, $this->today, Shop::expenseCategory('Transport'), 100, "Taxi {$i}");
+    }
+    // The oldest entry, on page 2, with a line that breaks its balance (written past the app, as a fault would be).
+    $oldest = DB::table('journal_entries')->orderBy('id')->first();
+    $line = (array) DB::table('journal_lines')->where('entry_id', $oldest->id)->first();
+    DB::table('journal_lines')->insert([...array_diff_key($line, ['id' => true]), 'line_no' => 99, 'debit_minor' => 1, 'credit_minor' => 0]);
+
+    accountingAs($this->ownerId, Journal::class)->assertSee('Page 1 of 2')->assertSee($oldest->entry_no);
+});
+
 it('narrows who owes you without breaking the ledger check', function () {
     $product = Shop::product($this->actor, 'Cement', 500, 1_000);
     Shop::openingStock($this->actor, $product, 10_000, 5_000, $this->today);

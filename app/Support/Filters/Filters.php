@@ -31,8 +31,8 @@ final class Filters
 
     public const MAX_PAGE_SIZE = 200;
 
-    /** The most rows a list service returns in one call: what a CSV download can hold (Csv::EXPORT_LIMIT). */
-    public const MAX_LIST_ROWS = 5_000;
+    /** The most rows a list service returns in one call: one more than a CSV holds (Csv::EXPORT_LIMIT), so the file can tell it stopped short. */
+    public const MAX_LIST_ROWS = 5_001;
 
     public static function isValidBusinessDate(string $value): bool
     {

@@ -67,6 +67,11 @@ final class ListExport
 
         // The account statement adds an opening and two closing lines of its own.
         $dataRows = $list === 'account' ? max(0, count($table['rows']) - 3) : count($table['rows']);
+        // One row past the limit was asked for: only its arrival means the file stops short. It goes, so the
+        // file holds the limit; on the statement it is the oldest movement, just after the opening line.
+        if ($dataRows > Csv::EXPORT_LIMIT) {
+            array_splice($table['rows'], $list === 'account' ? 1 : -1, 1);
+        }
         $table = self::withTruncationNotice($table, $dataRows);
         $params = Csv::firstValues($query);
         // The dates the rows were read with (each list's parser resolves the same way), not the raw query.
@@ -84,7 +89,7 @@ final class ListExport
     /** A last line saying the file stops at the limit: a silently short file is worse than a refusal. */
     private static function withTruncationNotice(array $table, int $rowCount): array
     {
-        if ($rowCount < Csv::EXPORT_LIMIT) {
+        if ($rowCount <= Csv::EXPORT_LIMIT) {
             return $table;
         }
         $notice = ['NOT THE WHOLE SET — this file stops at '.Csv::EXPORT_LIMIT.' rows. Narrow the filter and download again.'];
@@ -100,7 +105,7 @@ final class ListExport
     public static function table(string $list, array $query, string $today): ?array
     {
         $params = Csv::firstValues($query);
-        $page = ['limit' => Csv::EXPORT_LIMIT, 'offset' => 0];
+        $page = ['limit' => Csv::EXPORT_LIMIT + 1, 'offset' => 0];
         $m = Csv::money(...);
 
         switch ($list) {

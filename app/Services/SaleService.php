@@ -23,6 +23,7 @@ use App\Enums\AuditAction;
 use App\Enums\DocType;
 use App\Enums\JournalSourceType;
 use App\Enums\MovementType;
+use App\Enums\PaymentAccountKind;
 use App\Enums\TaxBasis;
 use App\Support\Clock;
 use App\Support\Filters\Filters;
@@ -423,10 +424,19 @@ final class SaleService
         $cogs = Money::sum($cogsParts);
         DB::table('sales')->where('id', $saleId)->update(['cogs_minor' => $cogs]);
 
-        // --- tender: applied in order up to the total; the excess is change, never revenue
+        // --- tender: applied up to the total; the excess is change, never revenue
+        // Change is handed over from the drawer, so it comes off the cash: non-cash payments are applied
+        // first and cash last. Cash 100 then MoMo 50 on a 120 sale is MoMo 50 and cash 70, not cash 100
+        // and MoMo 20, which would leave both the drawer count and the MoMo statement out by the change.
+        $isCash = fn (array $request): bool => ($tenderAccounts[$request['paymentAccountId']]->kind ?? null) === PaymentAccountKind::Cash->value;
+        $ordered = [...array_filter($input['tenders'], fn (array $r): bool => ! $isCash($r)), ...array_filter($input['tenders'], $isCash)];
+        $cashTendered = Money::sum(array_map(fn (array $r): int => max(0, $r['amount']), array_filter($input['tenders'], $isCash)));
+        if ($tender['change'] > $cashTendered) {
+            throw new ValidationError('Change can only be given from cash: the card, MoMo or bank payments alone come to more than the sale. Enter what was actually paid that way.', ['change' => $tender['change'], 'cashTendered' => $cashTendered]);
+        }
         $remaining = $tender['applied'];
         $applied = [];
-        foreach ($input['tenders'] as $request) {
+        foreach ($ordered as $request) {
             if ($remaining <= 0) {
                 break;
             }
@@ -1149,19 +1159,18 @@ final class SaleService
 
     /**
      * The payment lines a receipt and an invoice print, from a getSale() result:
-     * change given at the till, what has been paid since (returns credited to the
-     * account are not money received), what is still due, and any credit in hand.
+     * what has been paid since (returns credited to the account are not money
+     * received), what is still due, and any credit in hand. Not change: only
+     * what was applied is stored, so the sale cannot say what was handed over.
      *
-     * @return array{change: int, alreadyPaid: int, amountDue: int, inCredit: int, settled: bool}
+     * @return array{alreadyPaid: int, amountDue: int, inCredit: int, settled: bool}
      */
     public static function documentPayments(array $sale): array
     {
         $total = (int) $sale['totalMinor'];
         $outstanding = (int) $sale['outstandingMinor'];
-        $tendered = Money::sum(array_map(fn (array $t): int => (int) $t['amountMinor'], $sale['tenders']));
 
         return [
-            'change' => Money::atLeastZero(Money::subtract($tendered, $total)),
             'alreadyPaid' => Money::subtract(Money::subtract($total, (int) $sale['creditedMinor']), $outstanding),
             'amountDue' => Money::atLeastZero($outstanding),
             'inCredit' => Money::atLeastZero(Money::negate($outstanding)),

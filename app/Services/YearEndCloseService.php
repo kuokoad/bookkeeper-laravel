@@ -48,6 +48,20 @@ final class YearEndCloseService
         ];
     }
 
+    /** No revenue, expense or drawings left in the year: buildClosingEntry would have no line to write. */
+    private static function hasNothingToClose(FinancialYear $year): bool
+    {
+        foreach (self::collectClosable($year) as $accounts) {
+            foreach ($accounts as $account) {
+                if ((int) $account['balance'] !== 0) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     /** The open (not reversed) closing for a year, if any. */
     private static function openClosing(int $startYear, bool $lock = false): ?object
     {
@@ -89,7 +103,9 @@ final class YearEndCloseService
             if ($earliest !== null) {
                 $first = FinancialYear::for((string) $earliest, $startMonth);
                 for ($previous = $first->startYear; $previous < $startYear; $previous++) {
-                    if (self::openClosing($previous) === null) {
+                    // A year with nothing to close (opening capital only, or no trading at all) cannot be
+                    // closed, so it must not stand in the way: this close's lock covers it anyway.
+                    if (self::openClosing($previous) === null && ! self::hasNothingToClose(FinancialYear::of($previous, $startMonth))) {
                         $label = FinancialYear::of($previous, $startMonth)->label;
                         throw new ConflictError("Close {$label} first. Years must be closed in order, oldest first.");
                     }
@@ -127,13 +143,15 @@ final class YearEndCloseService
                 'created_at' => $stamp,
             ]);
 
-            // Closing without locking would let a sale be dated into a year just declared final.
-            DB::table('business_settings')->where('id', 1)->update(['books_locked_before' => $year->end, 'updated_at' => $stamp]);
+            // Closing without locking would let a sale be dated into a year just declared final. A later lock
+            // the owner already set stays: moving it back would quietly reopen a quarter they had locked.
+            $lockTo = max((string) ($settings->books_locked_before ?? ''), $year->end);
+            DB::table('business_settings')->where('id', 1)->update(['books_locked_before' => $lockTo, 'updated_at' => $stamp]);
 
             AuditService::write(
                 AuditAction::Update,
                 'year_end_closing',
-                "Closed the year {$year->label}: profit ".Money::toDecimalString($entry['profit'], false).', drawings '.Money::toDecimalString($entry['totalDrawings'], false).". Books locked to {$year->end}.",
+                "Closed the year {$year->label}: profit ".Money::toDecimalString($entry['profit'], false).', drawings '.Money::toDecimalString($entry['totalDrawings'], false).". Books locked to {$lockTo}.",
                 entityId: $posted['entryId'],
                 actor: $actor,
                 at: $now,
@@ -187,13 +205,17 @@ final class YearEndCloseService
 
             $previousClosed = DB::table('year_end_closings')->whereNull('year_end_closings.reversed_at')->where('year_end_closings.start_year', '<=', $startYear)
                 ->orderByDesc('year_end_closings.start_year')->first();
-            $lockTo = $previousClosed === null ? null : (string) $previousClosed->period_end;
+            // Only the lock this close set comes back; a later one the owner set stays, and they move it themselves.
+            $current = $settings->books_locked_before === null ? null : (string) $settings->books_locked_before;
+            $lockTo = $current === $year->end ? ($previousClosed === null ? null : (string) $previousClosed->period_end) : $current;
             DB::table('business_settings')->where('id', 1)->update(['books_locked_before' => $lockTo, 'updated_at' => $stamp]);
 
             AuditService::write(
                 AuditAction::Reverse,
                 'year_end_closing',
-                "REOPENED the year {$year->label}. The closing entry was reversed, and the books lock moved back to ".($lockTo ?? 'nothing').'.',
+                "REOPENED the year {$year->label}. The closing entry was reversed, and ".($lockTo === $current
+                    ? 'the books lock stays at '.($current ?? 'nothing').', which the owner set later; move it to change anything in that year.'
+                    : 'the books lock moved back to '.($lockTo ?? 'nothing').'.'),
                 entityId: (int) $closing->id,
                 actor: $actor,
                 at: $now,

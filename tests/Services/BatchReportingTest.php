@@ -267,3 +267,16 @@ describe('whether the shop has anything dated', function () {
         expect(CatalogService::hasDatedStock())->toBeFalse();
     });
 });
+
+it('keeps kilograms and tins apart in the expiry ageing instead of adding them up', function () {
+    $actor = $this->actor;
+    $rice = Shop::product($actor, 'Rice loose', 500, 800, ['unit' => 'kg']);
+    $tins = Shop::product($actor, 'Tomato paste', 300, 500, ['unit' => 'tin']);
+    foreach ([[$rice, 12_500], [$tins, 30_000]] as [$product, $qty]) {
+        Shop::move(['productId' => $product, 'direction' => 'IN', 'qty' => $qty, 'totalCost' => 1_000, 'movementType' => 'PURCHASE', 'sourceType' => 'TEST',
+            'businessDate' => REPORTING_TODAY, 'occurredAt' => Clock::fromStamp(REPORTING_TODAY.' 08:00:00'), 'batch' => ['kind' => 'NEW', 'expiryDate' => '2027-06-30']]);
+    }
+
+    $later = collect(InventoryService::getExpiryAgeing(REPORTING_TODAY))->firstWhere('bucket', 'later');
+    expect($later['byUnit'])->toBe(['kg' => 12_500, 'tin' => 30_000]);
+});

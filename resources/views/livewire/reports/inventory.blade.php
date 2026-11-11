@@ -54,7 +54,7 @@
                         ])>{{ $row['label'] }}</span>
                     </x-td>
                     <x-td numeric>{{ $row['batchCount'] === 0 ? '—' : $row['batchCount'] }}</x-td>
-                    <x-td numeric>{{ $row['qtyMilli'] === 0 ? '—' : \App\View\Format::qty($row['qtyMilli']) }}</x-td>
+                    <x-td numeric>{{ $row['byUnit'] === [] ? '—' : collect($row['byUnit'])->map(fn (int $qty, string $unit): string => \App\View\Format::qty($qty).' '.$unit)->implode(' · ') }}</x-td>
                 </tr>
             @endforeach
         </x-table>

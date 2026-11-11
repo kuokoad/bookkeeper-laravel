@@ -176,6 +176,36 @@
                     </div>
                 </form>
             </div>
+
+            {{-- The newest owner money, each voidable in its row: a mistyped amount is voided, not offset. --}}
+            @if ($ownerMoney !== [])
+                <div class="rounded-xl border border-line bg-surface-raised p-4">
+                    <h2 class="mb-2 text-sm font-semibold text-content">Recent owner money</h2>
+                    <x-table>
+                        <x-slot:head>
+                            <x-th>Date</x-th><x-th>Record</x-th><x-th>Account</x-th><x-th>What for</x-th><x-th numeric>Amount</x-th><x-th />
+                        </x-slot:head>
+                        @foreach ($ownerMoney as $row)
+                            <tr class="border-b border-line last:border-0" wire:key="owner-{{ $row['id'] }}">
+                                <x-td><span class="whitespace-nowrap text-content-muted">@date($row['businessDate'])</span></x-td>
+                                <x-td>
+                                    {{ $row['movementNo'] }} · {{ $row['kind'] === 'CAPITAL' ? 'Put in' : 'Taken out' }}
+                                    @if ($row['status'] === 'VOIDED')<x-badge tone="danger" class="ml-2">Voided</x-badge>@endif
+                                    @if ($row['status'] === 'VOIDED' && $row['voidReason'])<div class="mt-0.5 text-xs text-content-subtle">Voided: {{ $row['voidReason'] }}</div>@endif
+                                </x-td>
+                                <x-td>{{ $row['accountName'] }}</x-td>
+                                <x-td><span class="text-content-muted">{{ $row['description'] }}</span></x-td>
+                                <x-td numeric>{{ \App\View\Format::money($row['amountMinor'], bare: true) }}</x-td>
+                                <x-td>
+                                    @if ($canVoid && $row['status'] === 'POSTED')
+                                        @include('livewire.cashbook.row-void', ['id' => $row['id'], 'what' => $row['movementNo'], 'action' => 'voidOwnerMoney', 'placeholder' => 'e.g. Typed 50,000 for 500'])
+                                    @endif
+                                </x-td>
+                            </tr>
+                        @endforeach
+                    </x-table>
+                </div>
+            @endif
         </div>
     @endif
 

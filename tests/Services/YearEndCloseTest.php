@@ -13,8 +13,10 @@ declare(strict_types=1);
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\Errors\ValidationError;
 use App\Enums\JournalSourceType;
 use App\Services\JournalService;
+use App\Services\PeriodLockService;
 use App\Services\Reporting\BalancesService;
 use App\Services\Reporting\FinancialService;
 use App\Services\Reporting\LedgerService;
@@ -309,5 +311,36 @@ describe('the integrity check after a close', function () {
         ($this->close)(2025);
         ($this->reopen)(2025);
         expect(LedgerService::checkBooksIntegrity()['untracedEntries'])->toBe(0);
+    });
+});
+
+describe('the books lock and the year-end close (third audit 4 and 5)', function () {
+    it('keeps a later lock the owner set when a year is closed and reopened', function () {
+        ycTradeIn(2025);
+        Shop::setting('books_locked_before', '2027-03-31');
+
+        ($this->close)(2025);
+        expect(ycLockDate())->toBe('2027-03-31');
+        ($this->reopen)(2025);
+        expect(ycLockDate())->toBe('2027-03-31');
+    });
+
+    it('refuses to move the lock before a closed year ends, or to remove it', function () {
+        ycTradeIn(2025);
+        ($this->close)(2025);
+
+        expect(fn () => PeriodLockService::setLock('2025-06-30', $this->actor))->toThrow(ValidationError::class, 'is closed')
+            ->and(fn () => PeriodLockService::setLock(null, $this->actor))->toThrow(ValidationError::class, 'is closed')
+            ->and(ycLockDate())->toBe('2025-12-31');
+        PeriodLockService::setLock('2026-01-31', $this->actor);
+        expect(ycLockDate())->toBe('2026-01-31');
+    });
+
+    it('closes the first trading year when the year before holds only the opening capital', function () {
+        ycPost('2024-12-20', '1001', ChartOfAccounts::OWNERS_CAPITAL, 200_000);
+        ycTradeIn(2025);
+
+        expect(($this->close)(2025)['profit'])->toBe(60_000)
+            ->and(YearEndCloseService::isYearClosed(2025))->toBeTrue();
     });
 });

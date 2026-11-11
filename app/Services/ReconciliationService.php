@@ -293,7 +293,9 @@ final class ReconciliationService
                 'currentBalance' => $account['balance'],
                 'lastCountedOn' => $latest?->business_date,
                 'lastDifference' => $latest === null ? null : (int) $latest->difference_minor,
-                'unresolvedDifference' => Money::sum($rows->filter(fn (object $r): bool => ! $r->adjusted)->map(fn (object $r): int => (int) $r->difference_minor)),
+                // Each count is taken against the books, so the latest one already holds every earlier
+                // shortfall still unexplained: adding them up counted the same missing money once per count.
+                'unresolvedDifference' => $latest === null || $latest->adjusted ? 0 : (int) $latest->difference_minor,
                 'countsRecorded' => $rows->count(),
             ];
         }, $accounts);

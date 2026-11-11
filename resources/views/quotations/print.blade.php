@@ -61,14 +61,14 @@
             </table>
 
             <dl class="ml-auto max-w-xs space-y-1.5 pt-4">
-                <div class="flex items-baseline justify-between gap-3"><dt class="text-content-muted">Subtotal</dt><dd class="tabular text-content">{{ $cash((int) $quote['subtotalMinor']) }}</dd></div>
-                @if ($quote['discountMinor'] > 0)
-                    <div class="flex items-baseline justify-between gap-3"><dt class="text-content-muted">Discount</dt><dd class="tabular text-content">&minus;{{ $cash((int) $quote['discountMinor']) }}</dd></div>
+                <div class="flex items-baseline justify-between gap-3"><dt class="text-content-muted">Subtotal</dt><dd class="tabular text-content">{{ $cash($totals['subtotal']) }}</dd></div>
+                @if ($totals['discount'] > 0)
+                    <div class="flex items-baseline justify-between gap-3"><dt class="text-content-muted">Discount</dt><dd class="tabular text-content">&minus;{{ $cash($totals['discount']) }}</dd></div>
                 @endif
-                @if ($quote['taxMinor'] > 0)
-                    <div class="flex items-baseline justify-between gap-3"><dt class="text-content-muted">Tax{{ $quote['taxInclusive'] ? ' (included)' : '' }}</dt><dd class="tabular text-content">{{ $cash((int) $quote['taxMinor']) }}</dd></div>
+                @if ($totals['tax'] > 0)
+                    <div class="flex items-baseline justify-between gap-3"><dt class="text-content-muted">Tax{{ $totals['taxWithinTotal'] ? ' (included)' : '' }}</dt><dd class="tabular text-content">{{ $cash($totals['tax']) }}</dd></div>
                 @endif
-                <div class="flex items-baseline justify-between gap-3 border-t border-line pt-2"><dt class="font-semibold text-content">Total</dt><dd class="tabular text-lg font-semibold text-content">{{ $cash((int) $quote['totalMinor']) }}</dd></div>
+                <div class="flex items-baseline justify-between gap-3 border-t border-line pt-2"><dt class="font-semibold text-content">Total</dt><dd class="tabular text-lg font-semibold text-content">{{ $cash($totals['total']) }}</dd></div>
             </dl>
 
             <footer class="mt-6 border-t border-line pt-4 text-content-muted">

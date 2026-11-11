@@ -124,3 +124,12 @@ it('keeps an archived product on a sale being edited, and refuses to save it', f
 
     expect((int) DB::table('sales')->where('id', $id)->value('total_minor'))->toBe(8_000);
 });
+
+it('keeps an archived customer in the list when editing their paid sale, so the save does not drop them', function () {
+    $customer = Shop::customer($this->actor, 'Ama Archived');
+    $sale = Shop::sell($this->actor, [[$this->product, 1_000]], [['paymentAccountId' => $this->cash, 'amount' => 800]], ['customerId' => $customer]);
+    DB::table('customers')->where('id', $customer)->update(['is_active' => false]);
+
+    Livewire::actingAs($this->owner)->test(Pos::class, ['id' => (string) $sale['saleId']])
+        ->assertSet('customerId', (string) $customer)->assertSeeHtml('<option value="'.$customer.'">Ama Archived');
+});

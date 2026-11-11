@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Sales;
 
 use App\Domain\Accounting\PeriodLock;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ValidationError;
 
 /**
@@ -18,6 +19,8 @@ final class SaleDate
 {
     public static function assertAllowed(string $businessDate, string $today, ?string $lockedBefore, bool $mayBackdate): void
     {
+        // Before any comparison: they are on text, and the till's date comes from the browser.
+        BusinessDate::assert($businessDate, 'sale date');
         if ($businessDate > $today) {
             throw new ValidationError('A sale cannot be dated in the future.');
         }

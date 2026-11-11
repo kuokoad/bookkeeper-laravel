@@ -128,9 +128,11 @@ final class Index extends Component
         $today = Clock::today();
         $overview = ReconciliationService::getReconciliationOverview();
         $accountId = (int) $this->paymentAccountId;
-        // As the old page: the books' figure as at today for the chosen account.
+        // The books' figure as at the day being counted, which is what the save compares against: counting
+        // Sunday's till on Monday must not preview against Monday's sales.
+        $asAt = Filters::isValidBusinessDate($this->businessDate) ? min($this->businessDate, $today) : $today;
         $expected = $accountId > 0 && in_array($accountId, array_column($overview, 'paymentAccountId'), true)
-            ? ReconciliationService::getReconciliationContext($accountId, $today)['expected'] : 0;
+            ? ReconciliationService::getReconciliationContext($accountId, $asAt)['expected'] : 0;
         $counted = null;
         if (trim($this->actual) !== '') {
             try {

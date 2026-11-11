@@ -49,7 +49,7 @@ final class Journal extends Component
 
         return view('livewire.accounting.journal', [
             'entries' => $entries,
-            'unbalanced' => array_values(array_filter($entries, fn (array $e): bool => ! $e['balanced'])),
+            'unbalanced' => LedgerService::unbalancedJournalEntries($list['filters']),
             'from' => $list['from'],
             'to' => $list['to'],
             'source' => $list['source'],

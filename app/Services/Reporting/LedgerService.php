@@ -127,6 +127,22 @@ final class LedgerService
         return self::journalEntriesIn($query)->count();
     }
 
+    /**
+     * The numbers of the entries, under the same filter, whose debits and credits differ: the
+     * journal's warning covers every page, not just the one on screen.
+     *
+     * @return list<string>
+     */
+    public static function unbalancedJournalEntries(array $query = []): array
+    {
+        return self::journalEntriesIn($query)
+            ->join('journal_lines', 'journal_lines.entry_id', '=', 'journal_entries.id')
+            ->groupBy('journal_entries.id', 'journal_entries.entry_no')
+            ->havingRaw('SUM(journal_lines.debit_minor) <> SUM(journal_lines.credit_minor)')
+            ->orderBy('journal_entries.id')
+            ->pluck('journal_entries.entry_no')->all();
+    }
+
     private static function journalEntriesIn(array $query): Builder
     {
         return DB::table('journal_entries')

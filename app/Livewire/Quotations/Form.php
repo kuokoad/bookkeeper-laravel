@@ -174,6 +174,13 @@ final class Form extends Component
         if ($typed === []) {
             $errors['lines'] = 'Add at least one item to the quote.';
         }
+        // A blank price is not GHS 0.00: the quote would convert to a sale that gives the goods away.
+        foreach ($typed as $index => $line) {
+            if (trim($line['unitPrice']) === '') {
+                $errors['lines'] = 'Enter a price on line '.($index + 1).'.';
+                break;
+            }
+        }
         if ($errors !== []) {
             foreach ($errors as $field => $message) {
                 $this->addError($field, $message);
@@ -190,7 +197,7 @@ final class Form extends Component
                 $lines[] = [
                     'productId' => (int) $line['productId'],
                     'qty' => Quantity::parse($line['qty']),
-                    'unitPrice' => Money::parse(trim($line['unitPrice']) === '' ? '0' : $line['unitPrice']),
+                    'unitPrice' => Money::parse($line['unitPrice']),
                     ...Quantity::parseAltEntry($line['alt'] ? true : null, $line['alt'] ? ($products[$line['productId']]['altFactor'] ?? null) : null, 'Line '.($index + 1)),
                     ...(trim($line['discount']) !== '' ? ['discount' => Money::parse($line['discount'])] : []),
                 ];

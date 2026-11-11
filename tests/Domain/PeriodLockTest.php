@@ -68,3 +68,11 @@ describe('the day a sale is dated', function () {
         SaleDate::assertAllowed('2026-10-31', '2026-11-05', '2026-10-31', true);
     })->throws(PeriodLockedError::class);
 });
+
+describe('a date that is not written YYYY-MM-DD', function () {
+    // Third audit finding 1: "2026-1-5" sorts after "2026-06-30" as text, yet MySQL stores it as 5 January.
+    it('is refused by the lock and by a backdated sale, not let past the lock', function () {
+        expect(fn () => PeriodLock::assertOpen('2026-1-5', '2026-06-30'))->toThrow(ValidationError::class, 'not a real date')
+            ->and(fn () => SaleDate::assertAllowed('2026-1-5', '2026-08-25', '2026-06-30', true))->toThrow(ValidationError::class, 'sale date');
+    });
+});

@@ -60,7 +60,7 @@ function yearEndRaceRun(array $modes, int $rounds): array
     yearEndRaceClearBarrier($dir);
 
     $rows = workerRows($results);
-    expectOverlapEachRound($rows, count($modes));
+    expectRoundsRaced($rows, count($modes));
 
     return ['rows' => $rows];
 }

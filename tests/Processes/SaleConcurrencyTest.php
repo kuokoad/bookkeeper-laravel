@@ -57,7 +57,7 @@ function saleRaceRun(string $mode, int $workers, int $rounds, int $products, int
     clearStartLine($go);
 
     $rows = workerRows($results);
-    expectOverlapEachRound($rows, $workers);
+    expectRoundsRaced($rows, $workers);
 
     return ['rows' => $rows];
 }

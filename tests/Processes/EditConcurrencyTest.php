@@ -52,7 +52,7 @@ it('leaves one write-off, and stock, its ledger and the books agreeing, when fou
     $results = $pool->wait();
     clearStartLine($go);
 
-    expectOverlapEachRound(workerRows($results), $workers);
+    expectRoundsRaced(workerRows($results), $workers);
 
     $db = DB::connection('edit');
     $product = $db->table('products')->first();

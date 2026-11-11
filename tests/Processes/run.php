@@ -78,21 +78,34 @@ function clearStartLine(string $go): void
  * before the first one finished: proved here per run, not from a server-wide
  * counter that other traffic also moves.
  *
+ * Most rounds, not every round: startRound releases every worker at the same
+ * instant, but a busy PC (a second test run, a build) can deschedule one for
+ * longer than a few-millisecond write, so that round runs one after another.
+ * That says nothing about the code under test, and failing on it made these
+ * tests flake. What must fail is a run that never really raced (a broken start
+ * line runs nearly every round serially), so at least a quarter must have
+ * overlapped: four race runs fighting over one PC's cores still lost up to 11
+ * of 20 rounds, and a half bar failed that.
+ *
  * @param  list<array{round: int, start: float, end: float}>  $rows
  */
-function expectOverlapEachRound(array $rows, int $workers): void
+function expectRoundsRaced(array $rows, int $workers): void
 {
     $rounds = [];
     foreach ($rows as $row) {
         $rounds[$row['round']][] = $row;
     }
     expect($rounds)->not->toBe([]);
+    $serial = [];
     foreach ($rounds as $round => $attempts) {
-        $lastStart = max(array_column($attempts, 'start'));
-        $firstEnd = min(array_column($attempts, 'end'));
-        expect($attempts)->toHaveCount($workers, "round {$round}: not every worker reported")
-            ->and($lastStart)->toBeLessThan($firstEnd, "round {$round}: the workers ran one after another, not at once");
+        expect($attempts)->toHaveCount($workers, "round {$round}: not every worker reported");
+        if (max(array_column($attempts, 'start')) >= min(array_column($attempts, 'end'))) {
+            $serial[] = $round;
+        }
     }
+    $raced = count($rounds) - count($serial);
+    expect($raced * 4)->toBeGreaterThanOrEqual(count($rounds),
+        "only {$raced} of ".count($rounds).' rounds ran at once; rounds '.implode(', ', $serial).' ran one after another, so this run did not test a race');
 }
 
 /** @return list<array<string, mixed>> one decoded JSON line per round from every worker */

@@ -51,7 +51,7 @@ it('gives every account and category added at once its own code, with no failure
     $results = $pool->wait();
     clearStartLine($go);
 
-    expectOverlapEachRound(workerRows($results), $workers);
+    expectRoundsRaced(workerRows($results), $workers);
 
     $db = DB::connection('accounts');
     $wallets = $db->table('accounts')->where('parent_id', $db->table('accounts')->where('code', '1010')->value('id'))->orderBy('code')->pluck('code')->all();

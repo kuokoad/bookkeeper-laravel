@@ -52,7 +52,7 @@ it('keeps the stock pair, its ledger and the Inventory account in step when four
     $results = $pool->wait();
     clearStartLine($go);
 
-    expectOverlapEachRound(workerRows($results), $workers);
+    expectRoundsRaced(workerRows($results), $workers);
 
     $db = DB::connection('stock');
     $product = $db->table('products')->first();

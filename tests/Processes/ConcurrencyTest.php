@@ -55,7 +55,7 @@ it('gives every till a different number, with no gaps, when four tills write at 
 
     $rows = workerRows($results);
     // The tills really did collide: every write, kept or rolled back, overlapped the others in its round.
-    expectOverlapEachRound($rows, $workers);
+    expectRoundsRaced($rows, $workers);
     $kept = array_filter($rows, fn (array $row): bool => isset($row['receipt']));
     $receipts = array_column($kept, 'receipt');
     $entries = array_column($kept, 'entry');

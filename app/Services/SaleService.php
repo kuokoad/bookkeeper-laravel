@@ -571,6 +571,8 @@ final class SaleService
             if (self::settledByPayments($saleId) > 0) {
                 throw new ConflictError('This sale has customer payments recorded against it. Void those payments first.');
             }
+            // As editSale: putting oversold goods back at the cost they left at would leave the shelf worth too little.
+            DocumentEdit::assertNoOversoldStockCameInSince('SALE', $saleId, fn (string $since): string => "{$original->receipt_no} sold more than was on the shelf, and stock has come in since ({$since}), so it cannot be voided: that delivery already settled what the oversold goods cost. Return the goods instead.");
 
             PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
             JournalService::readLockDate();

@@ -172,6 +172,8 @@ final class StockAdjustmentService
             if (self::isUnitChange($adjustmentId)) {
                 throw new ConflictError("{$original->adjustment_no} moved stock to a new stock item for a unit change, so it cannot be voided on its own. Correct the new stock item with a stock adjustment instead.");
             }
+            // As editStockAdjustment: putting oversold goods back at the cost they left at would misvalue the shelf.
+            DocumentEdit::assertNoOversoldStockCameInSince('STOCK_ADJUSTMENT', $adjustmentId, fn (string $since): string => "{$original->adjustment_no} took out more than was on the shelf, and stock has come in since ({$since}), so it cannot be voided. Record another stock adjustment for the difference instead.");
 
             $items = DB::table('stock_adjustment_items')->where('adjustment_id', $adjustmentId)->orderBy('id')->get();
             JournalService::readLockDate();

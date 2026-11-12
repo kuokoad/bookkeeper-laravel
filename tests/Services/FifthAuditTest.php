@@ -19,6 +19,7 @@ use App\Services\Reporting\OperationsService;
 use App\Services\Reporting\TaxReturnService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
+use App\Services\StockAdjustmentService;
 use App\Services\SupplierPaymentService;
 use App\Services\SupplierService;
 use App\Support\Clock;
@@ -90,6 +91,46 @@ describe('editing an oversold sale (finding 6)', function () {
             ->toThrow(ConflictError::class, 'stock has come in since')
             ->and(CatalogService::getProduct($this->tin)['stockValue'])->toBe($value);
         Shop::assertBooksHealthy('after the refused edit');
+    });
+
+    it('refuses voiding it too once a delivery has cleared the stock it oversold', function () {
+        $sale = SaleService::createSale(($this->sell)(5_000), $this->actor);
+        Shop::purchase($this->actor, Shop::supplier($this->actor), [[$this->tin, 3_000, 300]], [], ['businessDate' => FIFTH_DAY]);
+        $value = CatalogService::getProduct($this->tin)['stockValue'];
+
+        expect(fn () => SaleService::voidSale($sale['saleId'], 'Rung up wrong', $this->actor))
+            ->toThrow(ConflictError::class, 'so it cannot be voided')
+            ->and(CatalogService::getProduct($this->tin)['stockValue'])->toBe($value)
+            ->and(DB::table('sales')->where('sales.id', $sale['saleId'])->value('status'))->toBe('POSTED');
+        Shop::assertBooksHealthy('after the refused void');
+    });
+
+    it('still lets it be voided while nothing has come in since', function () {
+        $sale = SaleService::createSale(($this->sell)(5_000), $this->actor);
+        SaleService::voidSale($sale['saleId'], 'Rung up wrong', $this->actor);
+
+        expect(CatalogService::getProduct($this->tin)['qtyOnHand'])->toBe(2_000);
+        Shop::assertBooksHealthy('after the void');
+    });
+
+    it('refuses voiding a stock adjustment that took out more than was on the shelf once a delivery has come in since', function () {
+        $writeOff = Shop::stockOut($this->actor, $this->tin, 5_000, FIFTH_DAY);
+        Shop::purchase($this->actor, Shop::supplier($this->actor), [[$this->tin, 3_000, 300]], [], ['businessDate' => FIFTH_DAY]);
+        $value = CatalogService::getProduct($this->tin)['stockValue'];
+
+        expect(fn () => StockAdjustmentService::voidStockAdjustment($writeOff['adjustmentId'], 'Counted wrong', $this->actor))
+            ->toThrow(ConflictError::class, 'so it cannot be voided')
+            ->and(CatalogService::getProduct($this->tin)['stockValue'])->toBe($value)
+            ->and(DB::table('stock_adjustments')->where('stock_adjustments.id', $writeOff['adjustmentId'])->value('status'))->toBe('POSTED');
+        Shop::assertBooksHealthy('after the refused void');
+    });
+
+    it('still lets that stock adjustment be voided while nothing has come in since', function () {
+        $writeOff = Shop::stockOut($this->actor, $this->tin, 5_000, FIFTH_DAY);
+        StockAdjustmentService::voidStockAdjustment($writeOff['adjustmentId'], 'Counted wrong', $this->actor);
+
+        expect(CatalogService::getProduct($this->tin)['qtyOnHand'])->toBe(2_000);
+        Shop::assertBooksHealthy('after the void');
     });
 
     it('is still allowed while nothing has come in since', function () {

@@ -569,6 +569,11 @@
     --success-soft: #173323;
 }
 
+/* The sign-in story panel: the look's own accent, darkened until white text
+   reads on it in both light and dark. */
+.auth-story {
+  background: color-mix(in oklch, var(--accent) 50%, black);
+}
 /* Jinu sets its type in the system Segoe UI, over the shell's Inter. */
 :root[data-look='jinu'] .app-shell,
 :root[data-look='jinu'] .auth-main {
@@ -673,8 +678,8 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
-/* The sign-in page sits on Jinu's dark green story colour. */
-:root[data-look='jinu'] .auth-main {
+/* The sign-in story panel is Jinu's dark green. */
+:root[data-look='jinu'] .auth-story {
   background: #164c42;
 }
 

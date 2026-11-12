@@ -1,9 +1,10 @@
 {{-- First run: the old (auth)/setup page and setup-form.tsx. --}}
 <x-layouts::auth title="Set up your shop">
-    <div class="rounded-2xl border border-line bg-surface-raised p-8 shadow-sm">
+    <div>
         <div class="mb-8">
-            <h1 class="text-2xl font-semibold text-content">Welcome</h1>
-            <p class="mt-2 text-sm text-content-muted">Let’s set up your shop and create your owner account. This happens once.</p>
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-accent">Welcome to NunaBooks</p>
+            <h1 class="mt-3 text-4xl font-semibold tracking-tight text-content">Set up your shop</h1>
+            <p class="mt-3 text-sm text-content-muted">Let’s set up your shop and create your owner account. This happens once.</p>
         </div>
 
         <form method="POST" action="/setup" class="space-y-5" novalidate>

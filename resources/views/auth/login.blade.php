@@ -4,10 +4,11 @@
     else. The tabs are links (?mode=pin), so it works with no JavaScript.
 --}}
 <x-layouts::auth title="Sign in">
-    <div class="rounded-2xl border border-line bg-surface-raised p-8 shadow-sm">
-        <div class="mb-8 text-center">
-            <h1 class="text-2xl font-semibold text-content">{{ $shopName }}</h1>
-            <p class="mt-1 text-sm text-content-muted">Sign in to continue</p>
+    <div>
+        <div class="mb-8">
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-accent">Welcome to {{ $shopName }}</p>
+            <h1 class="mt-3 text-4xl font-semibold tracking-tight text-content">Welcome back</h1>
+            <p class="mt-3 text-sm text-content-muted">Sign in to continue.</p>
         </div>
 
         @if ($setupComplete)
@@ -37,7 +38,7 @@
                 <x-field label="Password" for="password" required>
                     <x-input id="password" name="password" type="password" autocomplete="current-password" required :invalid="$errors->has('password')" />
                 </x-field>
-                <x-button type="submit" size="lg" class="w-full">Sign in</x-button>
+                <x-button type="submit" size="lg" class="w-full">Sign in <span aria-hidden="true">&rarr;</span></x-button>
             </form>
         @else
             <form method="POST" action="/login/pin" class="space-y-5" novalidate>
@@ -50,7 +51,7 @@
                 <x-field label="Till PIN" for="pin" required>
                     <x-input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="8" required :invalid="$errors->has('pin')" />
                 </x-field>
-                <x-button type="submit" size="lg" class="w-full">Sign in with PIN</x-button>
+                <x-button type="submit" size="lg" class="w-full">Sign in with PIN <span aria-hidden="true">&rarr;</span></x-button>
             </form>
         @endif
 

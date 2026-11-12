@@ -167,15 +167,17 @@ final class OperationsService
         $keep = fn (int $productId): bool => (! isset($query['productId']) || $productId === $query['productId'])
             && (! isset($query['categoryId']) || (int) ($catalog[$productId]->category_id ?? 0) === $query['categoryId']);
 
+        // Keyed by product and the unit the line was sold in: quantities in different units never add up (D7, sales side).
         $products = [];
         $add = function (array $receipt, array $earned) use (&$products, $keep): void {
-            foreach ($receipt as $i => [$saleId, $lineNo, $productId, $qty, , $cost]) {
+            foreach ($receipt as $i => [$saleId, $lineNo, $productId, $qty, , $cost, , $unit]) {
                 if (! $keep($productId)) {
                     continue;
                 }
                 $at = $saleId * 1_000_000 + $lineNo;
-                $g = $products[$productId] ?? ['qty' => 0, 'revenue' => 0, 'cost' => 0, 'first' => $at, 'last' => $at];
-                $products[$productId] = ['qty' => $g['qty'] + $qty, 'revenue' => $g['revenue'] + $earned[$i], 'cost' => $g['cost'] + $cost,
+                $key = "{$productId}|{$unit}";
+                $g = $products[$key] ?? ['productId' => $productId, 'unit' => $unit, 'qty' => 0, 'revenue' => 0, 'cost' => 0, 'first' => $at, 'last' => $at];
+                $products[$key] = [...$g, 'qty' => $g['qty'] + $qty, 'revenue' => $g['revenue'] + $earned[$i], 'cost' => $g['cost'] + $cost,
                     'first' => min($g['first'], $at), 'last' => max($g['last'], $at)];
             }
         };
@@ -194,15 +196,15 @@ final class OperationsService
                 [...$query, 'from' => $year->format('Y-m-d'), 'to' => min($year->format('Y-12-31'), $query['to'])])
                 ->orderBy('sale_items.sale_id')->orderBy('sale_items.line_no')
                 ->selectRaw('sale_items.sale_id, sale_items.line_no, sale_items.product_id, sale_items.qty_milli, sale_items.line_total_minor,
-                    sale_items.total_cost_minor, sales.total_minor - sales.tax_minor AS e');
-            // Plain PDO rows: six integers a line, not an object each.
+                    sale_items.total_cost_minor, sales.total_minor - sales.tax_minor AS e, sale_items.unit');
+            // Plain PDO rows: seven integers and the unit a line, not an object each.
             $statement = DB::connection()->getPdo()->prepare($sql->toSql());
             $statement->execute($sql->getBindings());
 
             $receipt = [];
             $e = 0;
             while (($row = $statement->fetch(\PDO::FETCH_NUM)) !== false) {
-                $row = array_map(intval(...), $row);
+                $row = [...array_map(intval(...), array_slice($row, 0, 7)), (string) $row[7]];
                 if ($receipt !== [] && $receipt[0][0] !== $row[0]) {
                     $add($receipt, self::shareOut($e, array_column($receipt, 4)));
                     $receipt = [];
@@ -215,10 +217,10 @@ final class OperationsService
             }
         }
 
-        $line = fn (int $productId, ?object $newest = null): array => [
+        $line = fn (int $productId, ?object $newest = null, ?string $unit = null): array => [
             'productId' => $productId,
             'productName' => (string) ($newest->product_name ?? ''),
-            'unit' => (string) ($newest->unit ?? ''),
+            'unit' => $unit ?? (string) ($newest->unit ?? ''),
             'categoryId' => ($c = $catalog[$productId]->category_id ?? null) === null ? null : (int) $c,
             'categoryName' => $catalog[$productId]->category_name ?? null,
         ];
@@ -228,15 +230,16 @@ final class OperationsService
             if ($products !== []) {
                 $pairs = array_merge(...array_map(fn (array $g): array => [intdiv($g['last'], 1_000_000), $g['last'] % 1_000_000], array_values($products)));
                 $newest = DB::table('sale_items')->whereRaw('(sale_items.sale_id, sale_items.line_no) IN ('.implode(', ', array_fill(0, count($products), '(?, ?)')).')', $pairs)
-                    ->get(['sale_items.product_id', 'sale_items.product_name', 'sale_items.unit'])->keyBy('product_id')->all();
+                    ->get(['sale_items.product_id', 'sale_items.product_name', 'sale_items.unit'])->keyBy(fn (object $r): string => "{$r->product_id}|{$r->unit}")->all();
             }
             $groups = [];
-            foreach ($products as $id => $g) {
-                $groups[$id] = [...$g, 'line' => $line($id, $newest[$id] ?? null)];
+            foreach ($products as $key => $g) {
+                $groups[$key] = [...$g, 'line' => $line($g['productId'], $newest[$key] ?? null, $g['unit'])];
             }
         } else {
             $groups = [];
-            foreach ($products as $id => $g) {
+            foreach ($products as $g) {
+                $id = $g['productId'];
                 $k = 'k'.($catalog[$id]->category_id ?? '');
                 $groups[$k] = isset($groups[$k])
                     ? ['qty' => $groups[$k]['qty'] + $g['qty'], 'revenue' => $groups[$k]['revenue'] + $g['revenue'], 'cost' => $groups[$k]['cost'] + $g['cost'],
@@ -345,11 +348,15 @@ final class OperationsService
         ], $tallies);
     }
 
-    /** @return list<array{productId: int, productName: string, unit: string, categoryName: ?string, qtySold: int, revenue: int, cost: int, profit: int, marginBp: ?int}> */
+    /**
+     * One row per product and the unit it was sold in, so a unit change never adds cartons to pieces (D7, sales side).
+     *
+     * @return list<array{productId: int, productName: string, unit: string, categoryName: ?string, qtySold: int, revenue: int, cost: int, profit: int, marginBp: ?int}>
+     */
     public static function getSalesByProduct(array $query, ?array $lines = null): array
     {
-        $tallies = $lines === null ? self::tallyByLineSql($query, 'product') : self::tallyLines($lines, fn (array $l): string => (string) $l['productId']);
-        usort($tallies, fn (array $a, array $b): int => self::byRevenue($a, $b) ?: $a['line']['productId'] <=> $b['line']['productId']);
+        $tallies = $lines === null ? self::tallyByLineSql($query, 'product') : self::tallyLines($lines, fn (array $l): string => "{$l['productId']}|{$l['unit']}");
+        usort($tallies, fn (array $a, array $b): int => self::byRevenue($a, $b) ?: [$a['line']['productId'], $a['line']['unit']] <=> [$b['line']['productId'], $b['line']['unit']]);
 
         return array_map(function (array $t): array {
             $profit = $t['revenue'] - $t['cost'];

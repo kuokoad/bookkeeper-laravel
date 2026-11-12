@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -44,6 +45,7 @@ final class SupplierPaymentService
 
         return Tx::run(function () use ($input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), 'supplier payment');
             $at = Clock::stamp($occurredAt);
 
             // Lock order (Tx): the supplier, then the purchases it settles.

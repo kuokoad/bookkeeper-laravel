@@ -223,10 +223,12 @@ FLUSH PRIVILEGES;
     Set-EnvValue $envFile "DB_PASSWORD" $appPassword
     Set-EnvValue $envFile "NUNA_BACKUP_DB_USERNAME" "nunabooks_backup"
     Set-EnvValue $envFile "NUNA_BACKUP_DB_PASSWORD" $backupPassword
-    Set-EnvValue $envFile "NUNA_MYSQL_BIN" (Join-Path $MysqlDir "bin")
     Set-EnvValue $envFile "NUNA_APACHE_SERVICE" $ApacheService
     Set-EnvValue $envFile "SEED_DEMO_DATA" "false"
 }
+# Every run, not only a new .env: without it the backup picks the highest mysqldump.exe under
+# C:\laragon\bin\mysql, a folder any Windows account can add to, and runs it as SYSTEM with the password.
+Set-EnvValue $envFile "NUNA_MYSQL_BIN" (Join-Path $MysqlDir "bin")
 
 # --- 4. The app: packages, key, backup, migrations, caches ----------------------------
 
@@ -237,7 +239,9 @@ Set-Location $AppDir
 $found = (Get-Command composer -ErrorAction SilentlyContinue).Source
 $sourcePhar = if ($found) { Join-Path (Split-Path $found) "composer.phar" } else { "C:\laragon\bin\composer\composer.phar" }
 $composer = Join-Path $PhpDir "composer.phar"
-if (Test-Path $sourcePhar) { Copy-Item $sourcePhar $composer -Force }
+# Copied once only: the source folder is not locked, so a later copy could carry an edited composer.phar
+# into the locked PHP folder. To update Composer, delete $composer and run this again.
+if (-not (Test-Path $composer) -and (Test-Path $sourcePhar)) { Copy-Item $sourcePhar $composer }
 if (-not (Test-Path $composer)) { throw "composer.phar not found next to $found or in C:\laragon\bin\composer. Install Composer, then run this again." }
 Invoke-Checked "Installing PHP packages" $php @($composer, "install", "--no-dev", "--optimize-autoloader", "--no-interaction")
 if ((Get-Content $envFile -Raw) -match "(?m)^APP_KEY=\s*$") {
@@ -250,7 +254,11 @@ if ((Get-Content $envFile -Raw) -match "(?m)^APP_KEY=\s*$") {
 # that errors included, backs up first, and a backup that cannot run stops the install here, before
 # the live books are migrated.
 $probe = 'echo Illuminate\Support\Facades\Schema::hasTable(''users'') && Illuminate\Support\Facades\DB::table(''users'')->where(''role'', ''OWNER'')->where(''is_active'', true)->exists() ? ''has-owner'' : ''no-owner'';'
-$noOwner = ((& $php artisan tinker --execute=$probe 2>$null) -join "`n") -match "(?m)^no-owner\s*$"
+# Continue around it: under "Stop", Windows PowerShell 5.1 turns any stderr from the probe into a
+# terminating error, and a probe that errors must back up, not end the install.
+$ErrorActionPreference = "Continue"
+try { $noOwner = ((& $php artisan tinker --execute=$probe 2>$null) -join "`n") -match "(?m)^no-owner\s*$" }
+finally { $ErrorActionPreference = "Stop" }
 if (-not $noOwner) {
     Invoke-Checked "Backing up the existing books before migrating" $php @("artisan", "nuna:backup")
 } else {

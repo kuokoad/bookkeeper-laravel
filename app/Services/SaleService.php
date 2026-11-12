@@ -768,6 +768,7 @@ final class SaleService
 
             PaymentAccountService::lockAccountsOfEntry($original->journal_entry_id);
             DocumentEdit::assertDaysOpen((string) $original->business_date, $input['businessDate']);
+            DocumentEdit::assertNoOversoldStockCameInSince('SALE', $saleId, fn (string $since): string => "{$no} sold more than was on the shelf, and stock has come in since ({$since}), so it cannot be edited: that delivery already settled what the oversold goods cost. Void the sale and ring it up again instead.");
 
             $settings = DB::table('business_settings')->where('id', 1)->first() ?? throw new NotFoundError('Business settings', 1);
             $before = self::snapshot($saleId);

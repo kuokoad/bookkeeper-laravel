@@ -39,8 +39,12 @@
                 <h2 class="mb-3 text-sm font-semibold text-content">Details</h2>
                 @error('details')<x-alert tone="danger" class="mb-3">{{ $message }}</x-alert>@enderror
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <x-field label="Their name" for="displayName" required>
-                        <x-input id="displayName" wire:model="displayName" required :invalid="$errors->has('displayName')" />
+                    <x-field label="Their name" for="displayName" required :hint="$mayRename ? null : 'Only an owner, or someone who holds every right this person has, can rename them.'">
+                        @if ($mayRename)
+                            <x-input id="displayName" wire:model="displayName" required :invalid="$errors->has('displayName')" />
+                        @else
+                            <p id="displayName" class="flex h-11 items-center rounded-lg border border-line bg-surface px-3 text-content-muted">{{ $user['displayName'] }}</p>
+                        @endif
                     </x-field>
                     <x-field label="Role" for="role" required :hint="$mayChangeRole ? null : ($isSelf ? 'You cannot change your own role. Another owner has to do that for you.' : 'Only an owner can change someone’s role.')">
                         @if ($mayChangeRole)
@@ -57,13 +61,15 @@
                 @if ($selectedRole !== $role)
                     <x-alert tone="warning" class="mt-3">{{ $selectedRole === 'OWNER' ? 'Making this person an owner gives them full access to everything, including money and other accounts. Their individual permissions will be removed.' : 'Dropping this person to staff removes their full access. Tick what they should still be able to do below.' }} They will be signed out.</x-alert>
                 @endif
-                <div class="mt-4"><x-button type="submit" wire:loading.attr="disabled" wire:target="saveDetails">Save details</x-button></div>
+                @if ($mayRename || $mayChangeRole)
+                    <div class="mt-4"><x-button type="submit" wire:loading.attr="disabled" wire:target="saveDetails">Save details</x-button></div>
+                @endif
             </form>
 
             @if ($selectedRole === 'STAFF' && $role === 'STAFF')
                 <form wire:submit="savePermissions" class="rounded-xl border border-line bg-surface-raised p-4" novalidate>
                     <h2 class="mb-1 text-sm font-semibold text-content">What they can do</h2>
-                    <p class="mb-4 text-sm text-content-muted">{{ $mayChangePermissions ? 'Saving this signs them out, so the change takes effect immediately.' : 'These are your own permissions. Another owner has to change them for you.' }}</p>
+                    <p class="mb-4 text-sm text-content-muted">{{ $mayChangePermissions ? 'Saving this signs them out, so the change takes effect immediately.' : ($isSelf ? 'These are your own permissions. Another owner has to change them for you.' : 'Only an owner, or someone who holds every right this person has, can change what they can do.') }}</p>
                     @error('permissions')<x-alert tone="danger" class="mb-3">{{ $message }}</x-alert>@enderror
                     @include('livewire.users.partials.matrix', ['disabled' => ! $mayChangePermissions])
                     @if ($mayChangePermissions)
@@ -91,6 +97,15 @@
                 </div>
                 <div class="mt-4"><x-button type="submit" wire:loading.attr="disabled" wire:target="resetPassword">Reset password</x-button></div>
             </form>
+            @endif
+
+            @if ($isSelf && $user['hasPin'])
+            <div class="rounded-xl border border-line bg-surface-raised p-4">
+                <h2 class="mb-1 text-sm font-semibold text-content">Till PIN</h2>
+                <p class="mb-3 text-sm text-content-muted">You have a till PIN. You can take it off here; only someone else can set a new one for you.</p>
+                @error('pinForm')<x-alert tone="danger" class="mb-3">{{ $message }}</x-alert>@enderror
+                <x-button variant="secondary" wire:click="removePin" wire:loading.attr="disabled" wire:target="removePin">Remove my PIN</x-button>
+            </div>
             @endif
 
             @if ($role !== 'OWNER' && $mayTakeOver)

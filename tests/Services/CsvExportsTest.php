@@ -48,7 +48,12 @@ it('builds every report with the old headers', function (string $report, string 
 
     expect($file)->not->toBeNull()
         ->and($file['headers'][0])->toBe($firstHeader)
-        ->and($file['filename'])->toBe("bookkeeper_{$report}_2026-08-01_".CSVX_TODAY.'.csv');
+        // As-at reports are named by their day, the year-end pack by its year (fifth audit, finding 13).
+        ->and($file['filename'])->toBe(match ($report) {
+            'balance-sheet', 'receivables', 'payables' => "bookkeeper_{$report}_".CSVX_TODAY.'.csv',
+            'year-end' => 'bookkeeper_year-end_2026-01-01_2026-12-31.csv',
+            default => "bookkeeper_{$report}_2026-08-01_".CSVX_TODAY.'.csv',
+        });
 })->with([
     ['profit-and-loss', 'Item'], ['balance-sheet', 'Item'], ['cash-flow', 'Item'], ['sales', 'Section'], ['purchases', 'Section'],
     ['inventory', 'Stock item'], ['tax', 'Tax'], ['expiry', 'Batch'], ['receivables', 'Customer'], ['payables', 'Supplier'], ['year-end', 'Item'],

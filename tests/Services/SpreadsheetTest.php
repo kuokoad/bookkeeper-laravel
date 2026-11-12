@@ -92,3 +92,13 @@ describe('reading a price list', function () {
 it('reads a CSV with a broken byte as the old decoder did, with a replacement character', function () {
     expect(Spreadsheet::read('list.csv', "name\nBowl\xFF\n"))->toBe([['name'], ["Bowl\u{FFFD}"]]);
 });
+
+it('keeps a bare inch mark inside a field as a character, not the start of a quote that swallows the next row', function () {
+    expect(Spreadsheet::parseCsv("name,price\nPipe 1/2\" PVC,5.00\nPipe 3/4\" PVC,7.00\n"))->toBe([
+        ['name', 'price'], ['Pipe 1/2" PVC', '5.00'], ['Pipe 3/4" PVC', '7.00'],
+    ])
+        // An odd number of them no longer reads as a quote left open.
+        ->and(Spreadsheet::parseCsv("name\n12\" ruler\n"))->toBe([['name'], ['12" ruler']])
+        // A quoted field still works as before.
+        ->and(Spreadsheet::parseCsv("\"Bowl, 750ml\",2.50\n"))->toBe([['Bowl, 750ml', '2.50']]);
+});

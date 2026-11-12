@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Migration;
 
+use App\Domain\Sales\SaleCalculator;
 use DateTimeImmutable;
 use PDO;
 
@@ -339,6 +340,31 @@ final class OldReports
             $figures["{$by} {$id} cost"] = (int) $cost;
         }
 
+        // Revenue per row from the old rows alone: each receipt's total less tax shared over its lines by
+        // their size (the old earnedLines rule, SaleCalculator::lineEarnings), so a pesewa given to the
+        // wrong line shows here, not only in the total (fifth audit, finding 10).
+        $items = $old->prepare("SELECT s.id, s.total_minor, s.tax_minor, i.line_total_minor, {$key} FROM sale_items i
+            JOIN sales s ON s.id = i.sale_id LEFT JOIN products p ON p.id = i.product_id
+            WHERE s.business_date BETWEEN ? AND ? ORDER BY s.id, i.line_no");
+        $items->execute([$from, $to]);
+        $receipt = [];
+        $share = function (array $receipt) use (&$figures, $by): void {
+            $earned = SaleCalculator::lineEarnings((int) $receipt[0][1], (int) $receipt[0][2], array_map(fn (array $r): int => (int) $r[3], $receipt));
+            foreach ($receipt as $i => $r) {
+                $figures["{$by} {$r[4]} revenue"] = ($figures["{$by} {$r[4]} revenue"] ?? 0) + $earned[$i];
+            }
+        };
+        foreach ($items->fetchAll(PDO::FETCH_NUM) as $row) {
+            if ($receipt !== [] && $receipt[0][0] !== $row[0]) {
+                $share($receipt);
+                $receipt = [];
+            }
+            $receipt[] = $row;
+        }
+        if ($receipt !== []) {
+            $share($receipt);
+        }
+
         return $figures;
     }
 
@@ -492,12 +518,13 @@ final class OldReports
             $figures["{$code} non-recoverable input"] ??= 0;
             $figures["{$code} net"] = $figures["{$code} output"] - $figures["{$code} recoverable input"];
         }
-        // D9 (owner decision, 2026-11-06): the value still nets every row; the count, for sales and purchases
-        // alike, is the documents standing at the period end: never a VOID mirror, and an original only if
-        // no void of it is dated on or before the end.
-        foreach (['sales' => 'voids_sale_id', 'purchases' => 'voids_purchase_id'] as $table => $voids) {
-            $box = $old->prepare("SELECT COALESCE(SUM(d.subtotal_minor - d.discount_minor), 0),
-                    COUNT(CASE WHEN d.kind <> 'VOID' AND NOT EXISTS (SELECT 1 FROM {$table} m WHERE m.{$voids} = d.id AND m.business_date <= ?) THEN 1 END)
+        // D9 (owner decision, 2026-11-06): the count, for sales and purchases alike, is the documents standing
+        // at the period end: never a VOID mirror, and an original only if no void of it is dated on or before
+        // the end. Owner decision 2026-11-12 (fifth audit, finding 8): the value and the count take only documents
+        // that carry a tax line, the base the tax was worked out on; the old app summed every document.
+        foreach (['sales' => ['voids_sale_id', 'sale_taxes', 'sale_id'], 'purchases' => ['voids_purchase_id', 'purchase_taxes', 'purchase_id']] as $table => [$voids, $taxes, $fk]) {
+            $box = $old->prepare("SELECT COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM {$taxes} t WHERE t.{$fk} = d.id) THEN d.subtotal_minor - d.discount_minor ELSE 0 END), 0),
+                    COUNT(CASE WHEN d.kind <> 'VOID' AND EXISTS (SELECT 1 FROM {$taxes} t WHERE t.{$fk} = d.id) AND NOT EXISTS (SELECT 1 FROM {$table} m WHERE m.{$voids} = d.id AND m.business_date <= ?) THEN 1 END)
                 FROM {$table} d WHERE d.business_date BETWEEN ? AND ?");
             $box->execute([$to, $from, $to]);
             [$value, $documents] = $box->fetch(PDO::FETCH_NUM);

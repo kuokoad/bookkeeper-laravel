@@ -137,6 +137,20 @@ describe('over the demo shop', function () {
             ->assertSee(Format::money($tax['totalOutput']));
     });
 
+    it('shows the year-end pack customer and supplier balances and trial balance only to someone with accounts view', function () {
+        $year = YearEndService::availableFinancialYears()[0];
+        $pack = YearEndService::getYearEndPack($year->startYear);
+        $customer = $pack['receivables'][0]['partyName'];
+        $url = '/reports/year-end?year='.$year->startYear;
+
+        // Owner decision 2026-11-12: reports view alone sees the statements, not who owes what.
+        signedIn(staff(['reports' => viewOnly()], 'kofi'))->get($url)->assertOk()
+            ->assertSee('Balance Sheet')->assertDontSee('Owed by Customers')->assertDontSee($customer)
+            ->assertDontSee('Trial Balance')->assertDontSee('/export/report/year-end');
+        signedIn(staff(['reports' => viewOnly(), 'accounts' => viewOnly()], 'esi'))->get($url)->assertOk()
+            ->assertSee('Owed by Customers')->assertSee($customer)->assertSee('Trial Balance')->assertSee('/export/report/year-end');
+    });
+
     it('shows the year-end pack for the chosen year', function () {
         $year = YearEndService::availableFinancialYears()[0];
         $pack = YearEndService::getYearEndPack($year->startYear);

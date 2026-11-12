@@ -42,9 +42,13 @@ final class ReportExport
         if ($table === null) {
             return null;
         }
+        // An as-at report names its file by that day, the year-end pack by its year; the rest by the period,
+        // never by the earliest-date placeholder an open-ended period starts at.
         $range = self::period(Csv::firstValues($query), $today);
+        [$from, $to] = $table['name'] ?? [$range['from'] === Filters::EARLIEST_DATE ? null : $range['from'], $range['to']];
+        unset($table['name']);
 
-        return [...$table, 'filename' => Csv::filename($report, $range['from'], $range['to']), 'body' => Csv::toCsv($table['headers'], $table['rows'])];
+        return [...$table, 'filename' => Csv::filename($report, $from, $to), 'body' => Csv::toCsv($table['headers'], $table['rows'])];
     }
 
     /** @return array{headers: list<string>, rows: list<list<string>>}|null */
@@ -76,7 +80,7 @@ final class ReportExport
                 $asAt = isset($params['asAt']) && Filters::isValidBusinessDate($params['asAt']) ? $params['asAt'] : $today;
                 $bs = FinancialService::getBalanceSheet($asAt);
 
-                return ['headers' => ['Item', 'Amount'], 'rows' => [
+                return ['name' => [null, $asAt], 'headers' => ['Item', 'Amount'], 'rows' => [
                     ...array_map(fn (array $l): array => ["Asset: {$l['name']}", $m($l['amount'])], $bs['cashAccounts']),
                     ['Asset: Money customers owe you', $m($bs['receivables'])],
                     ['Asset: Paid to suppliers in advance', $m($bs['supplierAdvances'])],
@@ -169,6 +173,7 @@ final class ReportExport
                 $ageing = $report === 'receivables' ? LedgerService::getReceivablesAgeing($asAt) : LedgerService::getPayablesAgeing($asAt);
 
                 return [
+                    'name' => [null, $asAt],
                     'headers' => [$report === 'receivables' ? 'Customer' : 'Supplier', 'Phone', 'Oldest', 'Not due', '1-30 days', '31-60 days', '61-90 days', 'Over 90 days', 'Total'],
                     'rows' => array_map(fn (array $r): array => [
                         $r['partyName'], $r['phone'] ?? '', $r['oldestDate'] ?? '', $m($r['current']), $m($r['days1to30']), $m($r['days31to60']), $m($r['days61to90']), $m($r['over90']), $m($r['total']),
@@ -203,7 +208,7 @@ final class ReportExport
             'headers' => ['Section', 'Name', 'Stock group', 'Count/Qty', 'Amount', 'Cost', 'Profit', 'Amount is'],
             'rows' => [
                 ...array_map(fn (array $r): array => ['By day', $r['businessDate'], '', (string) $r['saleCount'], $m($r['total']), $m($r['cogs']), $m($r['profit']), $basis], $byDay),
-                ...array_map(fn (array $r): array => ['By stock item', $r['productName'], $r['categoryName'] ?? '', Csv::qty($r['qtySold']), $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByProduct($q, $lines)),
+                ...array_map(fn (array $r): array => ['By stock item', "{$r['productName']} ({$r['unit']})", $r['categoryName'] ?? '', Csv::qty($r['qtySold']), $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByProduct($q, $lines)),
                 ...array_map(fn (array $r): array => ['By stock group', $r['categoryName'], '', '', $m($r['revenue']), $m($r['cost']), $m($r['profit']), $net], OperationsService::getSalesByCategory($q, $lines)),
                 ...array_map(fn (array $r): array => ['By customer', $r['customerName'], '', (string) $r['saleCount'], $m($r['total']), '', $m($r['profit']), $basis], $byCustomer),
                 ...array_map(fn (array $r): array => ['By payment method', $r['accountName'], '', '', $m($r['received']), '', '', 'Money received'], $byMethod),
@@ -330,6 +335,6 @@ final class ReportExport
             ['Year closed to further entries', $pack['isLocked'] ? 'yes' : 'no', ''],
         ];
 
-        return ['headers' => ['Item', $pack['year']->label, $pack['previous']->label], 'rows' => $rows];
+        return ['name' => [$pack['year']->start, $pack['year']->end], 'headers' => ['Item', $pack['year']->label, $pack['previous']->label], 'rows' => $rows];
     }
 }

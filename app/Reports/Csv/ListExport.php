@@ -131,7 +131,13 @@ final class ListExport
                         $r['receiptNo'], $r['invoiceNo'] ?? '', (string) $r['businessDate'], $r['customerName'] ?? 'Walk-in', $r['staffName'] ?? '',
                         (string) $r['itemCount'], $m((int) $r['totalMinor']), $m((int) $r['discountMinor']), $m((int) $r['cogsMinor']),
                         $m((int) $r['profitMinor']), $m((int) $r['outstandingMinor']),
-                        $r['status'] === 'VOIDED' ? 'Voided' : ($r['outstandingMinor'] > 0 ? 'Credit' : 'Paid'),
+                        // The screen's badge, in its order: a reversal is never "Paid".
+                        match (true) {
+                            $r['status'] === 'VOIDED' => 'Voided',
+                            $r['voidsSaleId'] !== null => 'Reversal',
+                            $r['outstandingMinor'] > 0 => 'Credit',
+                            default => 'Paid',
+                        },
                     ], $rows),
                 ];
 
@@ -145,8 +151,10 @@ final class ListExport
                         $m((int) $r['totalMinor']), $m((int) $r['paidMinor']), $m((int) $r['outstandingMinor']),
                         match (true) {
                             $r['status'] === 'VOIDED' => 'Voided',
+                            $r['kind'] === 'RETURN' => 'Return',
+                            $r['kind'] === 'VOID' => 'Reversal',
                             $r['outstandingMinor'] <= 0 => 'Paid',
-                            $r['paidMinor'] > 0 => 'Partly paid',
+                            $r['paidMinor'] > 0 => 'Part paid',
                             default => 'Unpaid',
                         },
                     ], $rows),

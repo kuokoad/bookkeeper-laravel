@@ -360,6 +360,7 @@ final class CashbookService
 
         return Tx::run(function () use ($direction, $input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), $direction === 'CAPITAL' ? 'capital payment' : 'drawing');
             $at = Clock::stamp($occurredAt);
             $account = PaymentAccountService::lockAccounts([$input['paymentAccountId']])[$input['paymentAccountId']] ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);
             // An archived account is hidden from "Total held", counts and transfers: money put in or taken out

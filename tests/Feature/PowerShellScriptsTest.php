@@ -157,3 +157,27 @@ it('update.ps1 opens the shop again after a failed package install, since the bo
     expect($untouched)->toContain('$serving = Test-Serving')
         ->and(strpos($untouched, '$serving = Test-Serving'))->toBeLessThan(strpos($untouched, 'if ($codeBack -and $serving)'));
 });
+
+it('install.ps1 copies composer.phar into the locked PHP folder only once, so an edited copy cannot ride in on a re-run', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+
+    expect($script)->toContain('if (-not (Test-Path $composer) -and (Test-Path $sourcePhar)) { Copy-Item $sourcePhar $composer }')
+        ->and(substr_count($script, 'Copy-Item $sourcePhar'))->toBe(1);
+});
+
+it('install.ps1 sets NUNA_MYSQL_BIN on every run, not only when it writes a new .env', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $block = (string) strstr((string) strstr($script, 'if (-not (Test-Path $envFile))'), "\n}\n", true);
+
+    expect($script)->toContain('Set-EnvValue $envFile "NUNA_MYSQL_BIN"')
+        ->and($block)->not->toContain('NUNA_MYSQL_BIN');
+});
+
+it('install.ps1 runs its has-an-owner probe under Continue, so stderr from it backs up instead of ending the install', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $probe = strpos($script, 'artisan tinker --execute=$probe');
+    $before = substr($script, 0, (int) $probe);
+
+    expect($probe)->not->toBeFalse()
+        ->and(strrpos($before, '$ErrorActionPreference = "Continue"'))->toBeGreaterThan((int) strrpos($before, '$ErrorActionPreference = "Stop"'));
+});

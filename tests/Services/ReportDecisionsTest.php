@@ -175,6 +175,9 @@ describe('D8: purchases carry a due date and payables age from it', function () 
 });
 
 describe('D9: the taxable-sales document count', function () {
+    // Taxed documents only count (owner decision 2026-11-12, fifth audit, finding 8): 15% VAT on the net.
+    beforeEach(fn () => Shop::setSingleTax(1_500));
+
     it('counts only standing sales: one sale of 100.00 and a void of another of 50.00 is 100.00 over 1 sale', function () {
         Carbon::setTestNow('2026-08-20 10:00:00');
         $rice = Shop::product($this->actor, 'Rice 5kg', 1_000, 10_000);
@@ -182,8 +185,8 @@ describe('D9: the taxable-sales document count', function () {
         Shop::openingStock($this->actor, $rice, 10_000, 10_000, '2026-08-01');
         Shop::openingStock($this->actor, $oil, 10_000, 10_000, '2026-08-01');
         $pay = fn (int $amount): array => [['paymentAccountId' => $this->cash, 'amount' => $amount]];
-        Shop::sell($this->actor, [[$rice, 1_000]], $pay(10_000), ['businessDate' => '2026-08-10']);
-        $other = Shop::sell($this->actor, [[$oil, 1_000]], $pay(5_000), ['businessDate' => '2026-08-12']);
+        Shop::sell($this->actor, [[$rice, 1_000]], $pay(11_500), ['businessDate' => '2026-08-10']);
+        $other = Shop::sell($this->actor, [[$oil, 1_000]], $pay(5_750), ['businessDate' => '2026-08-12']);
         SaleService::voidSale($other['saleId'], 'Rung up twice', $this->actor, Carbon::parse('2026-08-15 09:00:00'));
 
         $tax = TaxReturnService::getTaxReturn(['from' => '2026-08-01', 'to' => '2026-08-31']);
@@ -193,7 +196,7 @@ describe('D9: the taxable-sales document count', function () {
     it('counts a sale in its own period when its void is dated in a later one, and the void counts nowhere', function () {
         $rice = Shop::product($this->actor, 'Rice 5kg', 1_000, 10_000);
         Shop::openingStock($this->actor, $rice, 10_000, 10_000, '2026-03-01');
-        $sale = Shop::sell($this->actor, [[$rice, 1_000]], [['paymentAccountId' => $this->cash, 'amount' => 10_000]], ['businessDate' => '2026-03-10']);
+        $sale = Shop::sell($this->actor, [[$rice, 1_000]], [['paymentAccountId' => $this->cash, 'amount' => 11_500]], ['businessDate' => '2026-03-10']);
         $march = fn (): array => TaxReturnService::getTaxReturn(['from' => '2026-03-01', 'to' => '2026-03-31']);
         $before = $march();
         SaleService::voidSale($sale['saleId'], 'Rung up twice', $this->actor, Carbon::parse('2026-04-05 09:00:00'));

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -342,6 +343,7 @@ final class ReturnsService
 
         return Tx::run(function () use ($originalPurchaseId, $input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), 'supplier return');
             $at = Clock::stamp($occurredAt);
             $isDemo = $input['isDemo'] ?? false;
 
@@ -357,6 +359,10 @@ final class ReturnsService
             }
             if ($original->kind !== 'PURCHASE') {
                 throw new ConflictError('Returns can only be made against an original purchase.');
+            }
+            // Goods cannot go back before they arrived.
+            if ($input['businessDate'] < (string) $original->business_date) {
+                throw new ValidationError('A supplier return cannot be dated before the purchase it returns ('.InventoryService::formatDate((string) $original->business_date).').');
             }
             $lockedById = DB::table('purchase_items')->where('purchase_id', $originalPurchaseId)->orderBy('line_no')->lockForUpdate()->get()
                 ->keyBy(fn (object $l): int => (int) $l->id);

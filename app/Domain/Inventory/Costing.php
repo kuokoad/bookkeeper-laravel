@@ -40,13 +40,10 @@ final class Costing
         }
 
         $nextQty = Quantity::add($current->qty, $qty);
-        $nextValue = Money::add($current->value, $totalCost);
-        $residual = 0;
-        // Receiving stock that clears a negative position at a different price.
-        if ($nextQty === 0 && $nextValue !== 0) {
-            $residual = $nextValue;
-            $nextValue = 0;
-        }
+        $nextValue = self::valueAfterIn($current->qty, $current->value, $qty, $totalCost);
+        // Receiving stock that clears or crosses a negative position at a different price: the
+        // oversold units' true cost goes to the residual, and what stays on the shelf is at this cost.
+        $residual = Money::subtract(Money::add($current->value, $totalCost), $nextValue);
 
         return new Movement(self::coherent($nextQty, $nextValue), $totalCost, Money::mulDiv($totalCost, Quantity::SCALE, $qty), $residual);
     }
@@ -125,14 +122,30 @@ final class Costing
      *
      * @param  iterable<array{qtyIn: int, qtyOut: int, totalCost: int}>  $movements
      */
+    /**
+     * V after receiving q for c. Normally V + c. From below zero, the oversold units are
+     * cleared at this delivery's cost: landing on zero leaves 0, and crossing it leaves only
+     * what is left of this delivery, at its own cost (both apps once kept the fallback-cost gap
+     * in V, so one unit could read 7.50 for goods bought at 3.00; fifth audit, finding 12).
+     */
+    private static function valueAfterIn(int $qty, int $value, int $inQty, int $inCost): int
+    {
+        $nextQty = Quantity::add($qty, $inQty);
+        if ($qty < 0 && $nextQty > 0) {
+            return Money::mulDiv($inCost, $nextQty, $inQty);
+        }
+
+        return $nextQty === 0 ? 0 : Money::add($value, $inCost);
+    }
+
     public static function replay(iterable $movements): StockState
     {
         $qty = 0;
         $value = 0;
         foreach ($movements as $movement) {
             if ($movement['qtyIn'] > 0) {
+                $value = self::valueAfterIn($qty, $value, $movement['qtyIn'], $movement['totalCost']);
                 $qty = Quantity::add($qty, $movement['qtyIn']);
-                $value = Money::add($value, $movement['totalCost']);
             } elseif ($movement['qtyOut'] > 0) {
                 $qty = Quantity::subtract($qty, $movement['qtyOut']);
                 $value = Money::subtract($value, $movement['totalCost']);

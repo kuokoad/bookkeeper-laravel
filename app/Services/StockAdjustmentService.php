@@ -324,6 +324,7 @@ final class StockAdjustmentService
                 $oldItems->where('direction', 'IN')->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values()->all(),
                 fn (string $since): string => "Stock {$original->adjustment_no} brought in has gone out since (first on {$since}), so it cannot be edited: what that stock cost has already been used. Record another stock adjustment for the difference instead.",
             );
+            DocumentEdit::assertNoOversoldStockCameInSince('STOCK_ADJUSTMENT', $adjustmentId, fn (string $since): string => "{$original->adjustment_no} took out more than was on the shelf, and stock has come in since ({$since}), so it cannot be edited. Record another stock adjustment for the difference instead.");
             DocumentEdit::assertDaysOpen((string) $original->business_date, $input['businessDate']);
 
             $before = self::snapshot($adjustmentId);

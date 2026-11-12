@@ -77,18 +77,21 @@ final class TaxReturnService
         // March sale voided in April stays "1 sale" in March and April counts nothing for the void.
         // Counted as every original minus those voided by the end: the same number as standingAtEndSql per
         // row, but the voided ones are found from the few void mirrors instead of one probe per document.
-        $value = function (string $table, string $voids) use ($range, $period): object {
+        // Owner decision 2026-11-12 (fifth audit, finding 8): the value and the count take only documents
+        // carrying a tax line (void mirrors and returns carry their own), so it is the base the tax was worked out on.
+        $value = function (string $table, string $voids, string $taxes, string $fk) use ($range, $period): object {
+            $taxed = "EXISTS (SELECT 1 FROM {$taxes} WHERE {$taxes}.{$fk} = {$table}.id)";
             $totals = DB::table($table)->whereBetween("{$table}.business_date", $range)
-                ->selectRaw("COALESCE(SUM({$table}.subtotal_minor - {$table}.discount_minor), 0) AS v, COUNT(CASE WHEN {$table}.kind <> 'VOID' THEN 1 END) AS n")->first();
+                ->selectRaw("COALESCE(SUM(CASE WHEN {$taxed} THEN {$table}.subtotal_minor - {$table}.discount_minor ELSE 0 END), 0) AS v, COUNT(CASE WHEN {$table}.kind <> 'VOID' AND {$taxed} THEN 1 END) AS n")->first();
             $voided = DB::table("{$table} AS void_mirror")->join($table, "{$table}.id", '=', "void_mirror.{$voids}")
                 ->whereNotNull("void_mirror.{$voids}")->where('void_mirror.business_date', '<=', $period['to'])
-                ->whereBetween("{$table}.business_date", $range)->where("{$table}.kind", '<>', 'VOID')
+                ->whereBetween("{$table}.business_date", $range)->where("{$table}.kind", '<>', 'VOID')->whereRaw($taxed)
                 ->selectRaw("COUNT(DISTINCT {$table}.id) AS n")->value('n');
 
             return (object) ['v' => $totals->v, 'n' => (int) $totals->n - (int) $voided];
         };
-        $sales = $value('sales', 'voids_sale_id');
-        $purchases = $value('purchases', 'voids_purchase_id');
+        $sales = $value('sales', 'voids_sale_id', 'sale_taxes', 'sale_id');
+        $purchases = $value('purchases', 'voids_purchase_id', 'purchase_taxes', 'purchase_id');
 
         $totalOutput = Money::sum(array_column($components, 'outputMinor'));
         $totalRecoverableInput = Money::sum(array_column($components, 'recoverableInputMinor'));

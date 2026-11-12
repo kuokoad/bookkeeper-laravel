@@ -345,24 +345,30 @@ final class Reconciler
         for ($month = new \DateTimeImmutable($from); $month->format('Y-m-d') <= $to; $month = $month->modify('first day of next month')) {
             $query = ['from' => $month->format('Y-m-d'), 'to' => min($month->format('Y-m-t'), $to)];
             $rows = $lineByLine ? OperationsService::getSalesByProduct($query, OperationsService::earnedLines($query)) : OperationsService::getSalesByProduct($query);
+            // One row per product and unit (D7, sales side); summed per product.
             foreach ($rows as $row) {
-                $figures["{$query['from']} product {$row['productId']} revenue"] = $row['revenue'];
+                $key = "{$query['from']} product {$row['productId']} revenue";
+                $figures[$key] = ($figures[$key] ?? 0) + $row['revenue'];
             }
         }
 
         return $figures;
     }
 
-    /** Revenue in all, and each row's cost (and quantity, by product). */
+    /** Revenue in all, and each product's or category's revenue and cost (and quantity, by product), summed over units. */
     private function newSalesByLine(array $rows, string $by): array
     {
         $figures = ['revenue' => array_sum(array_column($rows, 'revenue'))];
+        $add = function (string $key, int $value) use (&$figures): void {
+            $figures[$key] = ($figures[$key] ?? 0) + $value;
+        };
         foreach ($rows as $row) {
             $id = $row["{$by}Id"] ?? 'none';
             if ($by === 'product') {
-                $figures["{$by} {$id} qty"] = $row['qtySold'];
+                $add("{$by} {$id} qty", $row['qtySold']);
             }
-            $figures["{$by} {$id} cost"] = $row['cost'];
+            $add("{$by} {$id} cost", $row['cost']);
+            $add("{$by} {$id} revenue", $row['revenue']);
         }
 
         return $figures;

@@ -8,7 +8,10 @@
     <div class="no-print">
         <x-page-header title="Year-end pack" description="The statements your accountant needs, for one financial year.">
             <x-slot:actions>
-                <x-csv-button report="year-end" :query="['year' => $pack['year']->startYear]" />
+                {{-- The file holds every section, the party lists and trial balance included. --}}
+                @can('accounts.view')
+                    <x-csv-button report="year-end" :query="['year' => $pack['year']->startYear]" />
+                @endcan
                 <x-button variant="secondary" size="sm" href="/reports">All reports</x-button>
                 <x-button size="sm" x-on:click="window.print()">Print</x-button>
             </x-slot:actions>
@@ -63,6 +66,8 @@
         ["Balance at {$yearEnd}", $a($pack['cashFlow']['closingBalance']), '', 'font-semibold', 'font-semibold text-content'],
     ]])
 
+    {{-- Each party's balance and the trial balance need accounts view, as their own screens do (owner decision 2026-11-07, 2026-11-12). --}}
+    @can('accounts.view')
     @if ($pack['receivables'] !== [])
         @include('livewire.reports.year-end-statement', ['title' => 'Owed by Customers', 'note' => 'Outstanding at '.\App\View\Format::date($pack['ageingAsAt']).', by how long it has been owed', 'headers' => ['Customer', 'Over 90 days', 'Total'], 'cells' => [
             ...array_map(fn (array $r): array => [$r['partyName'], $blankZero($r['over90']), $a($r['total'])], $pack['receivables']),
@@ -80,6 +85,7 @@
         ...array_map(fn (array $r): array => ["{$r['code']} {$r['name']}", $blankZero($r['debit']), $blankZero($r['credit'])], $pack['trialBalance']['lines']),
         ['Total', $a($pack['trialBalance']['totalDebit']), $a($pack['trialBalance']['totalCredit']), 'border-t border-line-strong font-semibold', 'text-content'],
     ]])
+    @endcan
 
     <section class="mb-8 break-inside-avoid">
         <h2 class="mb-2 text-base font-semibold text-content">Notes to the statements</h2>
@@ -96,7 +102,7 @@
                 appear as owed by customers and owed to suppliers.</li>
             <li><span class="font-medium text-content">No closing entries.</span> Revenue and
                 expense accounts are not zeroed at the year end. All-time profit is carried within the
-                owner&apos;s stake, which is why the Trial Balance above shows cumulative figures while
+                owner&apos;s stake, which is why a trial balance shows cumulative figures while
                 the Profit and Loss covers this year only. The Movement in the Owner&apos;s Stake
                 reconciles the two.</li>
             <li><span class="font-medium text-content">Corrections.</span> Nothing already recorded

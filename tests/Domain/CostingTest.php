@@ -293,3 +293,32 @@ it('holds every costing property over 200 seeded sequences', function () {
         ->and($residuals)->toBeGreaterThan(0)
         ->and($emptied)->toBeGreaterThan(0);
 });
+
+describe('stock in from below zero (fifth audit, finding 12)', function () {
+    it('keeps only this delivery at its own cost when it crosses zero, and sends the oversold units’ true cost to the residual', function () {
+        // Oversold 3 at the 1.50 fallback; 4 arrive at 3.00 each.
+        $m = Costing::stockIn(new StockState(units(-3), -450), units(4), 1_200);
+
+        expect($m->state->qty)->toBe(units(1))
+            ->and($m->state->value)->toBe(300)
+            ->and($m->residual)->toBe(450);
+    });
+
+    it('still clears to zero, and still adds normally above zero', function () {
+        $exact = Costing::stockIn(new StockState(units(-3), -450), units(3), 900);
+        $above = Costing::stockIn(new StockState(units(2), 200), units(3), 900);
+
+        expect([$exact->state->value, $exact->residual])->toBe([0, 450])
+            ->and([$above->state->value, $above->residual])->toBe([1_100, 0]);
+    });
+
+    it('replays a crossing the same way, so the stock check agrees with the live pair', function () {
+        $replayed = Costing::replay([
+            ['qtyIn' => units(2), 'qtyOut' => 0, 'totalCost' => 200],
+            ['qtyIn' => 0, 'qtyOut' => units(5), 'totalCost' => 650],
+            ['qtyIn' => units(4), 'qtyOut' => 0, 'totalCost' => 1_200],
+        ]);
+
+        expect([$replayed->qty, $replayed->value])->toBe([units(1), 300]);
+    });
+});

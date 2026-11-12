@@ -132,6 +132,13 @@ final class Show extends Component
         $this->status = 'Till PIN updated.';
     }
 
+    /** Your own PIN can be taken off (never set) from your own page. */
+    public function removePin(): void
+    {
+        $this->pin = '';
+        $this->savePin();
+    }
+
     public function unlock(): void
     {
         $this->authorize('users.edit');
@@ -153,6 +160,7 @@ final class Show extends Component
         $actor = Principal::load((int) auth()->id());
         $isSelf = $user['id'] === $actor?->id;
         $actorIsOwner = $actor?->role === UserRole::Owner;
+        $mayTakeOver = $actor !== null && UserService::mayTakeOver($this->userId, $actor->actor());
 
         return view('livewire.users.show', [
             'user' => $user,
@@ -160,9 +168,10 @@ final class Show extends Component
             'isSelf' => $isSelf,
             // Roles are an owner's call, and nobody changes their own.
             'mayChangeRole' => $actorIsOwner && ! $isSelf,
-            'mayChangePermissions' => ! $isSelf,
-            // A reset or PIN the service would refuse (yourself, or someone holding rights you lack) is not offered.
-            'mayTakeOver' => $actor !== null && UserService::mayTakeOver($this->userId, $actor->actor()),
+            // What the service would refuse (yourself, or someone holding rights you lack) is not offered.
+            'mayTakeOver' => $mayTakeOver,
+            'mayChangePermissions' => $mayTakeOver,
+            'mayRename' => $isSelf || $mayTakeOver,
             'grantable' => $this->grantable(),
             'rows' => self::MODULE_ROWS,
             'sensitive' => self::SENSITIVE,

@@ -76,6 +76,31 @@ final class DocumentEdit
     }
 
     /**
+     * Stock this document took out that left the shelf below zero, cleared since by stock coming in:
+     * that delivery already sent the oversold units' true cost to cost of goods (Costing's residual),
+     * and putting the goods back at the cost they left at would not undo it, so the shelf would end up
+     * worth too little (fifth audit, finding 6). Refused, as assertNothingWentOutSince is.
+     *
+     * @param  callable(string): string  $refusal  the message, given the first document that brought stock in since
+     */
+    public static function assertNoOversoldStockCameInSince(string $sourceType, int $documentId, callable $refusal): void
+    {
+        $oversold = DB::table('stock_ledger')->where('stock_ledger.source_type', $sourceType)->where('stock_ledger.source_id', $documentId)
+            ->where('stock_ledger.id', '>', InventoryService::lastEditMark($sourceType, $documentId))
+            ->where('stock_ledger.qty_out_milli', '>', 0)->where('stock_ledger.balance_qty_milli', '<', 0)
+            ->get(['stock_ledger.id', 'stock_ledger.product_id']);
+        foreach ($oversold as $out) {
+            $since = DB::table('stock_ledger')->where('stock_ledger.product_id', $out->product_id)->where('stock_ledger.id', '>', $out->id)
+                ->where('stock_ledger.qty_in_milli', '>', 0)
+                ->whereNot(fn ($q) => $q->where('stock_ledger.source_type', $sourceType)->where('stock_ledger.source_id', $documentId))
+                ->orderBy('stock_ledger.id')->value('stock_ledger.source_ref');
+            if ($since !== null) {
+                throw new ConflictError($refusal((string) $since));
+            }
+        }
+    }
+
+    /**
      * The old movements back out, on the document's own day, at the value
      * each went at, through the batches it moved. Lines are in document
      * order and only those that moved stock, so each takes back its own

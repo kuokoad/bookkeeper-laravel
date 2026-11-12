@@ -81,7 +81,9 @@ final class Spreadsheet
                 } else {
                     $field .= $ch;
                 }
-            } elseif ($ch === '"') {
+            } elseif ($ch === '"' && $field === '') {
+                // Only at the start of a field: elsewhere it is a literal inch mark (Pipe 1/2" PVC),
+                // which once opened a quote and merged the next row into this one.
                 $quoted = true;
             } elseif ($ch === ',') {
                 $row[] = $field;

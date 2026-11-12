@@ -126,6 +126,25 @@ it('offers the password reset, PIN, unlock and switch-off only where they would 
     }
 });
 
+it('offers the name and permissions only where saving them would be allowed, and lets you take off your own PIN', function () {
+    owner();
+    $manager = staff(['users' => Permissions::FULL_ACCESS, 'sales' => viewOnly()], 'abena', pin: '8351');
+    $accountant = staff(['accounts' => Permissions::FULL_ACCESS], 'esi');
+    $cashier = staff(['sales' => viewOnly()], 'kofi');
+
+    // A colleague holding a right the manager lacks: renaming or re-permissioning them would be refused.
+    usersAs($manager)->test(Show::class, ['user' => $accountant])
+        ->assertDontSee('Save details')->assertDontSee('Save permissions')
+        ->assertSee('Only an owner, or someone who holds every right this person has, can rename them.')
+        ->assertSee('Only an owner, or someone who holds every right this person has, can change what they can do.');
+    usersAs($manager)->test(Show::class, ['user' => $cashier])->assertSee('Save details')->assertSee('Save permissions');
+
+    // Your own page: no new PIN, but the one you have can come off.
+    usersAs($manager)->test(Show::class, ['user' => $manager])->assertDontSee('Save PIN')->assertSee('Remove my PIN')
+        ->call('removePin')->assertHasNoErrors()->assertSet('status', 'Till PIN updated.');
+    expect(DB::table('users')->where('id', $manager)->value('pin_hash'))->toBeNull();
+});
+
 it('resets a staff password and sets a PIN through UserService', function () {
     $ownerId = owner();
     $ama = staff(['sales' => viewOnly()]);

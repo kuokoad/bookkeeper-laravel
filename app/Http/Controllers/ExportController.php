@@ -27,7 +27,7 @@ final class ExportController extends Controller
      * Reports whose screens need more than reports view: the file must not give
      * what the screen refuses (owner decision 2026-11-07; the old app checked reports only).
      */
-    private const REPORT_MODULES = ['receivables' => 'accounts', 'payables' => 'accounts'];
+    private const REPORT_MODULES = ['receivables' => 'accounts', 'payables' => 'accounts', 'year-end' => 'accounts'];
 
     public function list(Request $request, string $list): Response
     {

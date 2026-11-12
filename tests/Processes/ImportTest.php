@@ -262,8 +262,10 @@ it('reconcile v2 reports a report figure that moved', function () {
     expect(artisan('nuna:import-sqlite', $copy)->successful())->toBeTrue();
     // Credit sales made due long ago: the ageing moves buckets, though no journal line moved.
     DB::connection('import')->table('sales')->whereNotNull('customer_id')->update(['due_date' => '2026-01-01']);
-    // A taxable value moved: the tax return's box disagrees.
-    DB::connection('import')->statement('UPDATE sales SET subtotal_minor = subtotal_minor + 1, total_minor = total_minor + 1 ORDER BY id LIMIT 1');
+    // A taxable value moved: the tax return's box disagrees. The fixture carries no tax, and the box takes
+    // only taxed sales (fifth audit, finding 8), so the first sale gains a tax line here on the new side only.
+    $first = (int) DB::connection('import')->table('sales')->min('id');
+    DB::connection('import')->table('sale_taxes')->insert(['sale_id' => $first, 'code' => 'VAT', 'name' => 'VAT', 'rate_bp' => 1_500, 'basis' => 'NET', 'amount_minor' => 0, 'created_at' => '2026-01-01 00:00:00.000']);
     // A pesewa more into a till: the cash flow (per source and per account) and the balance sheet's cash line disagree.
     DB::connection('import')->statement('UPDATE journal_lines SET debit_minor = debit_minor + 1 WHERE payment_account_id IS NOT NULL AND debit_minor > 0 ORDER BY id LIMIT 1');
 

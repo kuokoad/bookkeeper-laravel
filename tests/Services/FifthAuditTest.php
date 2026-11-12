@@ -133,6 +133,23 @@ describe('editing an oversold sale (finding 6)', function () {
         Shop::assertBooksHealthy('after the void');
     });
 
+    it('takes oversold goods back at what the delivery that cleared them cost, never at the price the sale guessed', function (int $back, int $worth) {
+        $sale = SaleService::createSale(($this->sell)(5_000), $this->actor);
+        // 2 tins found at 1.00 each, 3 oversold at the 1.50 fallback; the delivery cleared those 3 at 3.00 each,
+        // so the five cost 11.00, not the 6.50 the sale recorded.
+        Shop::purchase($this->actor, Shop::supplier($this->actor), [[$this->tin, 3_000, 300]], [], ['businessDate' => FIFTH_DAY]);
+        $item = DB::table('sale_items')->where('sale_items.sale_id', $sale['saleId'])->value('id');
+
+        ReturnsService::createCustomerReturn($sale['saleId'], ['businessDate' => FIFTH_DAY, 'items' => [['itemId' => $item, 'qty' => $back]],
+            'refunds' => [['paymentAccountId' => $this->cash, 'amount' => intdiv($back, 1000) * 800]]], $this->actor);
+
+        expect(CatalogService::getProduct($this->tin)['stockValue'])->toBe($worth);
+        Shop::assertBooksHealthy('after the return');
+    })->with([
+        'all five' => [5_000, 1_100],
+        'three of five' => [3_000, 660],
+    ]);
+
     it('is still allowed while nothing has come in since', function () {
         $sale = SaleService::createSale(($this->sell)(5_000), $this->actor);
         SaleService::editSale($sale['saleId'], ($this->sell)(2_000), 'Sold 2', $this->actor);

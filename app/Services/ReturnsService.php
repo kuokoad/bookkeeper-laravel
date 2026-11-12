@@ -38,7 +38,8 @@ use Illuminate\Support\Facades\DB;
 final class ReturnsService
 {
     /**
-     * A customer brings goods back. Stock comes in at the cost it left at,
+     * A customer brings goods back. Stock comes in at the cost it left at (oversold
+     * units at what the delivery that cleared them cost, see settledLineCosts),
      * revenue comes off through Sales Returns, the tax goes back with the
      * goods, and the customer is made whole in cash (never more than they
      * paid beyond what they keep) or on their account.
@@ -96,6 +97,7 @@ final class ReturnsService
             // Shares are cumulative (D25, as the supplier side): what has come back
             // so far, after less before, so partial returns add up to a full one.
             $lockedById = $originalLines->keyBy(fn (object $l): int => (int) $l->id);
+            $settledCost = self::settledLineCosts($originalSaleId);
             $returnedBefore = $lockedById->map(fn (object $l): int => (int) $l->returned_qty_milli)->all();
             $returnedAfter = $returnedBefore;
             $resolved = [];
@@ -124,7 +126,7 @@ final class ReturnsService
                     'request' => $request,
                     'item' => $item,
                     'revenueShare' => self::cumulativeShare($net, $before, $after, (int) $item->qty_milli),
-                    'costShare' => self::cumulativeShare((int) $item->total_cost_minor, $before, $after, (int) $item->qty_milli),
+                    'costShare' => self::cumulativeShare($settledCost[(int) $item->id] ?? (int) $item->total_cost_minor, $before, $after, (int) $item->qty_milli),
                 ];
             }
 
@@ -605,6 +607,60 @@ final class ReturnsService
 
             return ['returnPurchaseId' => $returnId, 'purchaseNo' => $purchaseNo, 'refunded' => $refundTotal, 'creditApplied' => $creditApplied];
         });
+    }
+
+    /**
+     * Each sale line's cost with its oversold units at what the delivery that cleared them cost
+     * (owner decision on the fifth audit follow-up): the sale costed them at the fallback price, and
+     * that delivery already sent the difference to cost of goods (Costing's residual), so goods
+     * coming back at the fallback price would leave the shelf worth more than they cost.
+     * Only lines with oversold units cleared since appear; the rest keep their recorded cost.
+     *
+     * shortcut: prices the oversold units at the delivery that took stock back to zero or above, so
+     * deliveries that only part-filled the gap before it are not averaged in; upgrade if a shop runs
+     * negative stock across several deliveries.
+     *
+     * @return array<int, int> sale item id => settled line cost
+     */
+    private static function settledLineCosts(int $saleId): array
+    {
+        $returnIds = DB::table('sales')->where('sales.returns_sale_id', $saleId)->pluck('sales.id')->all();
+        $outs = DB::table('stock_ledger')->where('stock_ledger.source_type', 'SALE')->where('stock_ledger.source_id', $saleId)
+            ->where('stock_ledger.id', '>', InventoryService::lastEditMark('SALE', $saleId))
+            ->where('stock_ledger.qty_out_milli', '>', 0)->orderBy('stock_ledger.id')->get();
+        $queues = [];
+        foreach ($outs as $out) {
+            $queues[(int) $out->product_id][] = $out;
+        }
+        $lines = DB::table('sale_items')->join('products', 'products.id', '=', 'sale_items.product_id')
+            ->where('sale_items.sale_id', $saleId)->where('products.track_inventory', true)->orderBy('sale_items.line_no')
+            ->get(['sale_items.id', 'sale_items.product_id', 'sale_items.total_cost_minor']);
+
+        $settled = [];
+        foreach ($lines as $line) {
+            // One movement per stocked line, in line order, as batchSplitBySaleItem pairs them.
+            $out = array_shift($queues[(int) $line->product_id]);
+            if ($out === null || (int) $out->balance_qty_milli >= 0) {
+                continue;
+            }
+            $qtyOut = (int) $out->qty_out_milli;
+            $oversold = min($qtyOut, -(int) $out->balance_qty_milli);
+            $cleared = DB::table('stock_ledger')->where('stock_ledger.product_id', $line->product_id)->where('stock_ledger.id', '>', $out->id)
+                ->where('stock_ledger.qty_in_milli', '>', 0)->where('stock_ledger.balance_qty_milli', '>=', 0)
+                ->whereNot(fn ($q) => $q->where('stock_ledger.source_type', 'SALE_RETURN')->whereIn('stock_ledger.source_id', $returnIds))
+                ->orderBy('stock_ledger.id')->first(['stock_ledger.qty_in_milli', 'stock_ledger.total_cost_minor']);
+            if ($cleared === null) {
+                continue;
+            }
+            // What the sale charged for the oversold units: all of it, less the value it found on the shelf.
+            $qtyBefore = (int) $out->balance_qty_milli + $qtyOut;
+            $foundOnShelf = $qtyBefore > 0 ? Money::add((int) $out->balance_value_minor, (int) $out->total_cost_minor) : 0;
+            $chargedForOversold = Money::subtract((int) $out->total_cost_minor, $foundOnShelf);
+            $deliveryCost = Money::mulDiv((int) $cleared->total_cost_minor, $oversold, (int) $cleared->qty_in_milli);
+            $settled[(int) $line->id] = Money::add((int) $line->total_cost_minor, Money::subtract($deliveryCost, $chargedForOversold));
+        }
+
+        return $settled;
     }
 
     /** This return's part of $amount: the share up to $after out of $of, less the share up to $before. */

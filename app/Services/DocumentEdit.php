@@ -114,8 +114,10 @@ final class DocumentEdit
     {
         // Every split read before any movement: the take-backs add rows of their own.
         $movedVia = [];
+        $oversold = [];
         foreach ($lines as $line) {
             $movedVia[$line['productId']] ??= InventoryService::readBatchSplits($sourceType, $documentId, $line['productId']);
+            $oversold[$line['productId']] ??= InventoryService::readOversold($sourceType, $documentId, $line['productId']);
         }
         $residual = 0;
         foreach ($lines as $line) {
@@ -125,6 +127,7 @@ final class DocumentEdit
                 'direction' => $line['direction'],
                 'qty' => $line['qty'],
                 'totalCost' => $line['totalCost'],
+                'cancels' => array_shift($oversold[$line['productId']]) ?? ['qty' => 0, 'cost' => 0],
                 'movementType' => $line['movementType'],
                 'sourceType' => "{$sourceType}_VOID",
                 'sourceId' => $documentId,

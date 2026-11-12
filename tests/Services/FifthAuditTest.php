@@ -109,7 +109,9 @@ describe('editing an oversold sale (finding 6)', function () {
         $sale = SaleService::createSale(($this->sell)(5_000), $this->actor);
         SaleService::voidSale($sale['saleId'], 'Rung up wrong', $this->actor);
 
-        expect(CatalogService::getProduct($this->tin)['qtyOnHand'])->toBe(2_000);
+        // Back to the 2 tins at 1.00 it found, not 2 tins at the average of what it took.
+        expect(CatalogService::getProduct($this->tin)['qtyOnHand'])->toBe(2_000)
+            ->and(CatalogService::getProduct($this->tin)['stockValue'])->toBe(200);
         Shop::assertBooksHealthy('after the void');
     });
 
@@ -129,7 +131,8 @@ describe('editing an oversold sale (finding 6)', function () {
         $writeOff = Shop::stockOut($this->actor, $this->tin, 5_000, FIFTH_DAY);
         StockAdjustmentService::voidStockAdjustment($writeOff['adjustmentId'], 'Counted wrong', $this->actor);
 
-        expect(CatalogService::getProduct($this->tin)['qtyOnHand'])->toBe(2_000);
+        expect(CatalogService::getProduct($this->tin)['qtyOnHand'])->toBe(2_000)
+            ->and(CatalogService::getProduct($this->tin)['stockValue'])->toBe(200);
         Shop::assertBooksHealthy('after the void');
     });
 
@@ -147,7 +150,31 @@ describe('editing an oversold sale (finding 6)', function () {
         Shop::assertBooksHealthy('after the return');
     })->with([
         'all five' => [5_000, 1_100],
-        'three of five' => [3_000, 660],
+        // Oversold units first: the 3 back are the 3 the delivery cleared at 3.00.
+        'three of five' => [3_000, 900],
+    ]);
+
+    it('takes oversold goods back before any delivery as the sale took them, oversold units first', function (int $before, int $worthBefore, int $worthAfter) {
+        $sale = SaleService::createSale(($this->sell)(5_000), $this->actor);
+        $item = DB::table('sale_items')->where('sale_items.sale_id', $sale['saleId'])->value('id');
+        $return = fn (int $qty) => ReturnsService::createCustomerReturn($sale['saleId'], ['businessDate' => FIFTH_DAY, 'items' => [['itemId' => $item, 'qty' => $qty]],
+            'refunds' => [['paymentAccountId' => $this->cash, 'amount' => intdiv($qty, 1000) * 800]]], $this->actor);
+
+        // The first units back cancel the 3 oversold at their 1.50 fallback; only then come the 2 found at 1.00.
+        $return($before);
+        expect(CatalogService::getProduct($this->tin)['stockValue'])->toBe($worthBefore);
+
+        // Then a delivery of 3 at 3.00 and the rest back: 2 found tins at 1.00 and 3 bought at 3.00 is 11.00.
+        Shop::purchase($this->actor, Shop::supplier($this->actor), [[$this->tin, 3_000, 300]], [], ['businessDate' => FIFTH_DAY]);
+        if ($before < 5_000) {
+            $return(5_000 - $before);
+        }
+        expect(CatalogService::getProduct($this->tin)['stockValue'])->toBe($worthAfter);
+        Shop::assertBooksHealthy('after the returns');
+    })->with([
+        'all five, the sale undone' => [5_000, 200, 1_100],
+        'two, then three after the delivery' => [2_000, -150, 1_100],
+        'four, past zero' => [4_000, 100, 1_100],
     ]);
 
     it('is still allowed while nothing has come in since', function () {

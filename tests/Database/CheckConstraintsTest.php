@@ -112,6 +112,8 @@ function checkBreakers(): array
             'ck_stock_ledger_qty_out_nonneg' => ['qty_in_milli' => 0, 'qty_out_milli' => -1],
             'ck_stock_ledger_one_direction' => ['qty_out_milli' => 1_000],
             'ck_stock_ledger_zero_qty_zero_value' => ['balance_qty_milli' => 0],
+            'ck_stock_ledger_cancels_within_in' => ['cancels_qty_milli' => -1],
+            'ck_stock_ledger_cancels_cost_within' => ['cancels_cost_minor' => -1],
         ],
         'stock_ledger_batches' => ['ck_stock_ledger_batches_one_direction' => ['qty_out_milli' => 1_000]],
         'stock_adjustments' => [

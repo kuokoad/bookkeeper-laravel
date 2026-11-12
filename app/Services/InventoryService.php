@@ -39,7 +39,10 @@ use Illuminate\Support\Facades\DB;
  * A movement input is an array with the old field names:
  * ['productId', 'direction' => 'IN'|'OUT', 'qty', 'totalCost'?, 'movementType',
  *  'sourceType', 'sourceId'?, 'sourceRef'?, 'businessDate', 'occurredAt' => Carbon,
- *  'userId'?, 'note'?, 'allowNegative'?, 'isDemo'?, 'overridePeriodLock'?, 'batch'?].
+ *  'userId'?, 'note'?, 'allowNegative'?, 'isDemo'?, 'overridePeriodLock'?, 'batch'?, 'cancels'?].
+ *
+ * 'cancels' => ['qty', 'cost']: goods put back whose first units are the document's own
+ * oversold units, still below zero, at what it charged for them (Costing::stockIn).
  *
  * 'batch' says which batch the stock comes from or lands in:
  *   ['kind' => 'NEW', 'expiryDate'?, 'supplierId'?, 'warnDays'?, 'note'?]  a dated delivery
@@ -109,8 +112,13 @@ final class InventoryService
         $allowNegative = ($input['allowNegative'] ?? false) === true;
         $in = $input['direction'] === 'IN';
 
+        // Only what is still below zero can be cancelled; a delivery since may have filled some of it.
+        $cancels = $input['cancels'] ?? ['qty' => 0, 'cost' => 0];
+        $cancelsQty = min($cancels['qty'], max(0, -$current->qty));
+        $cancelsCost = $cancelsQty === $cancels['qty'] ? $cancels['cost'] : Money::mulDiv($cancels['cost'], $cancelsQty, $cancels['qty']);
+
         $movement = match (true) {
-            $in => Costing::stockIn($current, $input['qty'], self::requireTotalCost($input)),
+            $in => Costing::stockIn($current, $input['qty'], self::requireTotalCost($input), $cancelsQty, $cancelsCost),
             isset($input['totalCost']) => Costing::stockOutAtCost($current, $input['qty'], $input['totalCost'], $allowNegative, $product->name),
             default => Costing::stockOut($current, $input['qty'], (int) $product->cost_price_minor, $allowNegative, $product->name),
         };
@@ -131,6 +139,8 @@ final class InventoryService
             'total_cost_minor' => $movement->totalCost,
             'balance_qty_milli' => $movement->state->qty,
             'balance_value_minor' => $movement->state->value,
+            'cancels_qty_milli' => $in ? $cancelsQty : 0,
+            'cancels_cost_minor' => $in ? $cancelsCost : 0,
             'note' => $input['note'] ?? null,
             'user_id' => $input['userId'] ?? null,
             'is_demo' => $input['isDemo'] ?? false,
@@ -553,6 +563,30 @@ final class InventoryService
     }
 
     /**
+     * Per current movement of the document for this product, in order (as readBatchSplits): the
+     * units it took beyond what was on the shelf, and what it charged for them (all it charged less
+     * the value it found). Putting the goods back cancels these first (Costing::stockIn).
+     *
+     * @return list<array{qty: int, cost: int, ledgerId: int}>
+     */
+    public static function readOversold(string $sourceType, int $sourceId, int $productId): array
+    {
+        return DB::table('stock_ledger')->where('stock_ledger.source_type', $sourceType)->where('stock_ledger.source_id', $sourceId)
+            ->where('stock_ledger.product_id', $productId)->where('stock_ledger.id', '>', self::lastEditMark($sourceType, $sourceId))
+            ->orderBy('stock_ledger.id')->get(['id', 'qty_out_milli', 'total_cost_minor', 'balance_qty_milli', 'balance_value_minor'])
+            ->map(function (object $row): array {
+                $out = (int) $row->qty_out_milli;
+                $balance = (int) $row->balance_qty_milli;
+                if ($out === 0 || $balance >= 0) {
+                    return ['qty' => 0, 'cost' => 0, 'ledgerId' => (int) $row->id];
+                }
+                $found = Quantity::add($balance, $out) > 0 ? Money::add((int) $row->balance_value_minor, (int) $row->total_cost_minor) : 0;
+
+                return ['qty' => min($out, -$balance), 'cost' => Money::subtract((int) $row->total_cost_minor, $found), 'ledgerId' => (int) $row->id];
+            })->all();
+    }
+
+    /**
      * D34: an edit takes a document's movements back out (as <type>_VOID rows
      * under the document's own id) and posts new ones. Only movements after
      * the latest edit are the document's current lines; before any edit this
@@ -914,8 +948,9 @@ final class InventoryService
     {
         $product = DB::table('products')->where('id', $productId)->first() ?? throw new NotFoundError('Stock item', $productId);
         $movements = DB::table('stock_ledger')->where('stock_ledger.product_id', $productId)->orderBy('stock_ledger.id')
-            ->get(['qty_in_milli', 'qty_out_milli', 'total_cost_minor'])
-            ->map(fn (object $row): array => ['qtyIn' => (int) $row->qty_in_milli, 'qtyOut' => (int) $row->qty_out_milli, 'totalCost' => (int) $row->total_cost_minor])
+            // Every column, and the cancels pair read as 0 when absent: a backup of a database one update behind runs this check too.
+            ->get()
+            ->map(fn (object $row): array => ['qtyIn' => (int) $row->qty_in_milli, 'qtyOut' => (int) $row->qty_out_milli, 'totalCost' => (int) $row->total_cost_minor, 'cancelsQty' => (int) ($row->cancels_qty_milli ?? 0), 'cancelsCost' => (int) ($row->cancels_cost_minor ?? 0)])
             ->all();
         $replayed = Costing::replay($movements);
 

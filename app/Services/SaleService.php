@@ -616,8 +616,10 @@ final class SaleService
 
             // Which crates the sale emptied, so the void refills those and no others.
             $soldFrom = [];
+            $oversold = [];
             foreach ($items as $item) {
                 $soldFrom[(int) $item->product_id] ??= InventoryService::readBatchSplits('SALE', $saleId, (int) $item->product_id);
+                $oversold[(int) $item->product_id] ??= InventoryService::readOversold('SALE', $saleId, (int) $item->product_id);
             }
 
             $residual = 0;
@@ -631,6 +633,7 @@ final class SaleService
                         'qty' => (int) $item->qty_milli,
                         // Back at the ORIGINAL cost, from the line snapshot.
                         'totalCost' => (int) $item->total_cost_minor,
+                        'cancels' => array_shift($oversold[$productId]) ?? ['qty' => 0, 'cost' => 0],
                         'movementType' => MovementType::SaleReturn,
                         'sourceType' => 'SALE_VOID',
                         'sourceId' => $reversalId,

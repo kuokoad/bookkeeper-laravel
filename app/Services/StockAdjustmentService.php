@@ -201,8 +201,10 @@ final class StockAdjustmentService
             ]);
 
             $movedVia = [];
+            $oversold = [];
             foreach ($items as $item) {
                 $movedVia[(int) $item->product_id] ??= InventoryService::readBatchSplits('STOCK_ADJUSTMENT', $adjustmentId, (int) $item->product_id);
+                $oversold[(int) $item->product_id] ??= InventoryService::readOversold('STOCK_ADJUSTMENT', $adjustmentId, (int) $item->product_id);
             }
             foreach ($items as $item) {
                 $batches = array_shift($movedVia[(int) $item->product_id]);
@@ -215,6 +217,7 @@ final class StockAdjustmentService
                     'direction' => $opposite,
                     'qty' => (int) $item->qty_milli,
                     'totalCost' => (int) $item->total_cost_minor,
+                    'cancels' => array_shift($oversold[(int) $item->product_id]) ?? ['qty' => 0, 'cost' => 0],
                     'movementType' => $opposite === 'IN' ? MovementType::AdjustmentIn : MovementType::AdjustmentOut,
                     'sourceType' => 'STOCK_ADJUSTMENT_VOID',
                     'sourceId' => $reversalId,

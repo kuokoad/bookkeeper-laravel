@@ -321,4 +321,18 @@ describe('stock in from below zero (fifth audit, finding 12)', function () {
 
         expect([$replayed->qty, $replayed->value])->toBe([units(1), 300]);
     });
+
+    it('lets goods put back cancel their own oversold units first, live and in the replay', function () {
+        // A sale of 5 found 2 at 1.00 and oversold 3 at the 1.50 fallback; all 5 come back.
+        $m = Costing::stockIn(new StockState(units(-3), -450), units(5), 650, units(3), 450);
+        $replayed = Costing::replay([
+            ['qtyIn' => units(2), 'qtyOut' => 0, 'totalCost' => 200],
+            ['qtyIn' => 0, 'qtyOut' => units(5), 'totalCost' => 650],
+            ['qtyIn' => units(5), 'qtyOut' => 0, 'totalCost' => 650, 'cancelsQty' => units(3), 'cancelsCost' => 450],
+        ]);
+
+        expect([$m->state->value, $m->residual])->toBe([200, 0])
+            ->and([$replayed->qty, $replayed->value])->toBe([units(2), 200])
+            ->and(fn () => Costing::stockIn(StockState::empty(), units(1), 100, units(2), 0))->toThrow(ValidationError::class);
+    });
 });

@@ -179,8 +179,8 @@ final class Reconciler
 
         foreach ($newProducts as $product) {
             $movements = DB::table('stock_ledger')->where('stock_ledger.product_id', $product->id)->orderBy('stock_ledger.id')
-                ->get(['qty_in_milli', 'qty_out_milli', 'total_cost_minor'])
-                ->map(fn (object $m): array => ['qtyIn' => (int) $m->qty_in_milli, 'qtyOut' => (int) $m->qty_out_milli, 'totalCost' => (int) $m->total_cost_minor]);
+                ->get(['qty_in_milli', 'qty_out_milli', 'total_cost_minor', 'cancels_qty_milli', 'cancels_cost_minor'])
+                ->map(fn (object $m): array => ['qtyIn' => (int) $m->qty_in_milli, 'qtyOut' => (int) $m->qty_out_milli, 'totalCost' => (int) $m->total_cost_minor, 'cancelsQty' => (int) $m->cancels_qty_milli, 'cancelsCost' => (int) $m->cancels_cost_minor]);
             $replayed = Costing::replay($movements);
             // A consistency check of the books themselves: the cached pair is what the ledger replays to.
             $this->compare("product {$product->id} cache vs its own stock ledger, quantity", (int) $product->q, $replayed->qty);

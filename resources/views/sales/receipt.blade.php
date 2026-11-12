@@ -90,8 +90,8 @@
             </dl>
 
             <dl class="mt-3 space-y-1 border-t border-dashed border-line pt-2 text-xs">
-                @foreach ($sale['tenders'] as $tender)
-                    <div class="flex justify-between"><dt class="text-content-muted">Paid by {{ $tender['accountName'] }}</dt><dd class="tabular text-content">{{ Format::money((int) $tender['amountMinor'], bare: true) }}</dd></div>
+                @foreach ($paid as $line)
+                    <div class="flex justify-between"><dt class="text-content-muted">{{ $line['label'] }}</dt><dd class="tabular text-content">{{ Format::money($line['amount'], bare: true) }}</dd></div>
                 @endforeach
                 @if ($change > 0)
                     <div class="flex justify-between font-semibold"><dt class="text-content">Change</dt><dd class="tabular text-content">{{ Format::money($change, bare: true) }}</dd></div>

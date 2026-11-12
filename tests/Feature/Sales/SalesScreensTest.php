@@ -163,8 +163,28 @@ it('prints a receipt with the change given, and says a cash sale has no invoice'
     $total = (int) DB::table('sales')->where('id', $sale['saleId'])->value('total_minor');
     expect((int) DB::table('sales')->where('id', $sale['saleId'])->value('change_minor'))->toBe(5_000 - $total);
     signedIn($this->ownerId)->get("/sales/{$sale['saleId']}/receipt?print=1")->assertOk()
-        ->assertSeeInOrder(['Paid by', 'Change', Format::money(5_000 - $total, bare: true)])->assertSee('window.print()', false)->assertSee('history.replaceState', false);
+        ->assertSeeInOrder(['Cash received', '50.00', 'Change', Format::money(5_000 - $total, bare: true)])->assertDontSee('Paid by Cash')
+        ->assertSee('window.print()', false)->assertSee('history.replaceState', false);
     signedIn($this->ownerId)->get("/sales/{$sale['saleId']}/invoice")->assertOk()->assertSee('This sale has no invoice');
+});
+
+it('prints what the customer handed over on a split sale: the MoMo paid, the cash received and the change', function () {
+    stockRice($this);
+    $momo = Shop::paymentAccount('MOBILE_MONEY');
+    $momoName = (string) DB::table('payment_accounts')->where('id', $momo)->value('name');
+    // GHS 120.00 of rice; cash 100 and MoMo 50: MoMo is applied first, cash 70, change 30 from the drawer.
+    $sale = Shop::sell($this->actor, [[$this->rice, 12_000]], [['paymentAccountId' => $this->cash, 'amount' => 10_000], ['paymentAccountId' => $momo, 'amount' => 5_000]], ['businessDate' => $this->today]);
+
+    signedIn($this->ownerId)->get("/sales/{$sale['saleId']}/receipt")->assertOk()
+        ->assertSeeInOrder(["Paid by {$momoName}", '50.00', 'Cash received', '100.00', 'Change', '30.00'])
+        ->assertDontSee('70.00');
+});
+
+it('keeps "Paid by Cash" when no change was given', function () {
+    stockRice($this);
+    $sale = Shop::sell($this->actor, [[$this->rice, 2_000]], [['paymentAccountId' => $this->cash, 'amount' => 2_000]], ['businessDate' => $this->today]);
+
+    signedIn($this->ownerId)->get("/sales/{$sale['saleId']}/receipt")->assertOk()->assertSee('Paid by Cash')->assertDontSee('Cash received');
 });
 
 it('asks for payment on a credit invoice and credits what was already paid', function () {

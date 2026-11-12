@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Sales;
 use App\Domain\BusinessDate;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Sales\SaleCalculator;
+use App\Enums\PaymentAccountKind;
 use App\Http\Controllers\Controller;
 use App\Services\SaleService;
 use App\Services\SettingsService;
@@ -38,6 +39,30 @@ final class SaleDocumentController extends Controller
         );
     }
 
+    /**
+     * The receipt's payment lines. Change comes off the cash, which is applied
+     * last, so the last cash payment plus the change is what the customer
+     * handed over: "Cash received 100.00" then "Change 30.00", not a "Paid by
+     * Cash 70.00" the customer never counted out.
+     *
+     * @return list<array{label: string, amount: int}>
+     */
+    private static function paidLines(array $sale): array
+    {
+        $change = (int) $sale['changeMinor'];
+        $lastCash = null;
+        foreach ($sale['tenders'] as $index => $tender) {
+            if ($tender['accountKind'] === PaymentAccountKind::Cash->value) {
+                $lastCash = $index;
+            }
+        }
+
+        return array_map(fn (int $index, array $tender): array => $index === $lastCash && $change > 0
+            ? ['label' => "{$tender['accountName']} received", 'amount' => (int) $tender['amountMinor'] + $change]
+            : ['label' => "Paid by {$tender['accountName']}", 'amount' => (int) $tender['amountMinor']],
+            array_keys($sale['tenders']), $sale['tenders']);
+    }
+
     public function receipt(Request $request, int $id): View
     {
         $sale = self::sale($id);
@@ -47,6 +72,7 @@ final class SaleDocumentController extends Controller
             'settings' => SettingsService::get(),
             'totals' => self::totals($sale),
             'change' => (int) $sale['changeMinor'],
+            'paid' => self::paidLines($sale),
             // `?print=1` comes from "Print receipt" at the till.
             'autoPrint' => $request->query('print') === '1',
         ]);

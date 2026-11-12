@@ -115,8 +115,11 @@ final class NewAdjustment extends Component
         }
     }
 
-    public function updatedRows(mixed $value, string $key): void
+    public function updatedRows(mixed $value, ?string $key = null): void
     {
+        if ($key === null) {
+            return; // the whole form put back (keep-form.js), not one field typed
+        }
         [$i, $field] = explode('.', $key) + [1 => ''];
         if ($field === 'productId' && isset($this->rows[$i])) {
             // The crate and unit belong to the old product; the conversion shown is remembered for the stale check.

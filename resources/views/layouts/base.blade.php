@@ -15,6 +15,8 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Bookkeeping, inventory, sales and accounts for a small retail shop.">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Who is signed in: keep-form.js gives a kept form back only to the same person. --}}
+    <meta name="nuna-user" content="{{ auth()->id() }}">
     <title>{{ $title ? $title.' · NunaBooks' : 'NunaBooks' }}</title>
     <link rel="icon" href="/brand/nunabooks-mark.svg" type="image/svg+xml">
     @vite(['resources/css/app.css', 'resources/js/app.js'])

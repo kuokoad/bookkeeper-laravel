@@ -235,6 +235,8 @@ final class Pos extends Component
         }
 
         $dates = InventoryService::getExpiryOutlook(Clock::today())[$product['id']] ?? null;
+        // Past every line on screen, so a cart put back after a sign-in ended (keep-form.js) is never overwritten.
+        $this->nextKey = max($this->nextKey, 1 + max([0, ...array_keys($this->lines)]));
         $this->lines[$this->nextKey++] = [
             'productId' => $product['id'],
             'name' => $product['name'],
@@ -300,8 +302,11 @@ final class Pos extends Component
     }
 
     /** Touching a corrected line is the cashier checking it, so its note goes. */
-    public function updatedLines(mixed $value, string $path): void
+    public function updatedLines(mixed $value, ?string $path = null): void
     {
+        if ($path === null) {
+            return; // the whole form put back (keep-form.js), not one field typed
+        }
         $key = (int) explode('.', $path)[0];
         if (isset($this->lines[$key])) {
             $this->lines[$key]['cartonWas'] = null;

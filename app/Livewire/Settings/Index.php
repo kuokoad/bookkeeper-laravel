@@ -70,8 +70,11 @@ final class Index extends Component
     }
 
     /** A new type stamps its own feature defaults, as the server will. */
-    public function updatedForm(mixed $value, string $key): void
+    public function updatedForm(mixed $value, ?string $key = null): void
     {
+        if ($key === null) {
+            return; // the whole form put back (keep-form.js), not one field typed
+        }
         if ($key === 'businessType' && ($type = BusinessType::tryFrom((string) $value)) !== null) {
             $this->form['features'] = Feature::defaults($type);
         }

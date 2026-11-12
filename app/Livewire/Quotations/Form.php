@@ -114,6 +114,8 @@ final class Form extends Component
 
     public function addLine(): void
     {
+        // Past every line on screen, so lines put back after a sign-in ended (keep-form.js) are never overwritten.
+        $this->nextKey = max($this->nextKey, 1 + max([0, ...array_keys($this->lines)]));
         $this->lines[$this->nextKey++] = ['productId' => '', 'qty' => '', 'alt' => false, 'unitPrice' => '', 'discount' => '', 'quoted' => null];
     }
 
@@ -130,8 +132,11 @@ final class Form extends Component
         $this->customerId = '';
     }
 
-    public function updatedLines(mixed $value, string $path): void
+    public function updatedLines(mixed $value, ?string $path = null): void
     {
+        if ($path === null) {
+            return; // the whole form put back (keep-form.js), not one field typed
+        }
         [$key, $field] = array_pad(explode('.', $path), 2, null);
         if ($field !== 'productId' || ! isset($this->lines[(int) $key])) {
             return;

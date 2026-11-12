@@ -55,8 +55,11 @@ trait EditsPermissions
         }
     }
 
-    public function updatedPerms(mixed $value, string $key): void
+    public function updatedPerms(mixed $value, ?string $key = null): void
     {
+        if ($key === null) {
+            return; // the whole form put back (keep-form.js), not one field typed
+        }
         [$module, $flag] = array_pad(explode('.', $key, 2), 2, null);
         if (! isset($this->perms[$module]) || ! in_array($flag, self::FLAGS, true)) {
             return;

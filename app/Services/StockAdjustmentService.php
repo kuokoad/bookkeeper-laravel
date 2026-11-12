@@ -8,6 +8,7 @@ use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -96,6 +97,7 @@ final class StockAdjustmentService
             JournalService::readLockDate();
 
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), 'stock adjustment');
             $at = Clock::stamp($occurredAt);
             $isDemo = $input['isDemo'] ?? false;
             $adjustmentNo = SequenceService::next(DocType::Adjustment);
@@ -328,6 +330,7 @@ final class StockAdjustmentService
             );
             DocumentEdit::assertNoOversoldStockCameInSince('STOCK_ADJUSTMENT', $adjustmentId, fn (string $since): string => "{$original->adjustment_no} took out more than was on the shelf, and stock has come in since ({$since}), so it cannot be edited. Record another stock adjustment for the difference instead.");
             DocumentEdit::assertDaysOpen((string) $original->business_date, $input['businessDate']);
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($now), 'stock adjustment');
 
             $before = self::snapshot($adjustmentId);
             $at = Clock::stamp($now);

@@ -108,6 +108,8 @@ final class PurchaseService
 
         return Tx::run(function () use ($input, $actor, $dueDate): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            // Owner decision: no future-dated money. Stock and a supplier debt are money in the books.
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), 'purchase');
             $at = Clock::stamp($occurredAt);
             $isDemo = $input['isDemo'] ?? false;
 
@@ -371,6 +373,7 @@ final class PurchaseService
         self::assertDueDate($input);
         $why = DocumentEdit::reason($why, 'purchase');
         $now ??= Clock::now();
+        BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($now), 'purchase');
 
         return Tx::run(function () use ($purchaseId, $input, $why, $actor, $now): array {
             // Lock order (Tx): every product either version touches, both suppliers, then the purchase.

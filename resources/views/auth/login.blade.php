@@ -13,6 +13,10 @@
         @if ($setupComplete)
             <x-alert tone="success" class="mb-6">Setup complete. Sign in with the owner account you just created.</x-alert>
         @endif
+        {{-- Shown by keep-form.js when a form was kept as the sign-in ended. --}}
+        <div data-kept-form-note hidden>
+            <x-alert tone="warning" class="mb-6">You were signed out before your last save went through. Sign in again and what you typed will be put back.</x-alert>
+        </div>
 
         <div role="tablist" aria-label="How to sign in" class="mb-6 grid grid-cols-2 gap-1 rounded-lg border border-line bg-surface-sunken p-1">
             @foreach (['password' => 'Password', 'pin' => 'Till PIN'] as $value => $label)

@@ -214,8 +214,11 @@ final class Create extends Component
     }
 
     /** The old onChange handlers: a chosen product or unit pre-fills the cost; a typed cost stays and is flagged. */
-    public function updatedRows(mixed $value, string $key): void
+    public function updatedRows(mixed $value, ?string $key = null): void
     {
+        if ($key === null) {
+            return; // the whole form put back (keep-form.js), not one field typed
+        }
         [$index, $field] = array_pad(explode('.', $key, 2), 2, null);
         if (! isset($this->rows[$index])) {
             return;

@@ -128,8 +128,9 @@ final class LoginController extends Controller
         // A starting password set by someone else is changed first (EnsurePasswordChosen).
         $failed = $result['failedAttemptsSinceLastSignIn'];
 
-        return $failed === 0 ? redirect('/dashboard')
-            : redirect('/dashboard')->with('error', "{$failed} failed sign-in attempt".($failed === 1 ? '' : 's').' since your last sign-in.');
+        // Back to the page that sent them here (a sign-in that ended mid-form), else the dashboard.
+        return $failed === 0 ? redirect()->intended('/dashboard')
+            : redirect()->intended('/dashboard')->with('error', "{$failed} failed sign-in attempt".($failed === 1 ? '' : 's').' since your last sign-in.');
     }
 
     private function refuse(Request $request, string $mode, string $message): RedirectResponse

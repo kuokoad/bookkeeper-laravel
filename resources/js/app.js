@@ -1,3 +1,5 @@
+import './keep-form';
+
 /*
   Select boxes open the app's own dropdown panel on a desktop (a fine pointer),
   styled like the Create Transaction menu. The native <select> stays the real

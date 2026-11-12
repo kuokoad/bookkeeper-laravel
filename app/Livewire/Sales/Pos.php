@@ -16,6 +16,7 @@ use App\Domain\Money;
 use App\Domain\Quantity;
 use App\Domain\Sales\SaleDate;
 use App\Domain\Tax\TaxComponents;
+use App\Enums\PaymentAccountKind;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
@@ -175,7 +176,15 @@ final class Pos extends Component
             ];
         }
 
-        $paid = DB::table('sale_payments')->where('sale_id', $saleId)->orderBy('id')->get(['payment_account_id', 'amount_minor', 'reference']);
+        $paid = DB::table('sale_payments')->join('payment_accounts', 'payment_accounts.id', '=', 'sale_payments.payment_account_id')
+            ->where('sale_payments.sale_id', $saleId)->orderBy('sale_payments.id')
+            ->get(['sale_payments.payment_account_id', 'sale_payments.amount_minor', 'sale_payments.reference', 'payment_accounts.kind']);
+        // What was handed over, not what was applied, or saving the edit would wipe the change (the receipt's rule).
+        $change = (int) DB::table('sales')->where('sales.id', $saleId)->value('change_minor');
+        $lastCash = $paid->keys()->filter(fn (int $i): bool => $paid[$i]->kind === PaymentAccountKind::Cash->value)->last();
+        if ($change > 0 && $lastCash !== null) {
+            $paid[$lastCash]->amount_minor = (int) $paid[$lastCash]->amount_minor + $change;
+        }
         $this->tenderAmount = $this->secondAmount = $this->secondAccountId = $this->reference = '';
         if (isset($paid[0])) {
             $this->tenderAccountId = (string) $paid[0]->payment_account_id;

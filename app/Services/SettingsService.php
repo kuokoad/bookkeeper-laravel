@@ -91,6 +91,14 @@ final class SettingsService
                     ['from' => $before->currency_code, 'to' => $input['currencyCode']],
                 );
             }
+            // A closed year is stored by its start year only; a new start month would redraw its range.
+            if ($input['financialYearStartMonth'] !== (int) $before->financial_year_start_month
+                && DB::table('year_end_closings')->whereNull('year_end_closings.reversed_at')->exists()) {
+                throw new ValidationError(
+                    'The financial year start month cannot change while a year is closed. Reopen the closed years first.',
+                    ['financialYearStartMonth' => $input['financialYearStartMonth']],
+                );
+            }
             if ($input['expiryWarningDays'] < 0) {
                 throw new ValidationError('The expiry warning period must be a whole number of days.', ['expiryWarningDays' => $input['expiryWarningDays']]);
             }

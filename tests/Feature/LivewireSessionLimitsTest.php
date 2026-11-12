@@ -65,3 +65,14 @@ it('refuses a Livewire call from somebody who must choose their own password fir
 
     livewireCall($snapshot)->assertRedirect('/account/password?required=1');
 });
+
+it('refuses a Livewire call from an open page once that right has been taken away', function () {
+    $id = staff(['products' => viewOnly()]);
+    $snapshot = openPage($id, Carbon::now());
+    livewireCall($snapshot)->assertOk();
+
+    // The right goes, and the same browser stays signed in (or signs in again): the old tab must not keep re-rendering.
+    DB::table('user_permissions')->where('user_id', $id)->delete();
+    $this->withSession([Sessions::SIGNED_IN_AT => Carbon::now()->getTimestampMs(), Sessions::FINGERPRINT => Sessions::fingerprint($id)]);
+    livewireCall($snapshot)->assertRedirect('/no-access?area=products');
+});

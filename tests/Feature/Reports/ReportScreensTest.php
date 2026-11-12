@@ -7,6 +7,8 @@ declare(strict_types=1);
 | the service's own answer for the same filter, as the page renders it.
 */
 
+use App\Livewire\Reports\YearEnd;
+use App\Models\User;
 use App\Services\CatalogService;
 use App\Services\CustomerService;
 use App\Services\Reporting\FinancialService;
@@ -17,6 +19,8 @@ use App\Support\Clock;
 use App\Support\Filters\ListFilters;
 use App\View\Format;
 use Database\Seeders\DemoSeeder;
+use Livewire\Livewire;
+use Tests\Support\Shop;
 
 const REPORT_ROUTES = ['/reports', '/reports/profit-and-loss', '/reports/balance-sheet', '/reports/cash-flow', '/reports/sales', '/reports/purchases', '/reports/inventory', '/reports/tax', '/reports/year-end'];
 
@@ -37,6 +41,21 @@ it('renders every report over an empty shop', function () {
     foreach (REPORT_ROUTES as $route) {
         signedIn($this->ownerId)->get($route)->assertOk();
     }
+});
+
+it('prints every line the year-end pack totals count, so its lines add up as the CSV does', function () {
+    // A taxed sale today: NHIL and GETFund are owed, which the balance sheet counts among other liabilities.
+    Shop::setGhanaTaxes();
+    $actor = Shop::owner('esi');
+    $product = Shop::product($actor, 'Milo 400g', 500, 800);
+    Shop::openingStock($actor, $product, 10_000, 5_000, Clock::today());
+    Shop::sell($actor, [[$product, 1_000]], [], ['businessDate' => Clock::today(), 'customerId' => Shop::customer($actor)]);
+
+    $year = YearEndService::availableFinancialYears()[0];
+    $liabilities = YearEndService::getYearEndPack($year->startYear)['balanceSheet']['otherLiabilities'];
+    expect($liabilities)->not->toBe([]);
+    $labels = array_column(Livewire::actingAs(User::query()->findOrFail($this->ownerId))->test(YearEnd::class)->viewData('balanceSheet'), 'label');
+    expect($labels)->toContain(...array_column($liabilities, 'name'));
 });
 
 describe('over the demo shop', function () {

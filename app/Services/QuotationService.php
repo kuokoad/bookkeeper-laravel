@@ -232,7 +232,7 @@ final class QuotationService
             $q->where('quotations.status', $filters['status']);
         }
         if (($filters['expired'] ?? false) === true) {
-            $q->where('quotations.status', 'OPEN')->where('quotations.valid_until', '<=', $asAt);
+            $q->where('quotations.status', 'OPEN')->where('quotations.valid_until', '<', $asAt);
         }
         if (isset($filters['from'])) {
             $q->where('quotations.business_date', '>=', $filters['from']);

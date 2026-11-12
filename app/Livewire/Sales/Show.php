@@ -10,12 +10,14 @@ use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
 use App\Domain\Quantity;
+use App\Domain\Sales\SaleDate;
 use App\Services\Actor;
 use App\Services\AuditService;
 use App\Services\PaymentAccountService;
 use App\Services\Reporting\LedgerService;
 use App\Services\ReturnsService;
 use App\Services\SaleService;
+use App\Services\SettingsService;
 use App\Support\Clock;
 use App\Support\Filters\Filters;
 use Illuminate\Support\Facades\Gate;
@@ -138,6 +140,8 @@ final class Show extends Component
         }
 
         try {
+            // The sale's own rule: a refund dated back would leave today's drawer short with no report showing why.
+            SaleDate::assertAllowed($this->returnDate, Clock::today(), SettingsService::get()->books_locked_before, Gate::allows('sales.edit'), 'return');
             ReturnsService::createCustomerReturn($this->saleId, [
                 'businessDate' => $this->returnDate,
                 'items' => $lines,

@@ -246,7 +246,13 @@ final class ReportExport
 
             return array_map(fn (array $a): array => $line($a['name'], $now[$a['accountId']]['amount'] ?? 0, $before[$a['accountId']]['amount'] ?? 0), array_values($now + $before));
         };
-        $previousExpense = fn (int $accountId): int => array_column($ppl['expenses'], 'amount', 'accountId')[$accountId] ?? 0;
+        // Last year's expense accounts too, so the previous column adds up to its total.
+        $expenses = (function () use ($pl, $ppl, $line): array {
+            $now = array_column($pl['expenses'], null, 'accountId');
+            $before = array_column($ppl['expenses'], null, 'accountId');
+
+            return array_map(fn (array $e): array => $line("Expense: {$e['name']}", $now[$e['accountId']]['amount'] ?? 0, $before[$e['accountId']]['amount'] ?? 0), array_values($now + $before));
+        })();
 
         $rows = [
             [$pack['shop']['name'], '', ''],
@@ -263,7 +269,7 @@ final class ReportExport
             $line('Cost of goods sold', $pl['costOfGoodsSold'], $ppl['costOfGoodsSold']),
             $line('Gross profit', $pl['grossProfit'], $ppl['grossProfit']),
             $line('Other income', $pl['totalOtherIncome'], $ppl['totalOtherIncome']),
-            ...array_map(fn (array $e): array => $line("Expense: {$e['name']}", $e['amount'], $previousExpense($e['accountId'])), $pl['expenses']),
+            ...$expenses,
             $line('Total expenses', $pl['totalExpenses'], $ppl['totalExpenses']),
             $line('NET PROFIT', $pl['netProfit'], $ppl['netProfit']),
             $gap,

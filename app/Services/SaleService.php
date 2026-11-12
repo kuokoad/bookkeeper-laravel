@@ -556,6 +556,10 @@ final class SaleService
             if ($original->voids_sale_id !== null) {
                 throw new ConflictError('A voiding entry cannot itself be voided.');
             }
+            // Voiding a return here would never give the original its returnable quantity back.
+            if ($original->kind !== 'SALE') {
+                throw new ConflictError("{$original->receipt_no} is not a sale, so it cannot be voided here.");
+            }
 
             $items = DB::table('sale_items')->where('sale_id', $saleId)->orderBy('id')->lockForUpdate()->get();
 

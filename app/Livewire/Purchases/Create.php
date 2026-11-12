@@ -312,6 +312,12 @@ final class Create extends Component
 
             return;
         }
+        // Checked on screen too, but Enter saves without waiting for it.
+        if ($reading['referenceError'] !== null) {
+            $fail($reading['referenceError']);
+
+            return;
+        }
 
         $items = [];
         $number = 0;

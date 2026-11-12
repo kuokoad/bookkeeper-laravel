@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -71,6 +72,8 @@ final class ReconciliationService
     {
         return Tx::run(function () use ($input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            // The latest count is picked by date: a future one would hide today's real shortage.
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), 'count');
             $at = Clock::stamp($occurredAt);
             $accountId = $input['paymentAccountId'];
 

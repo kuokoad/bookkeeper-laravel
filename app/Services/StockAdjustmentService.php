@@ -159,6 +159,10 @@ final class StockAdjustmentService
             if ($original->status === 'VOIDED') {
                 throw new ConflictError('That adjustment has already been voided.');
             }
+            // Its reversal could not find the batch the original came from, so stock would leave the wrong one.
+            if ($original->voids_adjustment_id !== null) {
+                throw new ConflictError('A voiding adjustment cannot itself be voided. Make a new stock adjustment instead.');
+            }
             $why = JsCompat::trim($reason);
             if (mb_strlen($why) < 3) {
                 throw new ValidationError('Give a reason for voiding this adjustment.');

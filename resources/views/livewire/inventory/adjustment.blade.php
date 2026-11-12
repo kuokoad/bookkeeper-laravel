@@ -103,7 +103,7 @@
 
     <x-edit-history :history="$history" />
 
-    @if ($adjustment->status === 'POSTED' && Gate::allows('inventory.void'))
+    @if ($adjustment->status === 'POSTED' && $adjustment->voids_adjustment_id === null && Gate::allows('inventory.void'))
         <div class="mt-8">
             <x-confirm-dialog title="Void this adjustment"
                 description="The original record is kept. A reversing adjustment and a reversing accounting entry are created, putting stock and the accounts back where they were."

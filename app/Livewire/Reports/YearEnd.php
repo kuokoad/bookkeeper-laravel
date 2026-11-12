@@ -39,7 +39,13 @@ final class YearEnd extends ReportPage
         $pbs = $pack['previousBalanceSheet'];
         $neg = Money::negate(...);
         $row = fn (string $label, int $value, ?int $previous = null, bool $bold = false, bool $indent = false, bool $rule = false): array => compact('label', 'value', 'previous', 'bold', 'indent', 'rule');
-        $previousExpense = array_column($ppl['expenses'], 'amount', 'accountId');
+        // Every account held in either year, so both columns add up to their totals (as the CSV does).
+        $both = function (array $now, array $before): array {
+            $now = array_column($now, null, 'accountId');
+            $before = array_column($before, null, 'accountId');
+
+            return array_map(fn (array $a): array => [$a['name'], $now[$a['accountId']]['amount'] ?? 0, $before[$a['accountId']]['amount'] ?? 0], array_values($now + $before));
+        };
 
         $profitAndLoss = array_values(array_filter([
             $row('Sales', $pl['salesRevenue'], $ppl['salesRevenue']),
@@ -49,7 +55,7 @@ final class YearEnd extends ReportPage
             $row('Cost of goods sold', $neg($pl['costOfGoodsSold']), $neg($ppl['costOfGoodsSold'])),
             $row('Gross profit', $pl['grossProfit'], $ppl['grossProfit'], bold: true, rule: true),
             $pl['totalOtherIncome'] !== 0 ? $row('Other income', $pl['totalOtherIncome'], $ppl['totalOtherIncome']) : null,
-            ...array_map(fn (array $line): array => $row($line['name'], $neg($line['amount']), $neg($previousExpense[$line['accountId']] ?? 0), indent: true), $pl['expenses']),
+            ...array_map(fn (array $l): array => $row($l[0], $neg($l[1]), $neg($l[2]), indent: true), $both($pl['expenses'], $ppl['expenses'])),
             $row('Total expenses', $neg($pl['totalExpenses']), $neg($ppl['totalExpenses']), rule: true),
             $row('Net profit for the year', $pl['netProfit'], $ppl['netProfit'], bold: true, rule: true),
         ]));
@@ -57,11 +63,14 @@ final class YearEnd extends ReportPage
         $balanceSheet = array_values(array_filter([
             $row('Cash, mobile money and bank', $bs['totalCash'], $pbs['totalCash']),
             $row('Owed by customers', $bs['receivables'], $pbs['receivables']),
+            $bs['supplierAdvances'] !== 0 || $pbs['supplierAdvances'] !== 0 ? $row('Paid to suppliers in advance', $bs['supplierAdvances'], $pbs['supplierAdvances']) : null,
             $row('Stock on hand', $bs['inventory'], $pbs['inventory']),
-            ...array_map(fn (array $line): array => $row($line['name'], $line['amount'], indent: true), $bs['otherAssets']),
+            ...array_map(fn (array $l): array => $row($l[0], $l[1], $l[2], indent: true), $both($bs['otherAssets'], $pbs['otherAssets'])),
             $row('Total assets', $bs['totalAssets'], $pbs['totalAssets'], bold: true, rule: true),
             $row('Owed to suppliers', $bs['payables'], $pbs['payables']),
-            $bs['taxPayable'] !== 0 ? $row('Tax payable', $bs['taxPayable'], $pbs['taxPayable']) : null,
+            $bs['customerCredits'] !== 0 || $pbs['customerCredits'] !== 0 ? $row('Customer credit balances', $bs['customerCredits'], $pbs['customerCredits']) : null,
+            $bs['taxPayable'] !== 0 || $pbs['taxPayable'] !== 0 ? $row('Tax payable', $bs['taxPayable'], $pbs['taxPayable']) : null,
+            ...array_map(fn (array $l): array => $row($l[0], $l[1], $l[2], indent: true), $both($bs['otherLiabilities'], $pbs['otherLiabilities'])),
             $row('Total liabilities', $bs['totalLiabilities'], $pbs['totalLiabilities'], bold: true, rule: true),
             $row("Owner's stake", $bs['totalEquity'], $pbs['totalEquity'], bold: true),
             $row("Total liabilities and owner's stake", $bs['totalLiabilitiesAndEquity'], $pbs['totalLiabilitiesAndEquity'], bold: true, rule: true),

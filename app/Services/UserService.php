@@ -94,6 +94,10 @@ final class UserService
             $role = $input['role'];
             $roleChanges = $existing->role !== $role->value;
 
+            // A rename shows in every later record of who did what, so it needs the same right as a reset.
+            if ($id !== $actor->id && $existing->display_name !== $displayName) {
+                self::assertMayTakeOver($existing, $actor, 'rename this person');
+            }
             if ($roleChanges) {
                 // What somebody may do is an owner's decision, not a chore that comes with `users`.
                 RoleGuard::assertActorIsOwner($actor, 'change a person’s role');
@@ -198,6 +202,10 @@ final class UserService
         $hash = Passwords::hashPassword($newPassword);
 
         Tx::run(function () use ($id, $hash, $actor, $now): void {
+            // Without the current password, your own reset is a takeover from an unattended screen.
+            if ($id === $actor->id) {
+                throw new ConflictError('You cannot reset your own password here. Use Change my password, which asks for the current one.');
+            }
             $existing = DB::table('users')->where('users.id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('User', $id);
             self::assertMayTakeOver($existing, $actor, 'reset this person’s password');
             DB::table('users')->where('users.id', $id)->update([
@@ -256,6 +264,10 @@ final class UserService
         Tx::run(function () use ($id, $pin, $hash, $actor, $now): void {
             $existing = DB::table('users')->where('users.id', $id)->lockForUpdate()->first() ?? throw new NotFoundError('User', $id);
             self::assertMayTakeOver($existing, $actor, 'set this person’s PIN');
+            // A PIN set on your own unattended screen is a way back in as you later.
+            if ($id === $actor->id && $pin !== null) {
+                throw new ConflictError('You cannot set your own PIN. Another owner or a supervisor has to set it for you.');
+            }
             // Removing one an owner still holds from before D17 is allowed; it is ignored at sign-in anyway.
             if ($pin !== null && $existing->role === UserRole::Owner->value) {
                 throw new ValidationError(AuthService::OWNER_PIN_REFUSED);

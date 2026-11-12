@@ -432,6 +432,10 @@ final class PurchaseService
 
             // 2. The delivery as it should have been.
             $priced = self::priceLines($input);
+            // Its own archived supplier is kept only while nothing is owed, as a sale edit keeps its customer.
+            if (! $supplier->is_active && $priced['tender']['outstanding'] !== 0) {
+                throw new ValidationError("\"{$supplier->name}\" is archived, so this edit cannot leave money owing to them. Pay it in full, or restore the supplier first.");
+            }
             $tenderAccounts = PaymentAccountService::lockTenderAccounts($input['tenders']);
             $posted = self::writeBody($purchaseId, $no, $input, $priced, $supplier, $tenderAccounts, $now, $actor, $isDemo);
             $at = Clock::stamp($now);

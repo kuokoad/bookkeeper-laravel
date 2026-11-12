@@ -141,6 +141,10 @@ final class CustomerService
             throw new ValidationError('Enter the customer’s name.');
         }
 
+        if (($input['creditLimit'] ?? null) !== null && $input['creditLimit'] < 0) {
+            throw new ValidationError('A credit limit cannot be negative.');
+        }
+
         Tx::run(function () use ($id, $input, $name, $actor): void {
             $existing = self::lockCustomer($id) ?? throw new NotFoundError('Customer', $id);
             $now = Clock::now();

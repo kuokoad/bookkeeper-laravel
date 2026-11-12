@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Database\Tx;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Errors\ValidationError;
@@ -44,6 +45,7 @@ final class TransferService
 
         return Tx::run(function () use ($input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), 'transfer');
             $at = Clock::stamp($occurredAt);
 
             // Both accounts locked together, by id (Tx), then judged from and to, as the old app did.

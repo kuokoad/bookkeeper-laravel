@@ -8,6 +8,7 @@ declare(strict_types=1);
 */
 
 use App\Auth\Principal;
+use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\ForbiddenError;
 use App\Enums\UserRole;
 use App\Services\Actor;
@@ -43,9 +44,15 @@ describe('promoting to owner', function () {
             ->and(UserService::getUser($id)['role'])->toBe(UserRole::Staff);
     });
 
-    it('still lets a staff member rename someone, which changes no rights', function () {
-        UserService::updateUser($this->ownerId, ['displayName' => 'Kwame O. Owusu', 'role' => UserRole::Owner], $this->manager);
-        expect(UserService::getUser($this->ownerId)['displayName'])->toBe('Kwame O. Owusu');
+    it('still lets a staff member rename a colleague who holds no more than they do', function () {
+        $id = colleague($this->owner);
+        UserService::updateUser($id, ['displayName' => 'Ama B. Mensah', 'role' => UserRole::Staff], $this->manager);
+        expect(UserService::getUser($id)['displayName'])->toBe('Ama B. Mensah');
+    });
+
+    it('REFUSES a staff member renaming the owner: every later record of who did what would show the new name', function () {
+        expect(fn () => UserService::updateUser($this->ownerId, ['displayName' => 'Kwame O. Owusu', 'role' => UserRole::Owner], $this->manager))->toThrow(ForbiddenError::class)
+            ->and(UserService::getUser($this->ownerId)['displayName'])->toBe('Kwame Owusu');
     });
 
     it('allows an owner to promote someone', function () {
@@ -128,6 +135,20 @@ describe('taking over another account (D14)', function () {
         expect(fn () => UserService::setUserPin($id, '8351', $this->manager))->toThrow(ForbiddenError::class)
             ->and(fn () => UserService::resetUserPassword($id, 'taken-over-2026', $this->manager))->toThrow(ForbiddenError::class)
             ->and(AuthService::login('cashier', 'staff-password-2026')['ok'])->toBeTrue();
+    });
+
+    it('REFUSES the owner resetting their own password without the current one, from a screen left signed in', function () {
+        expect(fn () => UserService::resetUserPassword($this->ownerId, 'taken-over-2026', $this->owner))->toThrow(ConflictError::class, 'own password')
+            ->and(AuthService::login('kwame', 'owner-password-2026')['ok'])->toBeTrue();
+    });
+
+    it('REFUSES a supervisor setting their own PIN, a way back in as them later', function () {
+        $supervisor = AuthService::createUser([
+            'username' => 'abena', 'displayName' => 'Abena', 'password' => 'staff-password-2026', 'role' => UserRole::Staff,
+            'permissions' => ['users' => ['canView' => true, 'canCreate' => false, 'canEdit' => true, 'canVoid' => false]],
+        ], $this->owner);
+        expect(fn () => UserService::setUserPin($supervisor, '8351', new Actor($supervisor, 'abena')))->toThrow(ConflictError::class, 'own PIN')
+            ->and(DB::table('users')->where('id', $supervisor)->value('pin_hash'))->toBeNull();
     });
 
     it('still lets them reset a colleague who holds no more than they do', function () {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\BackupService;
+use App\Services\PreflightService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;
 use Throwable;
@@ -51,6 +52,14 @@ final class RestoreCommand extends Command
         }
         try {
             $result = BackupService::restore($file);
+            // An older backup brings back its older tables; the code expects today's, so bring them up to date before the shop opens.
+            $pending = PreflightService::pendingMigrations() ?? [];
+            if ($pending !== [] && $this->callSilently('migrate', ['--force' => true]) !== 0) {
+                $this->error('Restored, but updating the restored tables failed, so the shop stays closed. Run: php artisan migrate --force, then php artisan up');
+                $wasDown = true;
+
+                return self::FAILURE;
+            }
         } catch (Throwable $e) {
             $this->error('Restore failed: '.$e->getMessage());
 
@@ -63,6 +72,9 @@ final class RestoreCommand extends Command
 
         $this->info("Restored {$database} from {$file}");
         $this->line("  {$result['entries']} journal entries, books balanced, stock replays");
+        if ($pending !== []) {
+            $this->line('  brought the restored tables up to date ('.count($pending).' update'.(count($pending) === 1 ? '' : 's').')');
+        }
         $this->line($result['safetyBackup'] === null ? '  the database was empty before' : "  the books it replaced are in {$result['safetyBackup']}");
 
         return self::SUCCESS;

@@ -189,9 +189,11 @@ final class YearEndCloseService
                 throw new ConflictError("Reopen {$label} first. Years must be reopened newest first.");
             }
 
+            // The stored range, never one worked out again from today's start month.
+            $periodEnd = (string) $closing->period_end;
             $reversal = JournalService::reverse(
                 (int) $closing->journal_entry_id,
-                $year->end,
+                $periodEnd,
                 JournalSourceType::YearEndClose,
                 memo: "Reopened the year {$year->label}",
                 overridePeriodLock: true,
@@ -207,7 +209,7 @@ final class YearEndCloseService
                 ->orderByDesc('year_end_closings.start_year')->first();
             // Only the lock this close set comes back; a later one the owner set stays, and they move it themselves.
             $current = $settings->books_locked_before === null ? null : (string) $settings->books_locked_before;
-            $lockTo = $current === $year->end ? ($previousClosed === null ? null : (string) $previousClosed->period_end) : $current;
+            $lockTo = $current === $periodEnd ? ($previousClosed === null ? null : (string) $previousClosed->period_end) : $current;
             DB::table('business_settings')->where('id', 1)->update(['books_locked_before' => $lockTo, 'updated_at' => $stamp]);
 
             AuditService::write(

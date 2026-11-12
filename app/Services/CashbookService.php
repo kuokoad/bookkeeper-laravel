@@ -8,6 +8,7 @@ use App\Auth\RoleGuard;
 use App\Database\Tx;
 use App\Domain\Accounting\ChartOfAccounts;
 use App\Domain\Accounting\Journal;
+use App\Domain\BusinessDate;
 use App\Domain\Errors\ConflictError;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
@@ -89,6 +90,7 @@ final class CashbookService
 
         return Tx::run(function () use ($direction, $side, $input, $actor): array {
             $occurredAt = $input['occurredAt'] ?? Clock::now();
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($occurredAt), strtolower($side['name']));
             $at = Clock::stamp($occurredAt);
             $categoryName = self::assertCategoryUsable($input['categoryAccountId'], $direction);
 
@@ -230,6 +232,9 @@ final class CashbookService
             if (! $account->is_active) {
                 throw new ValidationError("Payment account \"{$account->name}\" is not active.");
             }
+            // The reversal puts money back into the old account, which may be archived since.
+            PaymentAccountService::lockAccountsOfEntry($row->journal_entry_id);
+            BusinessDate::assertNotFuture($input['businessDate'], Clock::dateOf($now), strtolower($side['name']));
             DocumentEdit::assertDaysOpen((string) $row->business_date, $input['businessDate']);
 
             $before = self::snapshot($direction, $row);

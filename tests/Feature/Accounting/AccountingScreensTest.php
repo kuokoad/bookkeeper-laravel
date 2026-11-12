@@ -23,6 +23,7 @@ use App\Services\YearEndCloseService;
 use App\Support\Clock;
 use App\View\Format;
 use Database\Seeders\DemoSeeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\Shop;
@@ -153,7 +154,9 @@ it('starts the ledger at the 1st of the month and carries earlier lines in the o
 
 it('ends the ledger at the To date it shows, leaving out entries dated later', function () {
     Shop::expense($this->actor, $this->today, Shop::expenseCategory('Transport'), 2_500, 'Taxi today');
-    Shop::expense($this->actor, BusinessDate::addDays($this->today, 10), Shop::expenseCategory('Transport'), 9_000, 'Rent next week');
+    // Entered on its own day, ten days from now: a future date is refused today.
+    $later = BusinessDate::addDays($this->today, 10);
+    Shop::expense($this->actor, $later, Shop::expenseCategory('Transport'), 9_000, 'Rent next week', ['occurredAt' => Carbon::parse($later.' 12:00', 'Africa/Accra')]);
 
     $cash = (int) DB::table('payment_accounts')->where('id', Shop::paymentAccount('CASH'))->value('gl_account_id');
     accountingAs($this->ownerId, Ledger::class, [], ['id' => (string) $cash])

@@ -14,6 +14,7 @@ use App\Services\Reporting\LedgerService;
 use App\Support\Clock;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 use Throwable;
@@ -101,14 +102,19 @@ final class BackupService
 
     /**
      * The audit row the backup status reads. A failure to write it must not
-     * fail the backup: the verified file is what matters.
+     * fail the backup: the verified file is what matters. False when it
+     * failed, so the caller can say the backup status will not show it.
      */
-    public static function recordBackupTaken(int $entries, ?Actor $actor = null, string $how = 'from the command line'): void
+    public static function recordBackupTaken(int $entries, ?Actor $actor = null, string $how = 'from the command line'): bool
     {
         try {
             Tx::run(fn () => AuditService::write(AuditAction::Create, 'backup', "Backup taken {$how} ({$entries} journal entries, verified)", null, $actor));
-        } catch (Throwable) {
-            // Reported by the caller's output; the backup itself stands.
+
+            return true;
+        } catch (Throwable $e) {
+            Log::warning('A backup was taken but could not be recorded, so the backup status will not show it: '.$e->getMessage());
+
+            return false;
         }
     }
 

@@ -331,10 +331,11 @@ final class TaxService
     public static function assertUnchangedSince(string $taxTable, string $foreignKey, int $documentId, ?bool $wasInclusive, string $documentNo): void
     {
         $withRecovery = $taxTable === 'purchase_taxes';
-        $then = DB::table($taxTable)->where($foreignKey, $documentId)->orderBy('code')->get()
+        // In posting order, not by code: a NET_PLUS_LEVIES component's amount depends on what comes before it.
+        $then = DB::table($taxTable)->where($foreignKey, $documentId)->orderBy('id')->get()
             ->map(fn (object $r): string => "{$r->code}:{$r->rate_bp}:{$r->basis}".($withRecovery ? ':'.(int) $r->is_recoverable : ''))->all();
         $profile = self::profile();
-        $now = collect($profile['components'])->filter(fn (TaxComponent $c): bool => $c->rateBp > 0)->sortBy('code')
+        $now = collect($profile['components'])->filter(fn (TaxComponent $c): bool => $c->rateBp > 0)
             ->map(fn (TaxComponent $c): string => "{$c->code}:{$c->rateBp}:{$c->basis->value}".($withRecovery ? ':'.(int) $c->isRecoverable : ''))->values()->all();
         $inclusiveChanged = $wasInclusive !== null && $then !== [] && $wasInclusive !== $profile['inclusive'];
         if ($then !== $now || $inclusiveChanged) {

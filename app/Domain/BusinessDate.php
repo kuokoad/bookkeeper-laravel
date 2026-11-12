@@ -27,6 +27,16 @@ final class BusinessDate
         }
     }
 
+    /** Money counted, spent or moved has happened already: a future date would sort it after what is real. */
+    public static function assertNotFuture(string $date, string $today, string $what): void
+    {
+        self::assert($date, "{$what} date");
+        if ($date > $today) {
+            $article = in_array($what[0] ?? '', ['a', 'e', 'i', 'o', 'u'], true) ? 'An' : 'A';
+            throw new ValidationError("{$article} {$what} cannot be dated in the future.", ['date' => $date]);
+        }
+    }
+
     public static function addDays(string $date, int|float $days): string
     {
         if (is_float($days)) {

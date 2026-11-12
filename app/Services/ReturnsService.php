@@ -69,6 +69,9 @@ final class ReturnsService
             if ($original->kind !== 'SALE') {
                 throw new ConflictError('Returns can only be made against an original sale.');
             }
+            if ($input['businessDate'] < (string) $original->business_date) {
+                throw new ValidationError("A return cannot be dated before the sale it returns ({$original->business_date}).");
+            }
             $originalLines = DB::table('sale_items')->where('sale_id', $originalSaleId)->orderBy('line_no')->lockForUpdate()->get();
 
             // Tx 3a: the refund accounts, shared, so archiving one waits for this return.

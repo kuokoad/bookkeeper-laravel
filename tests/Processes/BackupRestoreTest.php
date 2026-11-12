@@ -115,6 +115,20 @@ it('backs up, restores into an empty database, and every figure and every table 
         ->and(DB::connection('source')->table('audit_logs')->where('entity_type', 'backup')->where('action', 'CREATE')->count())->toBe(1);
 });
 
+it('brings an older backup up to date after restoring it, so the till can still sell', function () {
+    // A backup taken before the newest update: its tables lack what today's code writes.
+    $rolledBack = nuna(BACKUP_SOURCE, 'migrate:rollback', '--step=1', '--force');
+    expect($rolledBack->successful())->toBeTrue($rolledBack->errorOutput().$rolledBack->output());
+    expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
+    [$file] = BackupService::existingBackups($this->dir);
+
+    $restore = nuna(BACKUP_TARGET, 'nuna:restore', $this->dir.DIRECTORY_SEPARATOR.$file, '--force');
+    expect($restore->successful())->toBeTrue($restore->errorOutput().$restore->output())
+        ->and($restore->output())->toContain('brought the restored tables up to date');
+    $pending = nuna(BACKUP_TARGET, 'migrate:status', '--pending');
+    expect($pending->output())->not->toContain('Pending');
+});
+
 it('refuses without --force, changing nothing', function () {
     expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
     [$file] = BackupService::existingBackups($this->dir);

@@ -17,18 +17,18 @@ use App\Domain\Errors\ValidationError;
  */
 final class SaleDate
 {
-    public static function assertAllowed(string $businessDate, string $today, ?string $lockedBefore, bool $mayBackdate): void
+    public static function assertAllowed(string $businessDate, string $today, ?string $lockedBefore, bool $mayBackdate, string $what = 'sale'): void
     {
         // Before any comparison: they are on text, and the till's date comes from the browser.
-        BusinessDate::assert($businessDate, 'sale date');
+        BusinessDate::assert($businessDate, "{$what} date");
         if ($businessDate > $today) {
-            throw new ValidationError('A sale cannot be dated in the future.');
+            throw new ValidationError('A '.$what.' cannot be dated in the future.');
         }
         if ($businessDate === $today) {
             return;
         }
         if (! $mayBackdate) {
-            throw new ValidationError('Only an owner or manager can record a sale on an earlier day.');
+            throw new ValidationError("Only an owner or manager can record a {$what} on an earlier day.");
         }
 
         PeriodLock::assertOpen($businessDate, $lockedBefore);

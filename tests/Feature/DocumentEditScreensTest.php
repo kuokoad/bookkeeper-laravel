@@ -133,3 +133,17 @@ it('keeps an archived customer in the list when editing their paid sale, so the 
     Livewire::actingAs($this->owner)->test(Pos::class, ['id' => (string) $sale['saleId']])
         ->assertSet('customerId', (string) $customer)->assertSeeHtml('<option value="'.$customer.'">Ama Archived');
 });
+
+it('keeps the change handed back when a cash sale is edited on the till', function () {
+    // GHS 50.00 handed over for GHS 24.00: 26.00 change, stored on the sale.
+    $sale = Shop::sell($this->actor, [[$this->product, 3_000]], [['paymentAccountId' => $this->cash, 'amount' => 2_400]]);
+    $id = $sale['saleId'];
+    DB::table('sales')->where('id', $id)->update(['change_minor' => 2_600]);
+
+    Livewire::actingAs($this->owner)->test(Pos::class, ['id' => (string) $id])
+        ->set('editReason', 'Fix the note only')
+        ->call('complete')->assertHasNoErrors()->assertRedirect("/sales/{$id}");
+
+    expect((int) DB::table('sales')->where('id', $id)->value('change_minor'))->toBe(2_600)
+        ->and((int) DB::table('sales')->where('id', $id)->value('total_minor'))->toBe(2_400);
+});

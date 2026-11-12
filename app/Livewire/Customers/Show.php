@@ -8,6 +8,7 @@ use App\Auth\Principal;
 use App\Domain\Errors\DomainError;
 use App\Domain\Errors\NotFoundError;
 use App\Domain\Money;
+use App\Domain\Sales\SaleDate;
 use App\Services\Actor;
 use App\Services\CustomerPaymentService;
 use App\Services\CustomerService;
@@ -16,6 +17,7 @@ use App\Services\SaleService;
 use App\Services\SettingsService;
 use App\Support\Clock;
 use App\Support\Filters\Filters;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -96,6 +98,7 @@ final class Show extends Component
         $this->validate(['reference' => ['max:80']]);
 
         try {
+            SaleDate::assertAllowed($this->businessDate, Clock::today(), SettingsService::get()->books_locked_before, Gate::allows('customers.edit'), 'payment');
             CustomerPaymentService::recordCustomerPayment([
                 'customerId' => $this->customerId,
                 'businessDate' => $this->businessDate,

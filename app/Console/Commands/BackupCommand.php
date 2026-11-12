@@ -33,8 +33,11 @@ final class BackupCommand extends Command
             return self::FAILURE;
         }
 
-        BackupService::recordBackupTaken($result['entries']);
+        $recorded = BackupService::recordBackupTaken($result['entries']);
         $this->info("Backup written and verified: {$result['path']}");
+        if (! $recorded) {
+            $this->warn('  The backup is good, but it could not be recorded, so the dashboard will not show it as taken. See the log.');
+        }
         $this->line(sprintf('  %.2f MB · %d journal entries · restored and checked: books balance, stock replays, row counts match', $result['bytes'] / 1_000_000, $result['entries']));
         if ($result['removed'] !== []) {
             $this->line('  Removed '.count($result['removed']).' older backup(s).');

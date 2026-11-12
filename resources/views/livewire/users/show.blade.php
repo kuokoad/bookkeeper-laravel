@@ -111,21 +111,26 @@
                 <h2 class="mb-3 text-sm font-semibold text-content">Access</h2>
                 @error('access')<x-alert tone="danger" class="mb-3">{{ $message }}</x-alert>@enderror
                 <div class="flex flex-wrap items-center gap-3">
-                    @if ($user['isLocked'])
-                        <x-button variant="secondary" wire:click="unlock">Unlock the account</x-button>
-                    @endif
-                    @if ($user['isActive'])
-                        @if ($isSelf)
-                            <p class="text-sm text-content-muted">You cannot switch off your own account.</p>
-                        @elseif ($confirmingOff)
-                            <span class="text-sm text-content">Switch off {{ $user['displayName'] }}? They will be signed out immediately.</span>
-                            <x-button variant="danger" wire:click="setActive(false)">Yes, switch off</x-button>
-                            <x-button variant="ghost" wire:click="$set('confirmingOff', false)">Cancel</x-button>
-                        @else
-                            <x-button variant="secondary" wire:click="$set('confirmingOff', true)">Switch off this account…</x-button>
-                        @endif
+                    @if (! $isSelf && ! $mayTakeOver)
+                        {{-- Unlocking, switching off and back on take the same rule as a password reset (D14). --}}
+                        <p class="text-sm text-content-muted">Only an owner, or someone who holds every right this person has, can change their access.</p>
                     @else
-                        <x-button wire:click="setActive(true)">Turn the account back on</x-button>
+                        @if ($user['isLocked'])
+                            <x-button variant="secondary" wire:click="unlock">Unlock the account</x-button>
+                        @endif
+                        @if ($user['isActive'])
+                            @if ($isSelf)
+                                <p class="text-sm text-content-muted">You cannot switch off your own account.</p>
+                            @elseif ($confirmingOff)
+                                <span class="text-sm text-content">Switch off {{ $user['displayName'] }}? They will be signed out immediately.</span>
+                                <x-button variant="danger" wire:click="setActive(false)">Yes, switch off</x-button>
+                                <x-button variant="ghost" wire:click="$set('confirmingOff', false)">Cancel</x-button>
+                            @else
+                                <x-button variant="secondary" wire:click="$set('confirmingOff', true)">Switch off this account…</x-button>
+                            @endif
+                        @else
+                            <x-button wire:click="setActive(true)">Turn the account back on</x-button>
+                        @endif
                     @endif
                 </div>
                 <p class="mt-3 text-xs text-content-subtle">Accounts are never deleted. Everything this person recorded stays in the books and in the audit trail.</p>

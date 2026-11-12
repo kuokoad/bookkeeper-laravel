@@ -102,19 +102,28 @@ it('refuses a staff member taking over the owner by resetting their password or 
         ->and(DB::table('users')->where('id', $ownerId)->value('pin_hash'))->toBeNull();
 });
 
-it('offers the password reset and PIN only where they would be allowed, not on the owner or a better-placed colleague (D14)', function () {
+it('offers the password reset, PIN, unlock and switch-off only where they would be allowed, not on the owner or a better-placed colleague (D14)', function () {
     $ownerId = owner();
     $manager = staff(['users' => Permissions::FULL_ACCESS, 'sales' => viewOnly()]);
     $cashier = staff(['sales' => viewOnly()], 'kofi');
     $accountant = staff(['accounts' => Permissions::FULL_ACCESS], 'esi');
+    // Locked out, so an Unlock button would show wherever it is allowed.
+    DB::table('users')->whereIn('id', [$ownerId, $cashier, $accountant])->update(['failed_login_count' => 5, 'locked_until' => now()->addMinutes(15)->format('Y-m-d H:i:s.v')]);
+    $offered = ['Reset their password', 'Save PIN', 'Unlock the account', 'Switch off this account'];
 
-    // Owner's page, and a colleague holding a right the manager lacks: both would be refused, so neither is offered.
+    // Owner's page, and a colleague holding a right the manager lacks: each would be refused, so none is offered.
     foreach ([$ownerId, $accountant] as $target) {
-        usersAs($manager)->test(Show::class, ['user' => $target])
-            ->assertDontSee('Reset their password')->assertDontSee('Save PIN');
+        $page = usersAs($manager)->test(Show::class, ['user' => $target])->assertSee('Only an owner, or someone who holds every right this person has, can change their access.');
+        foreach ($offered as $control) {
+            $page->assertDontSee($control);
+        }
     }
-    usersAs($manager)->test(Show::class, ['user' => $cashier])->assertSee('Reset their password')->assertSee('Save PIN');
-    usersAs($ownerId)->test(Show::class, ['user' => $accountant])->assertSee('Reset their password')->assertSee('Save PIN');
+    foreach ([[$manager, $cashier], [$ownerId, $accountant]] as [$viewer, $target]) {
+        $page = usersAs($viewer)->test(Show::class, ['user' => $target])->assertDontSee('can change their access');
+        foreach ($offered as $control) {
+            $page->assertSee($control);
+        }
+    }
 });
 
 it('resets a staff password and sets a PIN through UserService', function () {

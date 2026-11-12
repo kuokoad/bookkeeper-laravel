@@ -161,6 +161,8 @@ final class Show extends Component
             // Roles are an owner's call, and nobody changes their own.
             'mayChangeRole' => $actorIsOwner && ! $isSelf,
             'mayChangePermissions' => ! $isSelf,
+            // A reset or PIN the service would refuse (yourself, or someone holding rights you lack) is not offered.
+            'mayTakeOver' => $actor !== null && UserService::mayTakeOver($this->userId, $actor->actor()),
             'grantable' => $this->grantable(),
             'rows' => self::MODULE_ROWS,
             'sensitive' => self::SENSITIVE,

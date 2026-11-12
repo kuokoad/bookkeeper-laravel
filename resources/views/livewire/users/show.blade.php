@@ -79,7 +79,7 @@
                 </div>
             @endif
 
-            @unless ($isSelf)
+            @if ($mayTakeOver)
             <form wire:submit="resetPassword" class="rounded-xl border border-line bg-surface-raised p-4" novalidate>
                 <h2 class="mb-1 text-sm font-semibold text-content">Reset their password</h2>
                 <p class="mb-3 text-sm text-content-muted">Use this when someone has forgotten theirs. They are signed out and must choose a new password the next time they sign in, so you do not keep knowing a working password for their account.</p>
@@ -91,9 +91,9 @@
                 </div>
                 <div class="mt-4"><x-button type="submit" wire:loading.attr="disabled" wire:target="resetPassword">Reset password</x-button></div>
             </form>
-            @endunless
+            @endif
 
-            @if ($role !== 'OWNER' && ! $isSelf)
+            @if ($role !== 'OWNER' && $mayTakeOver)
             <form wire:submit="savePin" class="rounded-xl border border-line bg-surface-raised p-4" novalidate>
                 <h2 class="mb-1 text-sm font-semibold text-content">Till PIN</h2>
                 <p class="mb-3 text-sm text-content-muted">A short PIN for switching quickly at the till. {{ $user['hasPin'] ? 'A PIN is currently set. ' : '' }}Leave it blank to remove it. Wrong PINs lock the account just as wrong passwords do.</p>

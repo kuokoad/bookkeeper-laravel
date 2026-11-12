@@ -306,6 +306,22 @@ final class UserService
      * Setting someone's credential lets you sign in as them, so it is allowed only
      * over accounts holding no more than you: an owner's needs an owner (D14).
      */
+    /** Whether the actor may set this person's password or PIN: the same rule the reset and the PIN apply, for the page to hide what would be refused. */
+    public static function mayTakeOver(int $id, Actor $actor): bool
+    {
+        $target = DB::table('users')->where('users.id', $id)->first();
+        if ($target === null || $id === $actor->id) {
+            return false;
+        }
+        try {
+            self::assertMayTakeOver($target, $actor, 'take over this account');
+        } catch (ForbiddenError) {
+            return false;
+        }
+
+        return true;
+    }
+
     private static function assertMayTakeOver(object $target, Actor $actor, string $what): void
     {
         if ($target->role === UserRole::Owner->value) {

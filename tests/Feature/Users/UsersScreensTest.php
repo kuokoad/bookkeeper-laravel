@@ -102,6 +102,21 @@ it('refuses a staff member taking over the owner by resetting their password or 
         ->and(DB::table('users')->where('id', $ownerId)->value('pin_hash'))->toBeNull();
 });
 
+it('offers the password reset and PIN only where they would be allowed, not on the owner or a better-placed colleague (D14)', function () {
+    $ownerId = owner();
+    $manager = staff(['users' => Permissions::FULL_ACCESS, 'sales' => viewOnly()]);
+    $cashier = staff(['sales' => viewOnly()], 'kofi');
+    $accountant = staff(['accounts' => Permissions::FULL_ACCESS], 'esi');
+
+    // Owner's page, and a colleague holding a right the manager lacks: both would be refused, so neither is offered.
+    foreach ([$ownerId, $accountant] as $target) {
+        usersAs($manager)->test(Show::class, ['user' => $target])
+            ->assertDontSee('Reset their password')->assertDontSee('Save PIN');
+    }
+    usersAs($manager)->test(Show::class, ['user' => $cashier])->assertSee('Reset their password')->assertSee('Save PIN');
+    usersAs($ownerId)->test(Show::class, ['user' => $accountant])->assertSee('Reset their password')->assertSee('Save PIN');
+});
+
 it('resets a staff password and sets a PIN through UserService', function () {
     $ownerId = owner();
     $ama = staff(['sales' => viewOnly()]);

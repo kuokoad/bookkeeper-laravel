@@ -159,7 +159,7 @@ describe('dates', function () {
         $item = SaleService::getSale($sale['saleId'])['items'][0];
 
         expect(fn () => ReturnsService::createCustomerReturn($sale['saleId'], ['businessDate' => '2026-08-10', 'items' => [['itemId' => $item['id'], 'qty' => 1_000]]], $this->actor))
-            ->toThrow(ValidationError::class, 'before the sale')
+            ->toThrow(ValidationError::class, 'A return cannot be dated before the sale it returns (16 Aug 2026).')
             ->and(CatalogService::getProduct($this->product)['qtyOnHand'])->toBe(7_000);
     });
 

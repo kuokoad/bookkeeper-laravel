@@ -159,6 +159,8 @@ Above the last lines is a checklist from the health check (`nuna:preflight`). Tw
 
 ## Step 6. Open NunaBooks and create the owner account
 
+**Moving from the old app?** Skip steps 6 and 7 and go to step 9 now. Come back for step 8 afterwards.
+
 1. On the desktop there's now a shortcut called **NunaBooks**. Double-click it. It opens `http://nunabooks.local/` in your web browser.
 2. The setup page asks for the shop's name, the owner's name, a username (letters, numbers, dots, dashes) and a password of at least 8 characters. Fill them in and save.
    - This page only works **on the shop PC itself**, not from another till.
@@ -198,6 +200,10 @@ To find the shop PC's name, open **Settings → System → About** on the shop P
 
 Whoever looks after the app usually does this step, because the figures have to be checked afterwards.
 
+Do this **straight after step 5, instead of steps 6 and 7**. The old records bring their own owner account and staff with them, so you don't create a new owner.
+
+> **This step empties NunaBooks before it copies the old records in.** Only do it on a new install that nobody has traded on yet. Never do it on a NunaBooks that already holds the shop's records: they would be lost.
+
 1. **Close the old app completely.**
 2. Copy its database file, `bookkeeper.db`, from the old app's `data` folder to another folder, for example `C:\NunaBooks\old-copy\bookkeeper.db`. Always work from a copy, never the original.
 3. In the Administrator PowerShell window, with `$php` set as in step 7, type (one command at a time):
@@ -206,14 +212,20 @@ Whoever looks after the app usually does this step, because the figures have to 
    cd C:\NunaBooks\app
    ```
    ```powershell
+   & $php artisan migrate:fresh --force
+   ```
+   ```powershell
    & $php artisan nuna:import-sqlite C:\NunaBooks\old-copy\bookkeeper.db
    ```
    ```powershell
-   & $php artisan nuna:reconcile
+   & $php artisan nuna:reconcile C:\NunaBooks\old-copy\bookkeeper.db
    ```
 
-4. The second command compares every figure with the old app. It must end with **zero differences**. If it doesn't, **don't start trading on NunaBooks**: keep using the old app and send the output to whoever looks after the app.
-5. Take another backup (step 7).
+   The first command empties NunaBooks, because the old records can only be copied into an empty one. If the second says `The target database is not empty`, the first was skipped: type it, then the second again.
+
+4. The last command compares every figure with the old app. Run it **before anyone signs in**. It must end with **zero differences**. If it doesn't, **don't start trading on NunaBooks**: keep using the old app and send the output to whoever looks after the app.
+5. Open the **NunaBooks** shortcut and sign in with the **same username and password as in the old app**. The first sign-in can take several seconds.
+6. Take the first backup (step 7).
 
 ---
 

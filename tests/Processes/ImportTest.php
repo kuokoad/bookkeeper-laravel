@@ -76,6 +76,31 @@ it('imports the old database unchanged, and reconcile finds zero differences', f
         ->and(DB::connection('import')->table('users')->where('username', 'owner')->value('password_hash'))->toStartWith('scrypt$32768$8$1$');
 });
 
+it('reconciles straight after the import when the old app kept its database in WAL mode, as the real one does', function () {
+    $copy = oldCopy('PRAGMA journal_mode = WAL');
+    expect(glob($copy.'-*'))->toBe([]);
+
+    $import = artisan('nuna:import-sqlite', $copy);
+    expect($import->successful())->toBeTrue($import->output())
+        // Reading must leave nothing beside the copy: the next read refuses a -wal or -shm.
+        ->and(glob($copy.'-*'))->toBe([]);
+
+    $reconcile = artisan('nuna:reconcile', $copy);
+    expect($reconcile->successful())->toBeTrue($reconcile->output())
+        ->and($reconcile->output())->toContain('Zero differences.')
+        ->and(glob($copy.'-*'))->toBe([]);
+});
+
+it('leaves nothing beside a WAL-mode copy when the import is refused, so the next try is not turned away for a -wal', function () {
+    $copy = oldCopy('PRAGMA journal_mode = WAL');
+    artisan('nuna:import-sqlite', $copy);
+
+    $again = artisan('nuna:import-sqlite', $copy);
+    expect($again->successful())->toBeFalse()
+        ->and($again->output())->toContain('The target database is not empty')
+        ->and(glob($copy.'-*'))->toBe([]);
+});
+
 it('carries the logo across byte for byte, and reconcile compares it', function () {
     $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
     $copy = oldCopy("UPDATE business_settings SET logo_data = X'".bin2hex($png)."', logo_mime = 'image/png', logo_width = 1, logo_height = 1 WHERE id = 1");

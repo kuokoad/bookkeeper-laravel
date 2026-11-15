@@ -6,6 +6,7 @@ namespace App\Services\Migration;
 
 use PDO;
 use RuntimeException;
+use Throwable;
 
 /**
  * A read-only connection to a COPY of the old app's SQLite database. Opened
@@ -30,20 +31,48 @@ final class OldDatabase
             throw new RuntimeException("{$path} has a -wal or -shm file beside it, so it may be in use or missing saved rows. Stop the old app, then copy bookkeeper.db while the old app is stopped, and import that copy.");
         }
 
+        // A failed run's error trace keeps every method argument, this connection among them, so it
+        // would stay open and tidy() could not remove what SQLite still holds. Traces without arguments let it close.
+        ini_set('zend.exception_ignore_args', '1');
+
         $pdo = new PDO('sqlite:'.$path, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY,
         ]);
 
-        // Deferred: the snapshot starts at the first read below and holds until the connection closes.
-        $pdo->exec('BEGIN');
-        $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal_entries'")->fetchColumn();
-        if ($tables === false) {
-            throw new RuntimeException("{$path} is not a NunaBooks database: it has no journal_entries table.");
+        try {
+            // Deferred: the snapshot starts at the first read below and holds until the connection closes.
+            $pdo->exec('BEGIN');
+            $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal_entries'")->fetchColumn();
+            if ($tables === false) {
+                throw new RuntimeException("{$path} is not a NunaBooks database: it has no journal_entries table.");
+            }
+        } catch (Throwable $e) {
+            $pdo = null;
+            self::tidy($path);
+            throw $e;
         }
 
         return $pdo;
+    }
+
+    /**
+     * Call once the connection from open() is released. The old app keeps its
+     * database in WAL mode, and a read-only connection to one creates an empty
+     * -wal and a -shm it cannot remove; left there, the next open() (reconcile
+     * straight after the import) would refuse the copy. open() refused any that
+     * were there before, so these are this read's own.
+     */
+    public static function tidy(string $path): void
+    {
+        // A -wal with rows in it was written by someone else during the read: leave both, so the next open() refuses.
+        // @: a warning here would be thrown from the caller's finally and hide the real error.
+        if ((int) @filesize($path.'-wal') > 0) {
+            return;
+        }
+        @unlink($path.'-wal');
+        @unlink($path.'-shm');
     }
 
     private static function isLiveDatabase(string $path): bool

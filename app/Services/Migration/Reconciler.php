@@ -53,14 +53,18 @@ final class Reconciler
     public function reconcile(string $path, ?string $asAt = null): array
     {
         $old = OldDatabase::open($path);
-
-        $this->contents($old);
-        $this->trialBalance($old, $asAt);
-        $this->stock($old);
-        $this->subledger($old, ChartOfAccounts::ACCOUNTS_RECEIVABLE, 'customer_id', 'receivables', $asAt);
-        $this->subledger($old, ChartOfAccounts::ACCOUNTS_PAYABLE, 'supplier_id', 'payables', $asAt);
-        $this->taxHeld($old, $asAt);
-        $this->reports($old, $asAt);
+        try {
+            $this->contents($old);
+            $this->trialBalance($old, $asAt);
+            $this->stock($old);
+            $this->subledger($old, ChartOfAccounts::ACCOUNTS_RECEIVABLE, 'customer_id', 'receivables', $asAt);
+            $this->subledger($old, ChartOfAccounts::ACCOUNTS_PAYABLE, 'supplier_id', 'payables', $asAt);
+            $this->taxHeld($old, $asAt);
+            $this->reports($old, $asAt);
+        } finally {
+            unset($old);
+            OldDatabase::tidy($path);
+        }
 
         return ['differences' => $this->differences, 'checked' => $this->checked];
     }

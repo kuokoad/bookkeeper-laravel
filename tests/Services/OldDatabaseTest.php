@@ -37,6 +37,38 @@ it('refuses a file with a -wal or -shm beside it, which may not hold every saved
     expect(fn () => OldDatabase::open($this->copy))->toThrow(RuntimeException::class, 'copy bookkeeper.db while the old app is stopped');
 })->with(['-wal', '-shm']);
 
+it('tidy leaves a -wal that has rows in it, so the next open still refuses the copy', function () {
+    file_put_contents($this->copy.'-wal', 'rows');
+    touch($this->copy.'-shm');
+
+    OldDatabase::tidy($this->copy);
+
+    expect(is_file($this->copy.'-wal'))->toBeTrue()
+        ->and(is_file($this->copy.'-shm'))->toBeTrue()
+        ->and(fn () => OldDatabase::open($this->copy))->toThrow(RuntimeException::class, '-wal or -shm');
+});
+
+it('tidy removes an empty -wal and its -shm, and is quiet when there are none', function () {
+    touch($this->copy.'-wal');
+    touch($this->copy.'-shm');
+
+    OldDatabase::tidy($this->copy);
+    OldDatabase::tidy($this->copy);
+
+    expect(glob($this->copy.'-*'))->toBe([]);
+});
+
+it('leaves nothing beside a WAL-mode file that turns out not to be a NunaBooks database', function () {
+    $other = $this->dir.DIRECTORY_SEPARATOR.'other.db';
+    $pdo = new PDO('sqlite:'.$other);
+    $pdo->exec('PRAGMA journal_mode = WAL');
+    $pdo->exec('CREATE TABLE t (x)');
+    $pdo = null;
+
+    expect(fn () => OldDatabase::open($other))->toThrow(RuntimeException::class, 'not a NunaBooks database')
+        ->and(glob($other.'-*'))->toBe([]);
+});
+
 it('reads every table from one snapshot, so a write to the file mid-import cannot land in it', function () {
     $old = OldDatabase::open($this->copy);
     $before = (int) $old->query('SELECT COUNT(*) FROM units')->fetchColumn();

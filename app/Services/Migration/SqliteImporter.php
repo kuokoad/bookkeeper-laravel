@@ -37,6 +37,17 @@ final class SqliteImporter
     public function import(string $path): array
     {
         $old = OldDatabase::open($path);
+        try {
+            return $this->copyAll($old);
+        } finally {
+            unset($old);
+            OldDatabase::tidy($path);
+        }
+    }
+
+    /** @return array<string, int> */
+    private function copyAll(PDO $old): array
+    {
         $this->assertTargetEmpty();
 
         $tables = OldDatabase::tables($old);

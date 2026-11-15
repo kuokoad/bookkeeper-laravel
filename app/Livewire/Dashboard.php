@@ -7,7 +7,6 @@ namespace App\Livewire;
 use App\Auth\Principal;
 use App\Domain\Dashboard as Windows;
 use App\Domain\Money;
-use App\Enums\Look;
 use App\Enums\PermissionModule as M;
 use App\Models\User;
 use App\Services\CashbookService;
@@ -82,8 +81,8 @@ final class Dashboard extends Component
 
         return view('livewire.dashboard', [
             'user' => $user,
-            // The Modern look has its own dashboard layout: same figures, arranged attention first.
-            'modern' => SettingsService::get()->look === Look::Modern->value,
+            // Modern and Fable 5 have their own dashboard layouts: same figures, arranged differently.
+            'look' => SettingsService::get()->look,
             'shows' => $shows,
             'nothingToShow' => ! in_array(true, $shows, true),
             'today' => $today,

@@ -29,8 +29,10 @@
         $attention[] = ['tone' => 'warning', 'title' => Format::money($aged['unaged']).' outside invoice ageing', 'note' => 'Ledger balances include amounts without an invoice due-date bucket. Review allocations and opening balances.', 'href' => '/customers'];
     }
 @endphp
-@if ($modern)
+@if ($look === 'modern')
     @include('livewire.dashboard-modern')
+@elseif ($look === 'fable5')
+    @include('livewire.dashboard-fable5')
 @else
 <div class="stitch-dashboard w-full space-y-4">
     <header class="space-y-3">

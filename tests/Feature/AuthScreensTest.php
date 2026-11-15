@@ -349,3 +349,8 @@ it('accepts the Modern look in the database and wears it', function () {
     DB::table('business_settings')->update(['look' => 'modern']);
     $this->get('/setup')->assertSee('data-look="modern"', false);
 });
+
+it('accepts the Fable 5 look in the database and wears it', function () {
+    DB::table('business_settings')->update(['look' => 'fable5']);
+    $this->get('/setup')->assertSee('data-look="fable5"', false);
+});

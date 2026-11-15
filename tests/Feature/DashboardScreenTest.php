@@ -203,3 +203,40 @@ it('shows Transaction History only to people who may open the journal', function
     DB::table('business_settings')->update(['look' => 'modern']);
     expect(dashboardAs($this->ownerId)->html())->toContain('Transaction History')->toContain('activity-heading');
 });
+
+it('leads with the money held under the Fable 5 look, with the same figures', function () {
+    DB::table('business_settings')->update(['look' => 'fable5']);
+    $html = dashboardAs($this->ownerId)->html();
+
+    expect($html)->toContain('fable-dashboard')
+        ->and(strpos($html, 'fable-hero'))->toBeLessThan(strpos($html, 'id="trends-heading"'))
+        // The amount is split for display only: the code, then the figure the services hold.
+        ->and($html)->toContain('<span class="modern-cur">GHS</span>100.00')
+        ->toContain('1 sale rung up')
+        ->toContain('Daily sales')->toContain('Daily expenses')->toContain('Cash movements')
+        ->toContain('Top selling stock item')->toContain('Dashboard rice')
+        ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
+        ->toContain('Account reconciliation')->toContain('reconciliation not verified')
+        ->toContain('Transaction History')
+        ->toContain('/dashboard?sales=week&amp;spend=month');
+});
+
+it('keeps the permission gates under the Fable 5 look', function () {
+    DB::table('business_settings')->update(['look' => 'fable5']);
+
+    expect(dashboardAs(staff(['sales' => viewOnly()]))->html())
+        ->toContain('Top selling stock item')->toContain('Daily sales')
+        ->not->toContain('Inventory valuation')->not->toContain('fable-hero')
+        ->not->toContain('Cash movements')->not->toContain('Books Check')->not->toContain('Supplier payables')
+        ->not->toContain('Transaction History');
+    dashboardAs(staff([], 'kofi'))->assertSee('No dashboard summaries available')->assertDontSee('Net Profit')->assertDontSee('Needs attention');
+});
+
+it('marks a negative account balance under the Fable 5 look, in the list and in Needs attention', function () {
+    DB::table('business_settings')->update(['look' => 'fable5']);
+    Shop::expense($this->actor, $this->today, PaymentAccountService::listExpenseCategories()[0]['id'], 100, 'Negative balance test', ['paymentAccountId' => $this->momo]);
+    $html = dashboardAs($this->ownerId)->html();
+
+    expect($html)->toContain('Negative ledger balance.')->toContain('negative-account-alert')
+        ->toContain('GHS -1.00');
+});

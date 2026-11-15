@@ -6,7 +6,7 @@ namespace App\Enums;
 
 /**
  * The shop-wide look. Labels are the old lib/look.ts LOOK_LABELS; Jinu
- * (DESIGN-jinu.md), Quikbooks, Mamut and Modern are new here, so imported shops never carry them.
+ * (DESIGN-jinu.md), Quikbooks, Mamut, Modern and Fable 5 are new here, so imported shops never carry them.
  *
  * The database enforces these values with a CHECK built from this enum.
  */
@@ -21,6 +21,7 @@ enum Look: string
     case Quikbooks = 'quikbooks';
     case Mamut = 'mamut';
     case Modern = 'modern';
+    case Fable5 = 'fable5';
 
     public function label(): string
     {
@@ -32,6 +33,7 @@ enum Look: string
             self::Quikbooks => 'Quikbooks',
             self::Mamut => 'Mamut',
             self::Modern => 'Modern',
+            self::Fable5 => 'Fable 5',
         };
     }
 
@@ -45,6 +47,7 @@ enum Look: string
             self::Quikbooks => 'Grey and green, a light menu with a green marker: familiar accounting-software feel.',
             self::Mamut => 'Navy on cool grey, a pale menu and flat bordered sheets: plain, legible business software.',
             self::Modern => 'Navy menu, bright white cards and blue accents, with a dashboard that puts what needs you first.',
+            self::Fable5 => 'Deep teal menu, stone page and a marigold mark, with a dashboard that leads with the money you hold.',
         };
     }
 }

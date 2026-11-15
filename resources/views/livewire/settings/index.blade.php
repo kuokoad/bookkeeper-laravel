@@ -12,6 +12,7 @@
         'quikbooks' => ['light' => ['#f4f5f8', '#ffffff', '#ffffff', '#108000'], 'dark' => ['#1b1c1f', '#232427', '#151618', '#53b700']],
         'mamut' => ['light' => ['#eef1f4', '#ffffff', '#f8fafc', '#2a4a9e'], 'dark' => ['#121826', '#1a2233', '#0f1420', '#8fa8ea']],
         'modern' => ['light' => ['#f5f7fb', '#ffffff', '#0b1b3a', '#1d4ed8'], 'dark' => ['#0d1424', '#152036', '#081227', '#7fa6ff']],
+        'fable5' => ['light' => ['#f2f4f1', '#ffffff', '#0f2a2e', '#0f5c63'], 'dark' => ['#0d1516', '#152022', '#0a1c1f', '#6fc7cf']],
     ];
     $basisLabel = ['NET' => 'the goods value', 'NET_PLUS_LEVIES' => 'the value plus the taxes above it'];
 @endphp

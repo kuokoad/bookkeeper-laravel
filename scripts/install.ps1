@@ -108,7 +108,8 @@ if (-not (Test-Path $phpIni)) { Copy-Item (Join-Path $PhpDir "php.ini-production
 $ini = Get-Content $phpIni -Raw
 # The JIT takes a first sign-in with an old-app password from about 6 s to under 1 s (LegacyScrypt).
 $wanted = @(
-    "extension=intl", "extension=mbstring", "extension=pdo_mysql", "extension=fileinfo", "extension=openssl",
+    # zip: without it Composer cannot unpack a package and clones each one from source instead, slowly.
+    "extension=intl", "extension=mbstring", "extension=pdo_mysql", "extension=fileinfo", "extension=openssl", "extension=zip",
     "zend_extension=opcache", "opcache.enable=1", "opcache.enable_cli=1", "opcache.jit=tracing", "opcache.jit_buffer_size=64M",
     "memory_limit=512M", "max_execution_time=300"
 )
@@ -303,6 +304,11 @@ $httpdConf = Join-Path $ApacheDir "conf\httpd.conf"
 $conf = Get-Content $httpdConf -Raw
 # Listen and the fcgid/rewrite modules come from nunabooks.conf; the stock ones would clash.
 $conf = $conf -replace "(?m)^Listen ", "#Listen " -replace "(?m)^LoadModule rewrite_module", "#LoadModule rewrite_module"
+# A Laragon that has never been started still has Apache's stock SRVROOT ("c:/Apache24"), which is not
+# there, so httpd -t says "ServerRoot must be a valid directory". Point both lines at this Apache.
+$serverRoot = $ApacheDir -replace '\\', '/'
+$conf = [regex]::Replace($conf, '(?m)^Define SRVROOT [^\r\n]*', { "Define SRVROOT `"$serverRoot`"" })
+$conf = [regex]::Replace($conf, '(?m)^ServerRoot [^\r\n]*', { "ServerRoot `"$serverRoot`"" })
 if ($conf -notmatch "nunabooks\.conf") { $conf += "`r`nInclude conf/extra/nunabooks.conf`r`n" }
 [IO.File]::WriteAllText($httpdConf, $conf)
 Invoke-Checked "Checking the Apache configuration" $httpd @("-t")

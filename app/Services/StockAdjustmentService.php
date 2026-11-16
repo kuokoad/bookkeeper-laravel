@@ -65,7 +65,7 @@ final class StockAdjustmentService
         'OTHER' => 'Other',
     ];
 
-    /** Reasons that only ever add stock, and those that only ever remove it. */
+    /** The direction each reason starts at in the form; all but opening stock are fixed there (NewAdjustment::forcedDirection). */
     public const REASON_DEFAULT_DIRECTION = [
         'OPENING_STOCK' => 'IN',
         'FOUND' => 'IN',

@@ -96,14 +96,20 @@ final class NewAdjustment extends Component
         return ['productId' => '', 'direction' => $direction, 'qty' => '', 'alt' => false, 'altFactor' => null, 'value' => '', 'costSource' => 'total', 'batchId' => ''];
     }
 
-    private function forcedDirection(): ?string
+    private function defaultDirection(): ?string
     {
         return StockAdjustmentService::REASON_DEFAULT_DIRECTION[$this->reason] ?? null;
     }
 
+    /** Opening stock starts as stock in, but may take out stock that was entered twice at the start. */
+    private function forcedDirection(): ?string
+    {
+        return $this->reason === 'OPENING_STOCK' ? null : $this->defaultDirection();
+    }
+
     public function updatedReason(): void
     {
-        $direction = $this->forcedDirection();
+        $direction = $this->defaultDirection();
         foreach ($this->rows as $i => $row) {
             if ($direction !== null) {
                 $this->rows[$i]['direction'] = $direction;
@@ -140,7 +146,7 @@ final class NewAdjustment extends Component
 
     public function addRow(): void
     {
-        $this->rows[] = self::blankRow($this->forcedDirection() ?? 'OUT');
+        $this->rows[] = self::blankRow($this->defaultDirection() ?? 'OUT');
     }
 
     public function removeRow(int $index): void

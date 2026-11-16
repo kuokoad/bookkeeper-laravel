@@ -94,6 +94,22 @@ it('takes stock out at the weighted average and shows the service messages', fun
     expect((int) Shop::productRow($this->rice)->stock_value_minor)->toBe(40_000);
 });
 
+it('lets opening stock take out stock entered twice at the start, against opening equity rather than as a loss', function () {
+    $page = Livewire::actingAs(User::query()->findOrFail($this->ownerId))->test(NewAdjustment::class)
+        ->set('reason', 'OPENING_STOCK')->assertSet('rows.0.direction', 'IN')
+        ->call('addRow')->assertSet('rows.1.direction', 'IN')->call('removeRow', 1)
+        ->set('rows.0.productId', (string) $this->rice)->set('rows.0.direction', 'OUT')->set('rows.0.qty', '2');
+    $page->call('save')->assertHasNoErrors()->assertRedirect('/inventory/adjustments');
+
+    $balance = fn (string $code): int => (int) DB::table('journal_lines')->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+        ->where('accounts.code', $code)->sum(DB::raw('journal_lines.debit_minor - journal_lines.credit_minor'));
+    // Two of ten bags out at GHS 50.00: GHS 100.00 back off opening equity, nothing to shrinkage.
+    expect((int) Shop::productRow($this->rice)->qty_on_hand_milli)->toBe(8_000)
+        ->and((int) Shop::productRow($this->rice)->stock_value_minor)->toBe(40_000)
+        ->and($balance('3900'))->toBe(-50_000 - 8_000 + 10_000)
+        ->and($balance('5900'))->toBe(0);
+});
+
 it('offers an archived stock item only while it still holds stock, so that stock can be taken off', function () {
     DB::table('products')->where('id', $this->rice)->update(['is_active' => false]);
     $empty = Shop::product($this->actor, 'Empty and archived', 1_000, 2_000);

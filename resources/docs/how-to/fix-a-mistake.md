@@ -96,6 +96,10 @@ Opening stock is a normal adjustment rather than a special import. That is delib
 it means the very first figure in the app traces back to a recorded event like every
 figure after it.
 
+Opening stock can also go **out**. Use it when an item was entered twice at the start:
+taking the duplicate out with reason `Opening stock` comes off the opening balance,
+where it went in, instead of showing as a loss in this month's profit.
+
 ## When the books are locked
 
 If the period is closed, a correction dated inside it is refused. That is the lock

@@ -258,7 +258,10 @@ final class NewAdjustment extends Component
     private function trackedProducts(): array
     {
         // shortcut: the first 500 active products, the service's ceiling; a picker with search would lift it.
-        return array_values(array_filter(CatalogService::listProducts(['limit' => 500]), fn (array $p): bool => $p['trackInventory']));
+        // An archived product is offered only while it still holds stock, so that stock can be taken off.
+        $stranded = array_filter(CatalogService::listProducts(['limit' => 500, 'productStatus' => 'archived']), fn (array $p): bool => $p['qtyOnHand'] > 0);
+
+        return array_values(array_filter([...CatalogService::listProducts(['limit' => 500]), ...$stranded], fn (array $p): bool => $p['trackInventory']));
     }
 
     public function render(): View
@@ -267,7 +270,7 @@ final class NewAdjustment extends Component
         $expired = InventoryService::listExpiredBatches(Clock::today());
         $products = array_map(fn (array $p): array => [
             ...$p,
-            'qtyOnHandLabel' => Quantity::formatInBothUnits($p['qtyOnHand'], $p['unit'], $p['altUnit'], $p['altFactor']).' on hand',
+            'qtyOnHandLabel' => Quantity::formatInBothUnits($p['qtyOnHand'], $p['unit'], $p['altUnit'], $p['altFactor']).' on hand'.($p['isActive'] ? '' : ', archived'),
             'expiredBatches' => array_values(array_map(
                 fn (array $b): array => ['id' => $b['id'], 'label' => "{$b['batchRef']} — ".Format::qty($b['qtyMilli'], $p['unit']).', expired '.Format::date($b['expiryDate'])],
                 array_filter($expired, fn (array $b): bool => $b['productId'] === $p['id']),

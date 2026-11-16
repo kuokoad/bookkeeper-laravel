@@ -280,19 +280,53 @@ describe('replacing a product to change its units', function () {
             ->and(($this->row)($result['productId'])->qty_on_hand_milli)->toBe(10_000);
     });
 
-    it('refuses any adjustment on an archived product, so a stale form moves nothing there', function () {
-        $id = ($this->create)([...REPLACE_MILO, 'sku' => 'OTHER', 'barcode' => null]);
-        ($this->stockIn)($id, 2, 1_000);
-        DB::table('products')->where('id', $id)->update(['is_active' => false]);
+    it('refuses an adjustment on a replaced product holding nothing, so a stale form moves nothing there', function () {
+        Shop::setting('allow_negative_stock', true);
+        $oldId = ($this->create)();
+        ($this->stockIn)($oldId, 2, 1_000);
+        ($this->replace)($oldId, $this->milo24, 2);
         $adjust = fn (string $direction) => StockAdjustmentService::createStockAdjustment([
             'businessDate' => REPLACE_TODAY,
             'reason' => AdjustmentReason::CountCorrection,
-            'items' => [['productId' => $id, 'direction' => $direction, 'qty' => 1_000, ...($direction === 'IN' ? ['totalCost' => 500] : [])]],
+            'items' => [['productId' => $oldId, 'direction' => $direction, 'qty' => 1_000, ...($direction === 'IN' ? ['totalCost' => 500] : [])]],
         ], $this->actor);
 
         expect(fn () => $adjust('IN'))->toThrow(ValidationError::class, 'archived')
             ->and(fn () => $adjust('OUT'))->toThrow(ValidationError::class, 'archived')
-            ->and(($this->row)($id)->qty_on_hand_milli)->toBe(2_000);
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0);
+    });
+
+    it('lets stock that an edited sale put back on a replaced product be moved to the one that replaced it', function () {
+        $oldId = ($this->create)();
+        ($this->stockIn)($oldId, 7, 3_500);
+        $sale = ($this->sellOnTill)($oldId, REPLACE_TODAY);
+        $newId = ($this->replace)($oldId, $this->milo24, 6)['productId'];
+        // The owner points the old sale at the new product: one unit lands back on the archived one.
+        SaleService::editSale($sale['saleId'], [
+            'businessDate' => REPLACE_TODAY,
+            'items' => [['productId' => $newId, 'qty' => 1_000]],
+            'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 800]],
+        ], 'sold from the wrong duplicate item', $this->actor);
+        expect(($this->row)($oldId)->qty_on_hand_milli)->toBe(1_000)
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(5_000);
+        $stranded = (int) ($this->row)($oldId)->stock_value_minor;
+        $adjust = fn (array $items) => StockAdjustmentService::createStockAdjustment(['businessDate' => REPLACE_TODAY, 'reason' => AdjustmentReason::Other, 'items' => $items], $this->actor);
+
+        // Nothing goes in, and no more comes out than it holds.
+        expect(fn () => $adjust([['productId' => $oldId, 'direction' => 'IN', 'qty' => 1_000, 'totalCost' => 500]]))->toThrow(ValidationError::class, 'archived')
+            ->and(fn () => $adjust([['productId' => $oldId, 'direction' => 'OUT', 'qty' => 2_000]]))->toThrow(ValidationError::class, 'archived');
+
+        $adjust([
+            ['productId' => $oldId, 'direction' => 'OUT', 'qty' => 1_000],
+            ['productId' => $newId, 'direction' => 'IN', 'qty' => 1_000, 'totalCost' => $stranded],
+        ]);
+
+        // All six are on the live product, and every unit of value is where the reports count it.
+        expect(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(($this->row)($oldId)->stock_value_minor)->toBe(0)
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(6_000)
+            ->and(($this->row)($newId)->stock_value_minor)->toBe(3_000)
+            ->and(OperationsService::getStockValuation()['totalCostValue'])->toBe(Shop::balance(ChartOfAccounts::INVENTORY));
     });
 
     it('keeps opening stock available to a backdated sale after it moves', function () {

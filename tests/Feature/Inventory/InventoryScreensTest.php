@@ -94,6 +94,20 @@ it('takes stock out at the weighted average and shows the service messages', fun
     expect((int) Shop::productRow($this->rice)->stock_value_minor)->toBe(40_000);
 });
 
+it('offers an archived stock item only while it still holds stock, so that stock can be taken off', function () {
+    DB::table('products')->where('id', $this->rice)->update(['is_active' => false]);
+    $empty = Shop::product($this->actor, 'Empty and archived', 1_000, 2_000);
+    DB::table('products')->where('id', $empty)->update(['is_active' => false]);
+
+    Livewire::actingAs(User::query()->findOrFail($this->ownerId))->test(NewAdjustment::class)
+        ->assertSee('Rice 5kg (10 pcs on hand, archived)')->assertDontSee('Empty and archived')
+        ->set('reason', 'OTHER')->set('rows.0.productId', (string) $this->rice)->set('rows.0.direction', 'OUT')->set('rows.0.qty', '10')
+        ->call('save')->assertHasNoErrors();
+
+    expect((int) Shop::productRow($this->rice)->qty_on_hand_milli)->toBe(0)
+        ->and((int) Shop::productRow($this->rice)->stock_value_minor)->toBe(0);
+});
+
 it('refuses saving an adjustment without the right', function () {
     Livewire::actingAs(User::query()->findOrFail(staff(['inventory' => viewOnly()])))->test(NewAdjustment::class)
         ->set('rows.0.productId', (string) $this->rice)->set('rows.0.qty', '1')->call('save')->assertForbidden();

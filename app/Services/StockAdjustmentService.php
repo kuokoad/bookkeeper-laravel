@@ -430,13 +430,15 @@ final class StockAdjustmentService
         foreach ($input['items'] as $entered) {
             $product = DB::table('products')->where('id', $entered['productId'])->first()
                 ?? throw new NotFoundError('Stock item', $entered['productId']);
-            // Only a stale form names an archived product.
-            if (! $product->is_active) {
-                throw new ValidationError("\"{$product->name}\" is archived, so its stock cannot be adjusted. Reload the form; if it was replaced, adjust the stock item that replaced it.");
-            }
             $lineUnit = UnitsService::resolveLineUnit($product, $entered['qty'], $entered['alt'] ?? null, $entered['altFactor'] ?? null);
             // From here on the line is in the base unit, like every stock movement.
             $item = [...$entered, 'qty' => $lineUnit['baseQty']];
+            // An archived product takes no stock. What it still holds (an edited sale
+            // can put goods back on a replaced one) may leave, or it is stranded
+            // where no report counts it; otherwise only a stale form names it.
+            if (! $product->is_active && ($item['direction'] !== 'OUT' || $item['qty'] > (int) $product->qty_on_hand_milli)) {
+                throw new ValidationError("\"{$product->name}\" is archived, so its stock cannot be adjusted, except to take out what it still holds. Reload the form; if it was replaced, adjust the stock item that replaced it.");
+            }
             if ($item['qty'] <= 0) {
                 throw new ValidationError('Every adjustment line needs a quantity greater than zero.');
             }

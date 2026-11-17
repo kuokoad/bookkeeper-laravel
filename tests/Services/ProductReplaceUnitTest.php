@@ -17,9 +17,12 @@ use App\Enums\AdjustmentReason;
 use App\Services\CatalogService;
 use App\Services\InventoryService;
 use App\Services\ProductReplaceService;
+use App\Services\PurchaseService;
 use App\Services\Reporting\OperationsService;
+use App\Services\ReturnsService;
 use App\Services\SaleService;
 use App\Services\StockAdjustmentService;
+use App\Services\SupplierService;
 use App\Support\Clock;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
@@ -365,6 +368,100 @@ describe('replacing a product to change its units', function () {
         expect(fn () => Shop::stockOut($this->actor, $oldId, 2_000, REPLACE_TODAY))->toThrow(ValidationError::class, 'archived')
             ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
             ->and(($this->row)($result['productId'])->qty_on_hand_milli)->toBe(10_000);
+    });
+
+    it('voids a delivery entered twice after its product was replaced, taking the goods off the replacement', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        ($this->stockIn)($oldId, 5, 30_000);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplierId, [[$oldId, 5_000, 6_000]], [], ['businessDate' => REPLACE_TODAY]);
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'altUnit' => 'Carton', 'altFactor' => 50_000, 'costPrice' => 120, 'sellingPrice' => 150], 500)['productId'];
+
+        PurchaseService::voidPurchase($purchase['purchaseId'], 'same cartons as the opening stock', $this->actor);
+
+        // The 5 cartons come off as 250 tins at what they cost, and nothing is owed for them.
+        expect(($this->row)($newId)->qty_on_hand_milli)->toBe(250_000)
+            ->and(($this->row)($newId)->stock_value_minor)->toBe(30_000)
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(SupplierService::getSupplierBalance($supplierId))->toBe(0)
+            ->and(Shop::balance(ChartOfAccounts::INVENTORY))->toBe(30_000)
+            ->and(Shop::balance(ChartOfAccounts::INVENTORY_SHRINKAGE))->toBe(0)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
+    it('returns goods to the supplier after their product was replaced, taking them off the replacement', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplierId, [[$oldId, 5_000, 6_000]], [], ['businessDate' => REPLACE_TODAY]);
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'altUnit' => 'Carton', 'altFactor' => 50_000, 'costPrice' => 120, 'sellingPrice' => 150], 250)['productId'];
+        $itemId = (int) DB::table('purchase_items')->where('purchase_id', $purchase['purchaseId'])->value('id');
+
+        ReturnsService::createSupplierReturn($purchase['purchaseId'], ['businessDate' => REPLACE_TODAY, 'items' => [['itemId' => $itemId, 'qty' => 2_000]]], $this->actor);
+
+        expect(($this->row)($newId)->qty_on_hand_milli)->toBe(150_000)
+            ->and(($this->row)($newId)->stock_value_minor)->toBe(18_000)
+            ->and(SupplierService::getSupplierBalance($supplierId))->toBe(18_000)
+            ->and(Shop::balance(ChartOfAccounts::INVENTORY))->toBe(18_000)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
+    it('refuses a supplier return dated before the product was replaced, when the goods were not on the replacement yet', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplierId, [[$oldId, 5_000, 6_000]], [], ['businessDate' => '2026-11-02']);
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'altUnit' => 'Carton', 'altFactor' => 50_000, 'costPrice' => 120, 'sellingPrice' => 150], 250)['productId'];
+        $itemId = (int) DB::table('purchase_items')->where('purchase_id', $purchase['purchaseId'])->value('id');
+
+        expect(fn () => ReturnsService::createSupplierReturn($purchase['purchaseId'], ['businessDate' => '2026-11-03', 'items' => [['itemId' => $itemId, 'qty' => 1_000]]], $this->actor))
+            ->toThrow(ValidationError::class, 'replaced')
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(250_000)
+            ->and(SupplierService::getSupplierBalance($supplierId))->toBe(30_000);
+    });
+
+    it('refuses a return that does not convert exactly into the units of the replacement', function () {
+        $oldId = ($this->create)(['name' => 'Rice', 'unit' => 'Bag', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplierId, [[$oldId, 3_000, 6_000]], [], ['businessDate' => REPLACE_TODAY]);
+        // Three bags were counted as one sack, so one bag is a third of a sack.
+        $newId = ($this->replace)($oldId, ['name' => 'Rice', 'unit' => 'Sack', 'costPrice' => 18_000, 'sellingPrice' => 21_600], 1)['productId'];
+        $itemId = (int) DB::table('purchase_items')->where('purchase_id', $purchase['purchaseId'])->value('id');
+
+        expect(fn () => ReturnsService::createSupplierReturn($purchase['purchaseId'], ['businessDate' => REPLACE_TODAY, 'items' => [['itemId' => $itemId, 'qty' => 1_000]]], $this->actor))
+            ->toThrow(ValidationError::class, 'convert')
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(1_000)
+            ->and(SupplierService::getSupplierBalance($supplierId))->toBe(18_000);
+    });
+
+    it('voids a delivery whose product was replaced twice, taking the goods off the last replacement', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplierId, [[$oldId, 5_000, 6_000]], [], ['businessDate' => REPLACE_TODAY]);
+        $tinId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'costPrice' => 120, 'sellingPrice' => 150], 250)['productId'];
+        $packId = ($this->replace)($tinId, ['name' => 'Sardines', 'unit' => 'pack', 'costPrice' => 600, 'sellingPrice' => 750], 50)['productId'];
+
+        PurchaseService::voidPurchase($purchase['purchaseId'], 'never delivered', $this->actor);
+
+        expect(($this->row)($packId)->qty_on_hand_milli)->toBe(0)
+            ->and(($this->row)($packId)->stock_value_minor)->toBe(0)
+            ->and(($this->row)($tinId)->qty_on_hand_milli)->toBe(0)
+            ->and(SupplierService::getSupplierBalance($supplierId))->toBe(0)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
+    it('takes voided goods out of the crate the replacement moved them into, not a later dated delivery', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        $supplierId = Shop::supplier($this->actor, 'Depot');
+        $purchase = Shop::purchase($this->actor, $supplierId, [[$oldId, 5_000, 6_000]], [], ['businessDate' => REPLACE_TODAY]);
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'costPrice' => 120, 'sellingPrice' => 150], 250)['productId'];
+        Shop::purchase($this->actor, $supplierId, [['productId' => $newId, 'qty' => 100_000, 'unitCost' => 120, 'expiryDate' => '2027-06-30']], [], ['businessDate' => REPLACE_TODAY]);
+
+        PurchaseService::voidPurchase($purchase['purchaseId'], 'never delivered', $this->actor);
+
+        $dated = (int) DB::table('product_batches')->where('product_id', $newId)->whereNotNull('expiry_date')->sum('qty_milli');
+        $undated = (int) DB::table('product_batches')->where('product_id', $newId)->whereNull('expiry_date')->sum('qty_milli');
+        expect($dated)->toBe(100_000)
+            ->and($undated)->toBe(0)
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(100_000);
     });
 
     it('will not restore a replaced product, which would split its stock across two', function () {

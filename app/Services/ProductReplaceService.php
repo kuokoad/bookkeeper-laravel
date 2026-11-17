@@ -12,6 +12,7 @@ use App\Domain\Quantity;
 use App\Enums\AdjustmentReason;
 use App\Enums\AuditAction;
 use App\Support\Clock;
+use Brick\Math\BigInteger;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -164,5 +165,100 @@ final class ProductReplaceService
 
             return ['productId' => $productId, 'adjustmentNo' => $adjustmentNo];
         });
+    }
+
+    /**
+     * Lock a document's products and every product that replaced one of them,
+     * all in id order. Held, the products cannot be replaced, so the set is
+     * read again: one replaced in between makes the caller try again.
+     *
+     * @param  list<int>  $productIds
+     */
+    public static function lockWithReplacements(array $productIds): void
+    {
+        $ids = self::withReplacements($productIds);
+        InventoryService::lockProducts($ids);
+        if (array_diff(self::withReplacements($productIds), $ids) !== []) {
+            throw new ConflictError('A stock item on this document was replaced while it was being saved. Try again.');
+        }
+    }
+
+    /** @param  list<int>  $productIds  @return list<int> */
+    private static function withReplacements(array $productIds): array
+    {
+        $all = [];
+        foreach ($productIds as $id) {
+            for ($next = (int) $id; $next !== null; $next = self::replacedBy($next)['productId'] ?? null) {
+                $all[] = $next;
+            }
+        }
+
+        return array_values(array_unique($all));
+    }
+
+    /**
+     * Where goods leaving a replaced product are now: the product that took its
+     * stock over (followed to the last one), the quantity in its units, and the
+     * crate the move put them in. Null when the product was not replaced, or
+     * still holds what is asked for. Refused for a day before the replacement,
+     * when the goods were not on it yet.
+     * shortcut: the whole line moves to the replacement, never split with stock
+     * an edited sale left on the old product. Upgrade if a shop ever needs both.
+     *
+     * @return array{productId: int, qty: int, batches: list<array>}|null
+     */
+    public static function replacementHolding(int $productId, int $qty, string $businessDate): ?array
+    {
+        $product = DB::table('products')->where('id', $productId)->first(['name', 'is_active', 'qty_on_hand_milli']) ?? throw new NotFoundError('Stock item', $productId);
+        if ($product->is_active || (int) $product->qty_on_hand_milli >= $qty) {
+            return null;
+        }
+        $id = $productId;
+        $scaled = BigInteger::of($qty);
+        $adjustmentNo = null;
+        while (($next = self::replacedBy($id)) !== null) {
+            // Nothing moved across, so there is no count to convert by.
+            if ($next['before'] <= 0) {
+                return null;
+            }
+            $scaled = $scaled->multipliedBy($next['after']);
+            if (! $scaled->remainder($next['before'])->isZero()) {
+                throw new ValidationError('The quantity does not convert exactly into the units of the stock item that replaced this one. Take it off that stock item with a stock adjustment instead.');
+            }
+            $scaled = $scaled->quotient($next['before']);
+            $id = $next['productId'];
+            $adjustmentNo = $next['adjustmentNo'];
+        }
+        if ($id === $productId || $adjustmentNo === null) {
+            return null;
+        }
+
+        $move = DB::table('stock_adjustments')->where('adjustment_no', $adjustmentNo)->first(['id', 'business_date']) ?? throw new NotFoundError('Stock adjustment', $adjustmentNo);
+        if ($businessDate < (string) $move->business_date) {
+            throw new ValidationError("\"{$product->name}\" was replaced by stock item #{$id} on ".InventoryService::formatDate((string) $move->business_date).', and its goods were not on that stock item before then. Date this on or after that day.');
+        }
+
+        return [
+            'productId' => $id,
+            'qty' => $scaled->toInt(),
+            'batches' => InventoryService::readBatchSplits('STOCK_ADJUSTMENT', (int) $move->id, $id)[0] ?? [],
+        ];
+    }
+
+    /** @return array{productId: int, before: int, after: int, adjustmentNo: ?string}|null the product that took this one's stock, the counts moved and the move */
+    private static function replacedBy(int $productId): ?array
+    {
+        $metadata = DB::table('audit_logs')
+            ->where('audit_logs.entity_type', 'product')
+            ->where('audit_logs.entity_id', (string) $productId)
+            ->whereRaw("JSON_EXTRACT(`audit_logs`.`metadata`, '$.newProductId') IS NOT NULL")
+            ->orderByDesc('audit_logs.id')
+            ->value('metadata');
+        if ($metadata === null) {
+            return null;
+        }
+        $m = json_decode((string) $metadata, true);
+
+        return ['productId' => (int) $m['newProductId'], 'before' => (int) $m['before']['qtyMilli'], 'after' => (int) $m['after']['qtyMilli'], 'adjustmentNo' => $m['adjustmentNo'] ?? null];
     }
 }

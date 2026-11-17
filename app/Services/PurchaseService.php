@@ -525,7 +525,7 @@ final class PurchaseService
 
         return Tx::run(function () use ($originalId, $reason, $input, $actor): array {
             // Lock order (Tx): every product either purchase touches, then both suppliers, so neither inner call takes a product after a supplier.
-            InventoryService::lockProducts([
+            ProductReplaceService::lockWithReplacements([
                 ...array_column($input['items'] ?? [], 'productId'),
                 ...DB::table('purchase_items')->where('purchase_items.purchase_id', $originalId)->pluck('product_id')->all(),
             ]);
@@ -559,7 +559,7 @@ final class PurchaseService
 
         return Tx::run(function () use ($purchaseId, $why, $actor, $now): array {
             // Lock order (Tx): products, the supplier whose payable changes, then the purchase and its lines.
-            InventoryService::lockProducts(DB::table('purchase_items')->where('purchase_items.purchase_id', $purchaseId)->pluck('product_id')->all());
+            ProductReplaceService::lockWithReplacements(DB::table('purchase_items')->where('purchase_items.purchase_id', $purchaseId)->pluck('product_id')->all());
             $supplierId = DB::table('purchases')->where('id', $purchaseId)->value('supplier_id');
             if ($supplierId !== null) {
                 SupplierService::lockSupplier((int) $supplierId);
@@ -639,10 +639,13 @@ final class PurchaseService
                     $wentInAt[$productId] ??= [];
                     $cost = array_shift($wentInAt[$productId]);
                     $batches = array_shift($wentInTo[$productId]);
+                    // Its units changed since: the goods are on the product that replaced it.
+                    $holder = ProductReplaceService::replacementHolding($productId, (int) $item->qty_milli, $businessDate);
+                    $batches = $holder['batches'] ?? $batches;
                     $movement = InventoryService::recordStockMovement([
-                        'productId' => $productId,
+                        'productId' => $holder['productId'] ?? $productId,
                         'direction' => 'OUT',
-                        'qty' => (int) $item->qty_milli,
+                        'qty' => $holder['qty'] ?? (int) $item->qty_milli,
                         ...($cost === null ? [] : ['totalCost' => $cost]),
                         ...($batches === null || $batches === [] ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $batches]]),
                         'movementType' => MovementType::PurchaseReturn,
@@ -653,7 +656,7 @@ final class PurchaseService
                         'occurredAt' => $now,
                         'userId' => $actor->id,
                         'allowNegative' => $allowNegative,
-                        'note' => "Void of {$original->purchase_no}",
+                        'note' => "Void of {$original->purchase_no}".($holder === null ? '' : ", taken off stock item #{$holder['productId']}, which replaced {$item->product_name}"),
                         'isDemo' => (bool) $original->is_demo,
                     ]);
                     $residual = Money::add($residual, $movement['residual']);

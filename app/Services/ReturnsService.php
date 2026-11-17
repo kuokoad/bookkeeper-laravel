@@ -353,7 +353,7 @@ final class ReturnsService
             $isDemo = $input['isDemo'] ?? false;
 
             // Lock order (Tx): products, the supplier, then the purchase and its lines.
-            InventoryService::lockProducts(DB::table('purchase_items')->where('purchase_items.purchase_id', $originalPurchaseId)->pluck('product_id')->all());
+            ProductReplaceService::lockWithReplacements(DB::table('purchase_items')->where('purchase_items.purchase_id', $originalPurchaseId)->pluck('product_id')->all());
             $supplierId = DB::table('purchases')->where('id', $originalPurchaseId)->value('supplier_id');
             if ($supplierId !== null) {
                 SupplierService::lockSupplier((int) $supplierId);
@@ -492,11 +492,13 @@ final class ReturnsService
                 $item = $line['item'];
                 if ($line['tracked']) {
                     // From the crate THIS supplier delivered, at what it cost the shop.
-                    $cameFrom = self::notYetReturned($sourceBatches[(int) $item->id] ?? null, 'purchases', 'returns_purchase_id', $originalPurchaseId, 'PURCHASE_RETURN', (int) $item->product_id, $line['request']['qty']);
+                    // Its units changed since: the goods are on the product that replaced it.
+                    $holder = ProductReplaceService::replacementHolding((int) $item->product_id, $line['request']['qty'], $input['businessDate']);
+                    $cameFrom = $holder !== null ? ($holder['batches'] ?: null) : self::notYetReturned($sourceBatches[(int) $item->id] ?? null, 'purchases', 'returns_purchase_id', $originalPurchaseId, 'PURCHASE_RETURN', (int) $item->product_id, $line['request']['qty']);
                     $movement = InventoryService::recordStockMovement([
-                        'productId' => (int) $item->product_id,
+                        'productId' => $holder['productId'] ?? (int) $item->product_id,
                         'direction' => 'OUT',
-                        'qty' => $line['request']['qty'],
+                        'qty' => $holder['qty'] ?? $line['request']['qty'],
                         'totalCost' => $line['costShare'],
                         ...($cameFrom === null ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $cameFrom]]),
                         'movementType' => MovementType::PurchaseReturn,
@@ -507,7 +509,7 @@ final class ReturnsService
                         'occurredAt' => $occurredAt,
                         'userId' => $actor->id,
                         'allowNegative' => $allowNegative,
-                        'note' => "Return to supplier against {$original->purchase_no}",
+                        'note' => "Return to supplier against {$original->purchase_no}".($holder === null ? '' : ", taken off stock item #{$holder['productId']}, which replaced {$item->product_name}"),
                         'isDemo' => $isDemo,
                     ]);
                     $residual = Money::add($residual, $movement['residual']);

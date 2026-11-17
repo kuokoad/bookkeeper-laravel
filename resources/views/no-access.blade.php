@@ -11,7 +11,7 @@
             <p class="text-sm text-content">You are signed in as <span class="font-medium">{{ auth()->user()?->display_name ?? 'someone' }}</span>. If you need this, ask the shop owner to give your account access.</p>
             <p class="mt-2 text-sm text-content-muted">Nothing has gone wrong, and nothing was changed.</p>
             <div class="mt-5 flex flex-wrap gap-2">
-                <x-button size="sm" href="/dashboard">Back to the dashboard</x-button>
+                <x-button size="sm" href="{{ config('app.url') }}">Back to the dashboard</x-button>
                 <x-button size="sm" variant="secondary" href="/sales/new">New sale</x-button>
             </div>
         </div>

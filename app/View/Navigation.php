@@ -77,6 +77,12 @@ final class Navigation
         return array_slice(array_values(array_filter($items, fn (array $i): bool => $i['primary'] ?? false)), 0, 4);
     }
 
+    /** Where a menu item points: the dashboard goes to the app's own address (APP_URL), whose root lands on it. */
+    public static function link(string $href): string
+    {
+        return $href === '/dashboard' ? (string) config('app.url') : $href;
+    }
+
     public static function isActive(string $path, string $href): bool
     {
         $path = '/'.ltrim($path, '/');

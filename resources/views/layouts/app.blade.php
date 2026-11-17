@@ -12,7 +12,7 @@
 <x-layouts::base :title="$title">
 <div class="app-shell flex min-h-dvh flex-col lg:flex-row">
     <aside class="stitch-sidebar no-print hidden w-60 shrink-0 border-r border-sidebar-line bg-sidebar lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col">
-        <a href="/dashboard" aria-label="NunaBooks dashboard" class="flex items-center gap-2 px-4 py-4 focus-visible:outline-2 focus-visible:outline-sidebar-text">
+        <a href="{{ config('app.url') }}" aria-label="NunaBooks dashboard" class="flex items-center gap-2 px-4 py-4 focus-visible:outline-2 focus-visible:outline-sidebar-text">
             <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#fffdf7] p-[5.625px]">
                 <img src="/brand/nunabooks-mark.svg" alt="" width="314" height="374" class="h-full w-auto">
             </span>
@@ -34,7 +34,7 @@
                             @foreach ($section['items'] as $item)
                                 @php($active = \App\View\Navigation::isActive(request()->path(), $item['href']))
                                 <li>
-                                    <a href="{{ $item['href'] }}" @if ($active) aria-current="page" @endif
+                                    <a href="{{ \App\View\Navigation::link($item['href']) }}" @if ($active) aria-current="page" @endif
                                        @class(['flex min-h-9 items-center gap-2 rounded-lg px-3 py-2 text-[13px] leading-[18px] transition-colors',
                                            'bg-sidebar-raised font-medium text-sidebar-text' => $active,
                                            'text-sidebar-muted hover:bg-sidebar-raised hover:text-sidebar-text' => ! $active])>
@@ -238,7 +238,7 @@
             @foreach ($shell['primary'] as $item)
                 @php($active = \App\View\Navigation::isActive(request()->path(), $item['href']))
                 <li>
-                    <a href="{{ $item['href'] }}" @if ($active) aria-current="page" @endif
+                    <a href="{{ \App\View\Navigation::link($item['href']) }}" @if ($active) aria-current="page" @endif
                        @class(['flex min-h-[56px] flex-col items-center justify-center gap-1 px-1', 'text-accent' => $active, 'text-content-muted' => ! $active])>
                         <x-icon :name="$item['icon']" class="h-5 w-5" />
                         <span class="text-[11px] leading-none">{{ $item['label'] }}</span>

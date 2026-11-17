@@ -46,7 +46,7 @@
         <p class="ref">Reference: {{ now()->utc()->format('Y-m-d H:i:s') }} UTC</p>
         <div class="actions">
             <a class="primary" href="">Try again</a>
-            <a class="secondary" href="/dashboard">Back to the dashboard</a>
+            <a class="secondary" href="{{ config('app.url') }}">Back to the dashboard</a>
         </div>
     </div>
 </main>

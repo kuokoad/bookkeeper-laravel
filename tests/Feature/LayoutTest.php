@@ -27,7 +27,7 @@ it('keeps the old menu: same groups, labels and order', function () {
 it('shows a staff member only the areas they hold, and the dashboard always', function () {
     $html = signedIn(staff(['sales' => viewOnly(), 'customers' => viewOnly()]))->get('/dashboard')->assertOk()->getContent();
     $nav = substr($html, strpos($html, 'aria-label="Main"'), 6000);
-    expect($nav)->toContain('href="/dashboard"')->toContain('href="/sales"')->toContain('href="/customers"')
+    expect($nav)->toContain('href="'.config('app.url').'"')->toContain('aria-current="page"')->toContain('href="/sales"')->toContain('href="/customers"')
         ->not->toContain('href="/settings"')->not->toContain('href="/reports"')->not->toContain('href="/users"')->not->toContain('href="/suppliers"');
 });
 

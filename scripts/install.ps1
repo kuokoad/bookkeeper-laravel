@@ -218,7 +218,6 @@ FLUSH PRIVILEGES;
 
     Set-EnvValue $envFile "APP_ENV" "production"
     Set-EnvValue $envFile "APP_DEBUG" "false"
-    Set-EnvValue $envFile "APP_URL" "http://$HostName"
     Set-EnvValue $envFile "DB_DATABASE" $Database
     Set-EnvValue $envFile "DB_USERNAME" "nunabooks"
     Set-EnvValue $envFile "DB_PASSWORD" $appPassword
@@ -230,6 +229,10 @@ FLUSH PRIVILEGES;
 # Every run, not only a new .env: without it the backup picks the highest mysqldump.exe under
 # C:\laragon\bin\mysql, a folder any Windows account can add to, and runs it as SYSTEM with the password.
 Set-EnvValue $envFile "NUNA_MYSQL_BIN" (Join-Path $MysqlDir "bin")
+# Every run as well, and the same address the desktop shortcut opens (section 6), port and all:
+# the logo, the Dashboard link and the error pages link to APP_URL.
+$appUrl = if ($Port -eq 80) { "http://$HostName" } else { "http://${HostName}:$Port" }
+Set-EnvValue $envFile "APP_URL" $appUrl
 
 # --- 4. The app: packages, key, backup, migrations, caches ----------------------------
 
@@ -329,8 +332,7 @@ $hosts = "$env:SystemRoot\System32\drivers\etc\hosts"
 if ((Get-Content $hosts -Raw) -notmatch [regex]::Escape($HostName)) {
     Add-Content $hosts "`r`n127.0.0.1 $HostName"
 }
-$url = if ($Port -eq 80) { "http://$HostName/" } else { "http://${HostName}:$Port/" }
-[IO.File]::WriteAllLines((Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "NunaBooks.url"), @("[InternetShortcut]", "URL=$url"))
+[IO.File]::WriteAllLines((Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "NunaBooks.url"), @("[InternetShortcut]", "URL=$appUrl/"))
 
 # The Health screen's "Update now" runs this task: a child of Apache would die when the update stops it.
 $update = Join-Path $AppDir "scripts\update.ps1"
@@ -449,6 +451,6 @@ else {
 
 & $php artisan nuna:preflight
 Write-Host ""
-Write-Host "NunaBooks is installed: $url"
+Write-Host "NunaBooks is installed: $appUrl/"
 Write-Host "Open it and create the owner account. Then take the first backup: php artisan nuna:backup"
 Write-Host "After that a backup is taken every day at 21:00 (scheduled task NunaBooksBackup)."

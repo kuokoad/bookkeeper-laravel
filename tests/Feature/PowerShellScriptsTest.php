@@ -173,6 +173,18 @@ it('install.ps1 sets NUNA_MYSQL_BIN on every run, not only when it writes a new 
         ->and($block)->not->toContain('NUNA_MYSQL_BIN');
 });
 
+it('install.ps1 writes APP_URL on every run from the address the desktop shortcut opens, port included', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $block = (string) strstr((string) strstr($script, 'if (-not (Test-Path $envFile))'), "\n}\n", true);
+
+    expect($script)->toContain('$appUrl = if ($Port -eq 80) { "http://$HostName" } else { "http://${HostName}:$Port" }')
+        ->toContain('Set-EnvValue $envFile "APP_URL" $appUrl')
+        ->toContain('"URL=$appUrl/"')
+        ->not->toContain('$url')
+        ->and($block)->toContain('APP_ENV')->not->toContain('APP_URL')
+        ->and(strpos($script, 'Set-EnvValue $envFile "APP_URL"'))->toBeLessThan(strpos($script, '# --- 4.'));
+});
+
 it('install.ps1 runs its has-an-owner probe under Continue, so stderr from it backs up instead of ending the install', function () {
     $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
     $probe = strpos($script, 'artisan tinker --execute=$probe');

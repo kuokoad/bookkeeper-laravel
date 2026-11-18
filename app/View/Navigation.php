@@ -23,7 +23,7 @@ final class Navigation
     public const SECTIONS = [
         ['heading' => 'Daily', 'items' => [
             // No module: every sign-in lands on the dashboard.
-            ['href' => '/dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard', 'primary' => true],
+            ['href' => '/', 'label' => 'Dashboard', 'icon' => 'dashboard', 'primary' => true],
             ['href' => '/sales', 'label' => 'Sales', 'icon' => 'sales', 'module' => 'sales', 'primary' => true],
             ['href' => '/quotations', 'label' => 'Quotations', 'icon' => 'quotations', 'module' => 'quotations', 'feature' => 'quotations'],
             ['href' => '/purchases', 'label' => 'Purchases', 'icon' => 'purchases', 'module' => 'purchases'],
@@ -80,7 +80,7 @@ final class Navigation
     /** Where a menu item points: the dashboard goes to the app's own address (APP_URL), whose root lands on it. */
     public static function link(string $href): string
     {
-        return $href === '/dashboard' ? (string) config('app.url') : $href;
+        return $href === '/' ? (string) config('app.url') : $href;
     }
 
     public static function isActive(string $path, string $href): bool

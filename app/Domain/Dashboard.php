@@ -40,7 +40,7 @@ final class Dashboard
 
     public static function dashboardRangeHref(string $sales, string $spend, ?string $activity = null): string
     {
-        return "/dashboard?sales={$sales}&spend={$spend}".($activity === null ? '' : "&activity={$activity}");
+        return "/?sales={$sales}&spend={$spend}".($activity === null ? '' : "&activity={$activity}");
     }
 
     /**

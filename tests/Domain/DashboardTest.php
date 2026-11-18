@@ -23,9 +23,9 @@ describe('dashboard periods', function () {
     it('keeps inclusive windows across calendar boundaries', function () {
         expect(Dashboard::dashboardPeriod('2026-03-01', 'week'))->toBe(['from' => '2026-02-23', 'to' => '2026-03-01'])
             ->and(Dashboard::dashboardPeriod('2024-03-01', 'month'))->toBe(['from' => '2024-02-01', 'to' => '2024-03-01'])
-            ->and(Dashboard::dashboardRangeHref('week', 'quarter'))->toBe('/dashboard?sales=week&spend=quarter')
-            ->and(Dashboard::dashboardRangeHref('month', 'quarter'))->toBe('/dashboard?sales=month&spend=quarter')
-            ->and(Dashboard::dashboardRangeHref('week', 'month'))->toBe('/dashboard?sales=week&spend=month');
+            ->and(Dashboard::dashboardRangeHref('week', 'quarter'))->toBe('/?sales=week&spend=quarter')
+            ->and(Dashboard::dashboardRangeHref('month', 'quarter'))->toBe('/?sales=month&spend=quarter')
+            ->and(Dashboard::dashboardRangeHref('week', 'month'))->toBe('/?sales=week&spend=month');
     });
 
     it('includes both boundaries and confirmed zero-transaction days in charts', function () {
@@ -78,5 +78,5 @@ it('accepts only the known Transaction History kinds and carries one in the rang
         ->and(Dashboard::dashboardActivity('expense'))->toBeNull()
         ->and(Dashboard::dashboardActivity('REVERSAL'))->toBeNull()
         ->and(Dashboard::dashboardActivity(null))->toBeNull()
-        ->and(Dashboard::dashboardRangeHref('week', 'month', 'SALE'))->toBe('/dashboard?sales=week&spend=month&activity=SALE');
+        ->and(Dashboard::dashboardRangeHref('week', 'month', 'SALE'))->toBe('/?sales=week&spend=month&activity=SALE');
 });

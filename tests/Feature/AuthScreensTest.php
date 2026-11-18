@@ -20,7 +20,7 @@ afterEach(fn () => Carbon::setTestNow());
 
 describe('first run', function () {
     it('sends the first visitor to setup, and creates the owner and the shop once', function () {
-        $this->get('/')->assertRedirect('/setup');
+        $this->get('/')->assertRedirect('/login');
         $this->get('/login')->assertRedirect('/setup');
         $this->get('/setup')->assertOk()->assertSee('Create owner account');
 
@@ -115,15 +115,15 @@ describe('signing in', function () {
     });
 
     it('signs in with a password, starting a fresh session that records what it was granted on', function () {
-        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/');
         $this->assertAuthenticatedAs(User::find($this->ownerId));
         expect(session(Sessions::FINGERPRINT))->toBe(Sessions::fingerprint($this->ownerId))
             ->and(session(Sessions::SIGNED_IN_AT))->toBeInt();
-        $this->get('/login')->assertRedirect('/dashboard');
+        $this->get('/login')->assertRedirect('/');
     });
 
     it('signs in at the till with a PIN, and words every refusal the same', function () {
-        $this->post('/login/pin', ['username' => 'ama', 'pin' => '8351'])->assertRedirect('/dashboard');
+        $this->post('/login/pin', ['username' => 'ama', 'pin' => '8351'])->assertRedirect('/');
         $this->assertAuthenticatedAs(User::find($this->staffId));
     });
 
@@ -172,7 +172,7 @@ describe('signing in', function () {
         foreach (range(1, 11) as $_) {
             $this->post('/login', ['username' => 'nobody', 'password' => 'wrong']);
         }
-        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertRedirect('/');
         $this->assertAuthenticatedAs(User::find($this->staffId));
     });
 
@@ -183,7 +183,7 @@ describe('signing in', function () {
             $this->post('/login', ['username' => 'kwame', 'password' => 'wrong']);
         }
         Carbon::setTestNow($t->copy()->addSeconds(AuthService::OWNER_DELAY_CAP_SECONDS));
-        $this->post('/login', ['username' => 'KWAME', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'KWAME', 'password' => 'owner-password-2026'])->assertRedirect('/');
         $this->assertAuthenticatedAs(User::find($this->ownerId));
     });
 
@@ -201,13 +201,13 @@ describe('signing in', function () {
         $this->assertGuest();
 
         Carbon::setTestNow($t->copy()->addSeconds(AuthService::OWNER_DELAY_CAP_SECONDS));
-        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/');
         $this->assertAuthenticatedAs(User::find($this->ownerId));
     });
 
     it('clears only that name’s count on a successful sign-in, never the shared count (D15)', function () {
         $this->post('/login', ['username' => 'ama', 'password' => 'wrong']);
-        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'ama', 'password' => 'staff-password-2026'])->assertRedirect('/');
         expect(DB::table('rate_limits')->where('key', AuthService::throttleKeyFor('ama'))->exists())->toBeFalse()
             ->and((int) DB::table('rate_limits')->where('key', 'login:shared')->value('attempts'))->toBe(2);
     });
@@ -245,11 +245,11 @@ describe('signing in', function () {
 
         Carbon::setTestNow($t->copy()->addSeconds(2));
         $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])
-            ->assertRedirect('/dashboard')->assertSessionHas('error', '5 failed sign-in attempts since your last sign-in.');
-        $this->get('/dashboard')->assertSee('5 failed sign-in attempts since your last sign-in.');
+            ->assertRedirect('/')->assertSessionHas('error', '5 failed sign-in attempts since your last sign-in.');
+        $this->get('/')->assertSee('5 failed sign-in attempts since your last sign-in.');
 
         $this->post('/logout');
-        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard')->assertSessionMissing('error');
+        $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/')->assertSessionMissing('error');
     });
 
     it('refuses PIN sign-in for an owner, worded as a wrong PIN (D17)', function () {
@@ -284,7 +284,7 @@ describe('your own password', function () {
         $client = signedIn($this->id);
         $before = session()->getId();
         $client->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => 'a-new-password-2', 'confirmPassword' => 'a-new-password-2'])
-            ->assertRedirect('/dashboard')->assertSessionHas('status', 'Password changed. You were signed out everywhere else.');
+            ->assertRedirect('/')->assertSessionHas('status', 'Password changed. You were signed out everywhere else.');
 
         $this->assertAuthenticatedAs(User::find($this->id));
         expect(DB::table('sessions')->where('id', 'till-2')->exists())->toBeFalse()
@@ -292,21 +292,21 @@ describe('your own password', function () {
             ->and(session(Sessions::FINGERPRINT))->toBe(Sessions::fingerprint($this->id))
             ->and((bool) DB::table('users')->where('id', $this->id)->value('must_change_password'))->toBeFalse();
         // EnforceSessionLimits takes the refreshed fingerprint: this session carries on.
-        $this->get('/dashboard')->assertOk();
+        $this->get('/')->assertOk();
         $this->assertAuthenticated();
     });
 
     it('still signs in with the new password afterwards', function () {
         signedIn($this->id)->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => 'a-new-password-2', 'confirmPassword' => 'a-new-password-2']);
         $this->post('/logout');
-        $this->post('/login', ['username' => 'ama', 'password' => 'a-new-password-2'])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'ama', 'password' => 'a-new-password-2'])->assertRedirect('/');
     });
 
     it('keeps spaces in a password exactly as typed', function () {
         signedIn($this->id)->post('/account/password', ['currentPassword' => 'staff-password-2026', 'newPassword' => '  spaced out  ', 'confirmPassword' => '  spaced out  ']);
         $this->post('/logout');
         $this->post('/login', ['username' => 'ama', 'password' => 'spaced out'])->assertSessionHasErrors('form');
-        $this->post('/login', ['username' => 'ama', 'password' => '  spaced out  '])->assertRedirect('/dashboard');
+        $this->post('/login', ['username' => 'ama', 'password' => '  spaced out  '])->assertRedirect('/');
     });
 
     it('refuses a wrong current password with the service message', function () {
@@ -320,7 +320,7 @@ it('remembers light or dark on this screen and paints it before the first byte o
     $id = owner();
     signedIn($id)->post('/theme', ['theme' => 'dark'])->assertCookie('bk_theme', 'dark', false);
     $this->withUnencryptedCookie('bk_theme', 'dark');
-    signedIn($id)->get('/dashboard')->assertSee('data-theme="dark"', false);
+    signedIn($id)->get('/')->assertSee('data-theme="dark"', false);
     signedIn($id)->post('/theme', ['theme' => 'junk'])->assertCookieExpired('bk_theme');
 });
 

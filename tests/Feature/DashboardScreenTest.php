@@ -50,7 +50,7 @@ it('groups the approved layout without losing independently dated charts', funct
         ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
         ->toContain('Account reconciliation')->toContain('reconciliation not verified')
         // Each card keeps its own window.
-        ->toContain('/dashboard?sales=month&amp;spend=quarter')->toContain('/dashboard?sales=week&amp;spend=month');
+        ->toContain('/?sales=month&amp;spend=quarter')->toContain('/?sales=week&amp;spend=month');
 });
 
 it('shows the sales figure the services hold, formatted by the domain', function () {
@@ -102,8 +102,13 @@ it('gives customer-view access receivables but not supplier balances or create a
 });
 
 it('opens for any signed-in person inside the shell, and not for anyone else', function () {
-    $this->get('/dashboard')->assertRedirect('/login');
-    signedIn(staff([]))->get('/dashboard')->assertOk()->assertSee('Dashboard')->assertSee('Sign out');
+    $this->get('/')->assertRedirect('/login');
+    signedIn(staff([]))->get('/')->assertOk()->assertSee('Dashboard')->assertSee('Sign out');
+});
+
+it('lives at the address of the app itself, so the old /dashboard address sends a bookmark there', function () {
+    signedIn(staff([]))->get('/dashboard')->assertRedirect('/');
+    $this->get('/')->assertOk()->assertSee('aria-current="page"', false);
 });
 
 it('offers in Create Transaction only the entries a person may start', function () {
@@ -150,7 +155,7 @@ it('lays the dashboard out attention first under the Modern look, with the same 
         ->toContain('Top selling stock item')->toContain('Dashboard rice')
         ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
         ->toContain('Account reconciliation')->toContain('reconciliation not verified')
-        ->toContain('/dashboard?sales=week&amp;spend=month');
+        ->toContain('/?sales=week&amp;spend=month');
 });
 
 it('keeps the permission gates under the Modern look', function () {
@@ -178,7 +183,7 @@ it('lists the newest journal entries as Transaction History, linking each to its
 
     expect($html)->toContain('Transaction History')->toContain('View all in the journal')
         ->toContain('href="/accounting/journal/'.$newest['id'].'"')->toContain($newest['entryNo'])
-        ->toContain('/dashboard?sales=month&amp;spend=month&amp;activity=SALE');
+        ->toContain('/?sales=month&amp;spend=month&amp;activity=SALE');
 });
 
 it('filters Transaction History by kind in SQL and keeps the chart windows', function () {
@@ -188,7 +193,7 @@ it('filters Transaction History by kind in SQL and keeps the chart windows', fun
     expect($html)->toContain('History filter test')->not->toContain('>Sale</span>')
         ->toContain('href="/accounting/journal?source=EXPENSE"')
         // Changing a chart window keeps the chosen kind.
-        ->toContain('/dashboard?sales=month&amp;spend=month&amp;activity=EXPENSE');
+        ->toContain('/?sales=month&amp;spend=month&amp;activity=EXPENSE');
 });
 
 it('ignores an unknown Transaction History kind', function () {
@@ -218,7 +223,7 @@ it('leads with the money held under the Fable 5 look, with the same figures', fu
         ->toContain('Customer receivables')->toContain('Supplier payables')->toContain('Books Check')
         ->toContain('Account reconciliation')->toContain('reconciliation not verified')
         ->toContain('Transaction History')
-        ->toContain('/dashboard?sales=week&amp;spend=month');
+        ->toContain('/?sales=week&amp;spend=month');
 });
 
 it('keeps the permission gates under the Fable 5 look', function () {

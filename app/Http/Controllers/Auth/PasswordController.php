@@ -59,6 +59,6 @@ final class PasswordController extends Controller
         // The service deleted every session row of theirs, this one's too; begin() saves it under a new id.
         Sessions::begin($request, User::query()->findOrFail((int) Auth::guard('web')->id()));
 
-        return redirect('/dashboard')->with('status', 'Password changed. You were signed out everywhere else.');
+        return redirect('/')->with('status', 'Password changed. You were signed out everywhere else.');
     }
 }

@@ -26,7 +26,7 @@ that is code, and wrong for someone who typed an address.
 
 | Route | Module |
 |---|---|
-| `/dashboard` | none (any signed-in user); each panel asks its own permission |
+| `/` | the dashboard: none (any signed-in user); each panel asks its own permission. `/dashboard` redirects here |
 | `/sales` | `sales` view |
 | `/sales/new` | `sales` create |
 | `/sales/{id}` | `sales` view |
@@ -191,7 +191,7 @@ link, a search result, or the number printed on a customer's copy.
   permission check. `session.limits` ends a session past 30 days from sign-in, or
   once the account is switched off or its password, role or permissions change.
   `password.chosen` sends somebody whose password was set by someone else to choose
-  their own first. `/dashboard`, `/search` and `/help` rely on that group alone:
+  their own first. `/` (the dashboard), `/search` and `/help` rely on that group alone:
   they gate on being signed in, not on a module.
 - `tests/Feature/RouteGuardTest.php` fails any route outside its short open list that
   lacks sign-in, session limits, `password.chosen` and a `permission:` middleware.

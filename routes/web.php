@@ -8,8 +8,6 @@ use App\Http\Controllers\Auth\SetupController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ThemeController;
 use App\Livewire\Dashboard;
-use App\Services\AuthService;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,13 +16,6 @@ use Illuminate\Support\Facades\Route;
 | puts `permission:<module>,<action>` on every route (docs/UI-CONVENTIONS.md).
 | tests/Feature/RouteGuardTest.php refuses a route that has neither.
 */
-
-// Entry point: first run -> setup, signed in -> dashboard, otherwise -> sign in.
-Route::get('/', fn () => redirect(match (true) {
-    AuthService::needsInitialSetup() => '/setup',
-    Auth::guard('web')->check() => '/dashboard',
-    default => '/login',
-}));
 
 Route::get('/login', [LoginController::class, 'show'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
@@ -47,8 +38,10 @@ Route::middleware('session.limits')->group(function () {
 });
 
 Route::middleware(['auth', 'session.limits', 'password.chosen'])->group(function () {
-    // Any signed-in person: every sign-in lands here, and the no-access page explains a refusal.
-    Route::get('/dashboard', Dashboard::class);
+    // Any signed-in person: every sign-in lands on the dashboard, at the app's own address (a guest goes to
+    // sign-in, which sends a first run on to setup); /dashboard is its old address. No-access explains a refusal.
+    Route::get('/', Dashboard::class);
+    Route::redirect('/dashboard', '/');
     Route::view('/no-access', 'no-access');
 
     $modules = glob(__DIR__.'/modules/*.php') ?: [];

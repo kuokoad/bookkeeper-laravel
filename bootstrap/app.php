@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'password.chosen' => App\Http\Middleware\EnsurePasswordChosen::class,
         ]);
         $middleware->redirectGuestsTo('/login');
-        $middleware->redirectUsersTo('/dashboard');
+        $middleware->redirectUsersTo('/');
         // Light or dark is read on the server before the first paint; it is not a secret.
         $middleware->encryptCookies(except: ['bk_theme']);
         // A password is what was typed, spaces included, as the old forms took it.

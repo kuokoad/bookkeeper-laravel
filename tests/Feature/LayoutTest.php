@@ -25,7 +25,7 @@ it('keeps the old menu: same groups, labels and order', function () {
 });
 
 it('shows a staff member only the areas they hold, and the dashboard always', function () {
-    $html = signedIn(staff(['sales' => viewOnly(), 'customers' => viewOnly()]))->get('/dashboard')->assertOk()->getContent();
+    $html = signedIn(staff(['sales' => viewOnly(), 'customers' => viewOnly()]))->get('/')->assertOk()->getContent();
     $nav = substr($html, strpos($html, 'aria-label="Main"'), 6000);
     expect($nav)->toContain('href="'.config('app.url').'"')->toContain('aria-current="page"')->toContain('href="/sales"')->toContain('href="/customers"')
         ->not->toContain('href="/settings"')->not->toContain('href="/reports"')->not->toContain('href="/users"')->not->toContain('href="/suppliers"');
@@ -34,15 +34,15 @@ it('shows a staff member only the areas they hold, and the dashboard always', fu
 it('offers Quotations only to a shop that switched it on, and never to someone without the right', function () {
     $ownerId = owner();
     DB::table('business_settings')->update(['feature_quotations' => false]);
-    signedIn($ownerId)->get('/dashboard')->assertDontSee('href="/quotations"', false);
+    signedIn($ownerId)->get('/')->assertDontSee('href="/quotations"', false);
     DB::table('business_settings')->update(['feature_quotations' => true]);
-    signedIn($ownerId)->get('/dashboard')->assertSee('href="/quotations"', false);
-    signedIn(staff(['sales' => viewOnly()]))->get('/dashboard')->assertDontSee('href="/quotations"', false);
+    signedIn($ownerId)->get('/')->assertSee('href="/quotations"', false);
+    signedIn(staff(['sales' => viewOnly()]))->get('/')->assertDontSee('href="/quotations"', false);
 });
 
 it('names the shop and the person, and offers switch user and sign out', function () {
     DB::table('business_settings')->update(['business_name' => 'Auntie Akos Provisions']);
-    signedIn(staff([], 'ama'))->get('/dashboard')
+    signedIn(staff([], 'ama'))->get('/')
         ->assertSee('Auntie Akos Provisions')->assertSee('Ama')->assertSee('Switch user')->assertSee('Sign out');
 });
 
@@ -59,11 +59,11 @@ it('shows money in the shop currency when the shop is not in GHS', function () {
     expect(Blade::render('@money($v)', ['v' => 125_000]))->toBe('NGN 1,250.00')
         ->and(Format::moneyAccounting(-125_000))->toBe('NGN (1,250.00)')
         ->and(Format::money(125_000, currencyCode: 'USD'))->toBe('USD 1,250.00');
-    signedIn(owner())->get('/dashboard')->assertOk()->assertSee('NGN 0.00')->assertDontSee('GHS 0.00');
+    signedIn(owner())->get('/')->assertOk()->assertSee('NGN 0.00')->assertDontSee('GHS 0.00');
 });
 
 it('flashes a one-shot message after a redirect', function () {
-    signedIn(owner())->withSession(['status' => 'Saved.'])->get('/dashboard')->assertSee('Saved.');
+    signedIn(owner())->withSession(['status' => 'Saved.'])->get('/')->assertSee('Saved.');
 });
 
 it('searches as you type from the top bar, over a form that works without JavaScript', function () {

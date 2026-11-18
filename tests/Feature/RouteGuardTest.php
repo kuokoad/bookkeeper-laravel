@@ -18,10 +18,9 @@ use Illuminate\Support\Facades\Route;
 
 /** Routes that need no permission middleware, and why. */
 const OPEN_ROUTES = [
-    '/' => 'redirects to setup, sign-in or the dashboard',
     'login' => 'sign-in', 'login/pin' => 'till PIN sign-in', 'setup' => 'first run only (refused once any account exists)',
     'logout' => 'signing out needs no right', 'account/password' => 'your own password', 'theme' => 'light or dark on this screen',
-    'dashboard' => 'every sign-in lands here; each panel asks its own permission', 'no-access' => 'explains a refusal',
+    '/' => 'the dashboard: every sign-in lands here; each panel asks its own permission', 'dashboard' => 'the old dashboard address, redirects to /', 'no-access' => 'explains a refusal',
     'export/list/{list}' => 'permission per list, in ExportController (401/403/404 as the old route)',
     'export/report/{report}' => 'reports permission, in ExportController',
     'up' => 'health check',
@@ -65,10 +64,10 @@ it('names only real modules and actions in permission middleware', function () {
 
 it('sends somebody not signed in to sign in, from every screen', function (string $uri) {
     $this->get($uri)->assertRedirect('/login');
-})->with(['/dashboard', '/settings', '/no-access', '/account/password', '/help', '/help/selling', '/search?q=a', '/search/suggest?q=a', '/logo']);
+})->with(['/', '/dashboard', '/settings', '/no-access', '/account/password', '/help', '/help/selling', '/search?q=a', '/search/suggest?q=a', '/logo']);
 
 it('keeps every open route but the sign-in, setup and health ones behind sign-in', function () {
-    $public = ['/', 'login', 'login/pin', 'setup', 'up', 'export/list/{list}', 'export/report/{report}'];
+    $public = ['login', 'login/pin', 'setup', 'up', 'export/list/{list}', 'export/report/{report}'];
     foreach (appRoutes() as $route) {
         if (array_key_exists($route->uri(), OPEN_ROUTES) && ! in_array($route->uri(), $public, true)) {
             expect($route->gatherMiddleware())->toContain('auth');
@@ -110,6 +109,6 @@ it('sends somebody whose password was set by someone else to choose their own fi
     $id = staff(['settings' => viewOnly()]);
     DB::table('users')->where('id', $id)->update(['must_change_password' => true]);
     signedIn($id)->get('/settings')->assertRedirect('/account/password?required=1');
-    signedIn($id)->get('/dashboard')->assertRedirect('/account/password?required=1');
+    signedIn($id)->get('/')->assertRedirect('/account/password?required=1');
     signedIn($id)->get('/account/password')->assertOk()->assertSee('Please choose your own password');
 });

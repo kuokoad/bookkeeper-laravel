@@ -32,7 +32,7 @@ it('comes back to the page that sent you to sign in', function () {
 });
 
 it('still opens the dashboard after an ordinary sign-in', function () {
-    $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/dashboard');
+    $this->post('/login', ['username' => 'kwame', 'password' => 'owner-password-2026'])->assertRedirect('/');
 });
 
 it('adds a till line after the lines put back, not over the first', function () {

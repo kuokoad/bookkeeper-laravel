@@ -48,7 +48,7 @@ final class LoginController extends Controller
             return redirect('/setup');
         }
         if (Auth::guard('web')->check()) {
-            return redirect('/dashboard');
+            return redirect('/');
         }
         $settings = SettingsService::get();
 
@@ -129,8 +129,8 @@ final class LoginController extends Controller
         $failed = $result['failedAttemptsSinceLastSignIn'];
 
         // Back to the page that sent them here (a sign-in that ended mid-form), else the dashboard.
-        return $failed === 0 ? redirect()->intended('/dashboard')
-            : redirect()->intended('/dashboard')->with('error', "{$failed} failed sign-in attempt".($failed === 1 ? '' : 's').' since your last sign-in.');
+        return $failed === 0 ? redirect()->intended('/')
+            : redirect()->intended('/')->with('error', "{$failed} failed sign-in attempt".($failed === 1 ? '' : 's').' since your last sign-in.');
     }
 
     private function refuse(Request $request, string $mode, string $message): RedirectResponse

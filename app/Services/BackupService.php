@@ -119,11 +119,11 @@ final class BackupService
     }
 
     /**
-     * Restores the live database from a backup file. The file is verified in
-     * a scratch database before anything is touched; a safety backup of the
-     * live books is taken next and must be complete (the dump finished and
+     * Restores the live database from a backup file. A safety backup of the
+     * live books is taken first and must be complete (the dump finished and
      * every byte reached the .gz), though its books are not checked for
-     * soundness, since they may be what is being replaced; only then is the live database
+     * soundness, since they may be what is being replaced; the file is then
+     * verified in a scratch database; only then is the live database
      * emptied and loaded, and checked again. If that load or check fails, the
      * safety backup is loaded straight back and checked before the failure is
      * reported (D18), so the shop is never left on an empty or partial
@@ -137,15 +137,11 @@ final class BackupService
             throw new RuntimeException("There is no backup at {$file}.");
         }
 
-        try {
-            [$entries, $triggers] = self::withScratchCopy($file, fn (): array => [self::assertSound(), self::triggers((string) DB::getDatabaseName())]);
-        } catch (Throwable $e) {
-            throw new RuntimeException('That backup cannot be used, so nothing was changed: '.$e->getMessage(), 0, $e);
-        }
-
         // Restoring is done in a hurry; restoring the wrong file must not lose the shop.
         // An empty database (a new PC after a disk failure) has nothing to keep.
         // Complete, or dump() throws and nothing is dropped; not checked for soundness: those books may be the broken thing.
+        // Taken before the file is loaded anywhere: the scratch load runs with rights on the live
+        // database, and a tampered file can name it outright (see load()).
         $live = self::connectionConfig();
         $hasTables = DB::selectOne('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()')->n > 0;
         $safety = null;
@@ -156,6 +152,12 @@ final class BackupService
             }
             $safety = self::targetPath($safetyDirectory, null, '-before-restore');
             self::dump($live, $safety);
+        }
+
+        try {
+            [$entries, $triggers] = self::withScratchCopy($file, fn (): array => [self::assertSound(), self::triggers((string) DB::getDatabaseName())]);
+        } catch (Throwable $e) {
+            throw new RuntimeException('That backup cannot be used, so nothing was changed: '.$e->getMessage().($safety === null ? '' : ". A copy of the live books as they were before the file was read is at {$safety}."), 0, $e);
         }
 
         $database = $live['database'];

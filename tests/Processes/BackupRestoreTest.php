@@ -255,6 +255,27 @@ it('rejects and DELETES a backup whose books do not balance', function () {
         ->and(DB::select("SHOW DATABASES LIKE '".BACKUP_SOURCE."\\_scratch\\_%'"))->toBe([]);
 });
 
+it('copies the live books before it loads anything from the file, so a file that writes to them can be undone', function () {
+    expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
+    [$file] = BackupService::existingBackups($this->dir);
+    // A tampered dump: it names the live database outright, which no USE filter stops, then fails its check.
+    $aimed = $this->dir.DIRECTORY_SEPARATOR.'names-the-live-database.sql.gz';
+    file_put_contents($aimed, gzencode(gzdecode((string) file_get_contents($this->dir.DIRECTORY_SEPARATOR.$file))
+        ."\nINSERT INTO `".BACKUP_SOURCE."`.customers (name, created_at, updated_at) VALUES ('Planted by the dump', NOW(), NOW());\nSELECT * FROM no_such_table_13;\n"));
+
+    $safetyDir = $this->dir.DIRECTORY_SEPARATOR.'safety';
+    $restore = Process::env(['DB_DATABASE' => BACKUP_SOURCE, 'APP_ENV' => 'testing', 'NUNA_BACKUP_DIR' => $safetyDir])
+        ->path(base_path())->timeout(600)->run([PHP_BINARY, 'artisan', 'nuna:restore', $aimed, '--force']);
+    $safety = BackupService::existingBackups($safetyDir);
+
+    expect($restore->successful())->toBeFalse()
+        ->and($safety)->toHaveCount(1)
+        ->and($restore->output())->toContain($safety[0])
+        ->and(gzdecode((string) file_get_contents($safetyDir.DIRECTORY_SEPARATOR.$safety[0])))->not->toContain('Planted by the dump');
+    array_map('unlink', glob($safetyDir.DIRECTORY_SEPARATOR.'*'));
+    rmdir($safetyDir);
+});
+
 it('refuses a backup file that is not a usable database, and one whose books do not balance, changing nothing', function () {
     expect(nuna(BACKUP_SOURCE, 'nuna:backup', "--dir={$this->dir}")->successful())->toBeTrue();
     [$file] = BackupService::existingBackups($this->dir);

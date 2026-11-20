@@ -260,7 +260,8 @@ final class Spreadsheet
     /** "AB12" → column 27 (zero-based) and row 12. */
     private static function cellPosition(string $ref): ?array
     {
-        if (preg_match('/^([A-Z]+)(\d+)$/D', $ref, $m) !== 1) {
+        // Excel's own limits (XFD1048576): a crafted "A400000000" would otherwise have every row up to it built.
+        if (preg_match('/^([A-Z]{1,3})([1-9]\d{0,6})$/D', $ref, $m) !== 1 || (int) $m[2] > 1_048_576) {
             return null;
         }
         $column = 0;
@@ -268,7 +269,7 @@ final class Spreadsheet
             $column = $column * 26 + (ord($letter) - 64);
         }
 
-        return ['column' => $column - 1, 'row' => (int) $m[2]];
+        return $column > 16_384 ? null : ['column' => $column - 1, 'row' => (int) $m[2]];
     }
 
     private static function first(Generator $items): ?array

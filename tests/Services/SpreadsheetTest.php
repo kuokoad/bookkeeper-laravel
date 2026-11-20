@@ -83,6 +83,15 @@ describe('reading a price list', function () {
             ->and(microtime(true) - $started)->toBeLessThan(1.0);
     });
 
+    it('ignores a cell placed beyond the last row or column Excel has, instead of building the rows up to it', function () {
+        $crafted = sheetWorkbook(
+            '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>name</t></is></c></row>'
+            .'<row r="400000000"><c r="A400000000" t="inlineStr"><is><t>far</t></is></c></row>'
+            .'<row r="2"><c r="XFE2" t="inlineStr"><is><t>wide</t></is></c></row></sheetData></worksheet>',
+        );
+        expect(Spreadsheet::read('a.xlsx', $crafted))->toBe([['name']]);
+    });
+
     it('refuses a file that is not .xlsx or .csv, or is not really a workbook', function () {
         expect(fn () => Spreadsheet::read('old.xls', str_repeat("\0", 10)))->toThrow(ValidationError::class)
             ->and(fn () => Spreadsheet::read('fake.xlsx', 'not a zip'))->toThrow(ValidationError::class);

@@ -50,6 +50,20 @@ final class CustomerPaymentService
 
             // Lock order (Tx): the customer, then the sales it settles.
             $customer = CustomerService::lockCustomer($input['customerId']) ?? throw new NotFoundError('Customer', $input['customerId']);
+
+            // The same form sent again (a second press after a lost reply) is the payment it
+            // already made, never a second one. Read under the customer's lock, so the first has finished.
+            $clientRef = $input['clientRef'] ?? null;
+            $existing = $clientRef === null ? null : DB::table('customer_payments')->where('customer_payments.client_ref', $clientRef)->first();
+            if ($existing !== null) {
+                $same = (int) $existing->customer_id === (int) $input['customerId'] && $existing->status === 'POSTED'
+                    && (int) $existing->amount_minor === $input['amount'] && (int) $existing->payment_account_id === (int) $input['paymentAccountId'];
+                if (! $same) {
+                    throw new ConflictError("This form was already saved as {$existing->payment_no}, and it has changed or been voided since. Open the page again to see it before recording anything more.");
+                }
+
+                return ['paymentId' => (int) $existing->id, 'paymentNo' => $existing->payment_no, 'journalEntryId' => (int) $existing->journal_entry_id, 'newBalance' => CustomerService::getCustomerBalance($input['customerId'])];
+            }
             // The sales this may settle, locked, so a void cannot slip between the
             // outstanding read and the allocation.
             DB::table('sales')->where('customer_id', $input['customerId'])->where('status', 'POSTED')->orderBy('id')->lockForUpdate()->get(['id']);
@@ -83,6 +97,7 @@ final class CustomerPaymentService
                 'amount_minor' => $input['amount'],
                 'reference' => $input['reference'] ?? null,
                 'note' => $input['note'] ?? null,
+                'client_ref' => $clientRef,
                 'status' => 'POSTED',
                 'created_by' => $actor->id,
                 'is_demo' => $input['isDemo'] ?? false,

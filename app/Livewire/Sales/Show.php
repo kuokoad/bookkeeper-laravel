@@ -39,6 +39,10 @@ final class Show extends Component
 
     public string $reason = '';
 
+    /** Names this page's return form, so a second press after a lost reply is the same return, not another. */
+    #[Locked]
+    public string $formToken = '';
+
     // --- the customer return form ---------------------------------------
     /** @var array<int|string, string> typed quantity by sale item id */
     public array $returnQty = [];
@@ -54,6 +58,7 @@ final class Show extends Component
     public function mount(int $id): void
     {
         $this->saleId = $id;
+        $this->formToken = bin2hex(random_bytes(8));
         $this->sale();
         $this->returnDate = Clock::today();
         $accounts = PaymentAccountService::listPaymentAccounts();
@@ -153,6 +158,7 @@ final class Show extends Component
                 'businessDate' => $this->returnDate,
                 'items' => $lines,
                 'refunds' => $refunds,
+                'clientRef' => "return-{$this->formToken}",
                 ...(trim($this->returnReason) !== '' ? ['reason' => trim($this->returnReason)] : []),
             ], $this->actor());
         } catch (DomainError $e) {

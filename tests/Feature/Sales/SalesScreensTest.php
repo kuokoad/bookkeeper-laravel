@@ -148,6 +148,22 @@ it('records a customer return with a cash refund through the service', function 
         ->and((int) DB::table('sale_items')->where('id', $item)->value('returned_qty_milli'))->toBe(1_000);
 });
 
+it('records one return when the button is pressed again after a lost reply, and refuses the form if it changed', function () {
+    stockRice($this);
+    $sale = Shop::sell($this->actor, [[$this->rice, 3_000]], [['paymentAccountId' => $this->cash, 'amount' => 3_000]], ['businessDate' => $this->today]);
+    $item = (int) DB::table('sale_items')->where('sale_id', $sale['saleId'])->value('id');
+
+    $page = salesAs($this->ownerId, Show::class, ['id' => $sale['saleId']])->set("returnQty.{$item}", '1')->set('refundAmount', '10.00');
+    $page->call('recordReturn')->assertHasNoErrors();
+    $page->call('recordReturn')->assertHasNoErrors()->assertRedirect("/sales/{$sale['saleId']}");
+    expect(DB::table('sales')->where('kind', 'RETURN')->count())->toBe(1)
+        ->and(Shop::productRow($this->rice)->qty_on_hand_milli)->toBe(98_000);
+
+    $page->set("returnQty.{$item}", '2')->call('recordReturn')->assertHasErrors(['returnForm'])
+        ->assertSee(DB::table('sales')->where('kind', 'RETURN')->value('receipt_no'));
+    expect(DB::table('sales')->where('kind', 'RETURN')->count())->toBe(1);
+});
+
 it('refuses a refund from somebody who may sell but not void, and still lets them take the goods back', function () {
     stockRice($this);
     $sale = Shop::sell($this->actor, [[$this->rice, 3_000]], [], ['businessDate' => $this->today, 'customerId' => Shop::customer($this->actor, 'Adwoa Mensah')]);

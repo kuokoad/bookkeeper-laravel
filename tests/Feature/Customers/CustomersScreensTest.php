@@ -121,6 +121,19 @@ it('receives a payment against the oldest sale and voids it again', function () 
     expect(CustomerService::getCustomerBalance($customer))->toBe(3_000);
 });
 
+it('records one payment when the button is pressed again after a lost reply, and refuses the form if it changed', function () {
+    ['customer' => $customer] = owingCustomer($this);
+
+    $page = customersAs($this->ownerId, Show::class, ['id' => $customer])->set('amount', '12.50');
+    $page->call('receivePayment')->assertHasNoErrors();
+    $page->call('receivePayment')->assertHasNoErrors()->assertRedirect("/customers/{$customer}");
+    expect(DB::table('customer_payments')->count())->toBe(1)
+        ->and(CustomerService::getCustomerBalance($customer))->toBe(1_750);
+
+    $page->set('amount', '5.00')->call('receivePayment')->assertHasErrors(['payment'])->assertSee(DB::table('customer_payments')->value('payment_no'));
+    expect(DB::table('customer_payments')->count())->toBe(1);
+});
+
 it('refuses receiving and voiding payments without those rights', function () {
     ['customer' => $customer] = owingCustomer($this);
     $viewer = staff(['customers' => viewOnly()], 'yaw');

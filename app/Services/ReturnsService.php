@@ -65,6 +65,25 @@ final class ReturnsService
                 CustomerService::lockCustomer((int) $customerId);
             }
             $original = DB::table('sales')->where('id', $originalSaleId)->lockForUpdate()->first() ?? throw new NotFoundError('Sale', $originalSaleId);
+
+            // The same form sent again (a second press after a lost reply) is the return it
+            // already made, never a second one. Read under the sale's lock, so the first has finished.
+            $clientRef = $input['clientRef'] ?? null;
+            $existing = $clientRef === null ? null : DB::table('sales')->where('sales.client_ref', $clientRef)->first();
+            if ($existing !== null) {
+                $refunded = -(int) DB::table('sale_payments')->where('sale_payments.sale_id', $existing->id)->sum('amount_minor');
+                $same = (int) $existing->returns_sale_id === $originalSaleId && $existing->status === 'POSTED'
+                    && (int) DB::table('sale_items')->where('sale_items.sale_id', $existing->id)->sum('qty_milli') === -array_sum(array_column($input['items'], 'qty'))
+                    && $refunded === array_sum(array_column($input['refunds'] ?? [], 'amount'));
+                if (! $same) {
+                    throw new ConflictError("This form was already saved as {$existing->receipt_no}, and it has changed or been voided since. Open the page again to see it before recording anything more.");
+                }
+                $credited = (int) DB::table('journal_lines')->where('journal_lines.entry_id', $existing->journal_entry_id)
+                    ->where('journal_lines.account_id', JournalService::accountIdByCode(ChartOfAccounts::ACCOUNTS_RECEIVABLE))->sum('credit_minor');
+
+                return ['returnSaleId' => (int) $existing->id, 'receiptNo' => $existing->receipt_no, 'refunded' => $refunded, 'creditApplied' => $credited];
+            }
+
             if ($original->status === 'VOIDED') {
                 throw new ConflictError('That sale was voided, so there is nothing to return.');
             }
@@ -181,6 +200,7 @@ final class ReturnsService
                 'cogs_minor' => Money::negate($totalCost),
                 'status' => 'POSTED',
                 'note' => $input['reason'] ?? "Return against {$original->receipt_no}",
+                'client_ref' => $clientRef,
                 'created_by' => $actor->id,
                 'is_demo' => $isDemo,
                 'created_at' => $at,

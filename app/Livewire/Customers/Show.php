@@ -34,6 +34,10 @@ final class Show extends Component
     #[Locked]
     public int $customerId;
 
+    /** Names this page's payment form, so a second press after a lost reply is the same payment, not another. */
+    #[Locked]
+    public string $formToken = '';
+
     public string $businessDate = '';
 
     public string $paymentAccountId = '';
@@ -48,6 +52,7 @@ final class Show extends Component
     public function mount(int $id): void
     {
         $this->customerId = $id;
+        $this->formToken = bin2hex(random_bytes(8));
         $this->customer();
         $this->businessDate = Clock::today();
         $accounts = PaymentAccountService::listPaymentAccounts();
@@ -104,6 +109,7 @@ final class Show extends Component
                 'businessDate' => $this->businessDate,
                 'paymentAccountId' => (int) $this->paymentAccountId,
                 'amount' => $amount,
+                'clientRef' => "payment-{$this->formToken}",
                 ...(trim($this->reference) !== '' ? ['reference' => trim($this->reference)] : []),
             ], $this->actor());
         } catch (DomainError $e) {

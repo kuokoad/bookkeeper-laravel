@@ -28,6 +28,9 @@ use Livewire\Component;
  */
 final class Form extends Component
 {
+    /** How many matches the search box offers, as the till does. */
+    private const SEARCH_MATCHES = 8;
+
     #[Locked]
     public ?int $quotationId = null;
 
@@ -55,6 +58,9 @@ final class Form extends Component
 
     #[Locked]
     public int $nextKey = 1;
+
+    /** @var array<string, ?array>|null the item list of this request (see products()) */
+    private ?array $listed = null;
 
     /** Typed to find a stock item by name, code or barcode; the list on each line holds only the first 500. */
     public string $search = '';
@@ -112,16 +118,18 @@ final class Form extends Component
     /** @return array<string, array> active products by id */
     private function products(): array
     {
-        $products = collect(CatalogService::listProducts(['limit' => 500]))->keyBy(fn (array $p): string => (string) $p['id'])->all();
+        // Read once per request: the list is asked for by the update hooks and again by render.
+        $this->listed ??= collect(CatalogService::listProducts(['limit' => 500]))->keyBy(fn (array $p): string => (string) $p['id'])->all();
         // The items already on the quote, wherever they fall in the list, so their lines keep their name, price and carton size.
         foreach ($this->lines as $line) {
             $id = (string) ($line['productId'] ?? '');
-            if ($id !== '' && ctype_digit($id) && ! isset($products[$id]) && ($found = CatalogService::listProducts(['id' => (int) $id, 'limit' => 1])[0] ?? null) !== null) {
-                $products[$id] = $found;
+            if ($id !== '' && ctype_digit($id) && ! array_key_exists($id, $this->listed)) {
+                // Null when it is archived or gone, kept so it is not looked up again.
+                $this->listed[$id] = CatalogService::listProducts(['id' => (int) $id, 'limit' => 1])[0] ?? null;
             }
         }
 
-        return $products;
+        return array_filter($this->listed);
     }
 
     /** A search match picked: onto the first empty line, or a new one, at the shelf price. */
@@ -301,7 +309,7 @@ final class Form extends Component
 
         return view('livewire.quotations.form', [
             'products' => $products,
-            'matches' => trim($this->search) === '' ? [] : CatalogService::listProducts(['search' => $this->search, 'limit' => 8]),
+            'matches' => trim($this->search) === '' ? [] : CatalogService::listProducts(['search' => $this->search, 'limit' => self::SEARCH_MATCHES]),
             'customers' => CustomerService::listCustomerOptions(),
             'currency' => SettingsService::get()->currency_code ?? 'GHS',
             'lineTotals' => $lineTotals,

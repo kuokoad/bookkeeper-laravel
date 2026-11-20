@@ -570,64 +570,114 @@ final class CashbookService
         return self::countCashbook('INCOME', $query);
     }
 
+    /** The day a voided record was taken back out of the books: its reversal's date in the ledger, never the voided_at timestamp. */
+    private static function voidDay(string $t): string
+    {
+        return "(SELECT `r`.`entry_date` FROM `journal_entries` AS `r` WHERE `r`.`reverses_entry_id` = `{$t}`.`journal_entry_id`)";
+    }
+
     /**
-     * Totals for exactly the rows a filter selects, voided rows left out of
-     * count, total and average alike: a voided expense is not money that left.
+     * What the records a filter selects did to the books in its period, one
+     * row each: `effect` (the amount, or minus it), `day`, `counted` (a record
+     * of the period) and `later` (voided after the period ended).
      *
-     * @return array{count: int, total: int, average: int}
+     * A void is posted on the day it is made, not the day of the record. So a
+     * record voided after the period still stands in it, and one from before
+     * the period that was voided during it comes off, exactly as the ledger and
+     * the profit and loss have it. A record made and voided inside the period
+     * is neither. Filtered to one status, only standing records count.
+     */
+    private static function effects(string $t, array $query): Builder
+    {
+        $from = $query['from'] ?? null;
+        $to = $query['to'] ?? null;
+        $void = self::voidDay($t);
+        $byStatus = isset($query['status']);
+
+        $standing = DB::table($t);
+        self::applyConditions($standing, $t, $query);
+        if ($byStatus || $to === null) {
+            $standing->where("{$t}.status", 'POSTED');
+        } else {
+            $standing->whereRaw("(`{$t}`.`status` = 'POSTED' OR {$void} > ?)", [$to]);
+        }
+        $standing->selectRaw("`{$t}`.`category_account_id` AS category_account_id, `{$t}`.`business_date` AS day, `{$t}`.`amount_minor` AS effect, 1 AS counted, (`{$t}`.`status` = 'VOIDED') AS later");
+        if ($byStatus || $from === null) {
+            return $standing;
+        }
+
+        $takenBack = DB::table($t);
+        self::applyConditions($takenBack, $t, array_diff_key($query, ['from' => 0, 'to' => 0]));
+        $takenBack->where("{$t}.status", 'VOIDED')->where("{$t}.business_date", '<', $from)->whereRaw("{$void} >= ?", [$from]);
+        if ($to !== null) {
+            $takenBack->whereRaw("{$void} <= ?", [$to]);
+        }
+        $takenBack->selectRaw("`{$t}`.`category_account_id` AS category_account_id, {$void} AS day, -`{$t}`.`amount_minor` AS effect, 0 AS counted, 0 AS later");
+
+        return $standing->unionAll($takenBack);
+    }
+
+    /**
+     * Totals for what a filter selects, as the books have it (see effects()).
+     * `voidedLater` is the part of the total that was voided after the period,
+     * `voidedEarlier` what the period took back for records from before it;
+     * the count and the average are of the period's own records.
+     *
+     * @return array{count: int, total: int, average: int, voidedLater: int, voidedEarlier: int}
      */
     private static function summarise(string $direction, array $query): array
     {
-        $t = self::SIDES[$direction]['table'];
-        $q = DB::table($t);
-        self::applyConditions($q, $t, $query);
-        $row = $q->where("{$t}.status", 'POSTED')->selectRaw("COUNT(*) AS cnt, COALESCE(SUM(`{$t}`.`amount_minor`), 0) AS total")->first();
+        $row = DB::query()->fromSub(self::effects(self::SIDES[$direction]['table'], $query), 'e')->selectRaw(
+            'COALESCE(SUM(`e`.`counted`), 0) AS cnt, COALESCE(SUM(`e`.`effect`), 0) AS total,
+            COALESCE(SUM(CASE WHEN `e`.`counted` = 1 THEN `e`.`effect` ELSE 0 END), 0) AS own,
+            COALESCE(SUM(CASE WHEN `e`.`later` = 1 THEN `e`.`effect` ELSE 0 END), 0) AS later,
+            COALESCE(SUM(CASE WHEN `e`.`counted` = 0 THEN -`e`.`effect` ELSE 0 END), 0) AS earlier'
+        )->first();
 
-        return ['count' => (int) $row->cnt, 'total' => (int) $row->total, 'average' => Money::average((int) $row->total, (int) $row->cnt)];
+        return [
+            'count' => (int) $row->cnt,
+            'total' => (int) $row->total,
+            'average' => Money::average((int) $row->own, (int) $row->cnt),
+            'voidedLater' => (int) $row->later,
+            'voidedEarlier' => (int) $row->earlier,
+        ];
     }
 
-    /** @return array{count: int, total: int, average: int} */
+    /** @return array{count: int, total: int, average: int, voidedLater: int, voidedEarlier: int} */
     public static function getFilteredExpensesSummary(array $query = []): array
     {
         return self::summarise('EXPENSE', $query);
     }
 
-    /** @return array{count: int, total: int, average: int} */
+    /** @return array{count: int, total: int, average: int, voidedLater: int, voidedEarlier: int} */
     public static function getFilteredIncomesSummary(array $query = []): array
     {
         return self::summarise('INCOME', $query);
     }
 
-    private static function postedBetween(string $table, string $from, string $to): Builder
-    {
-        return DB::table($table)
-            ->where("{$table}.business_date", '>=', $from)
-            ->where("{$table}.business_date", '<=', $to)
-            ->where("{$table}.status", 'POSTED');
-    }
-
     public static function getExpensesTotal(string $from, string $to): int
     {
-        return (int) self::postedBetween('expenses', $from, $to)->sum('expenses.amount_minor');
+        return self::summarise('EXPENSE', ['from' => $from, 'to' => $to])['total'];
     }
 
-    /** The same posted rows and inclusive dates as getExpensesTotal, per day. @return list<array{businessDate: string, total: int}> */
+    /** The same figures and inclusive dates as getExpensesTotal, per day. @return list<array{businessDate: string, total: int}> */
     public static function getExpensesByDay(string $from, string $to): array
     {
-        return self::postedBetween('expenses', $from, $to)
-            ->groupBy('expenses.business_date')->orderBy('expenses.business_date')
-            ->selectRaw('`expenses`.`business_date` AS business_date, COALESCE(SUM(`expenses`.`amount_minor`), 0) AS total')
-            ->get()->map(fn (object $r): array => ['businessDate' => $r->business_date, 'total' => (int) $r->total])->all();
+        return DB::query()->fromSub(self::effects('expenses', ['from' => $from, 'to' => $to]), 'e')
+            ->groupBy('e.day')->orderBy('e.day')
+            ->selectRaw('`e`.`day` AS business_date, COALESCE(SUM(`e`.`effect`), 0) AS total')
+            ->get()->map(fn (object $r): array => ['businessDate' => (string) $r->business_date, 'total' => (int) $r->total])->all();
     }
 
     /** Spending per category, biggest first. @return list<array{categoryAccountId: int, categoryName: string, total: int, count: int}> */
-    private static function byCategory(Builder $q): array
+    private static function byCategory(array $query): array
     {
-        return $q->join('accounts', 'accounts.id', '=', 'expenses.category_account_id')
-            ->groupBy('expenses.category_account_id', 'accounts.name')
-            ->orderByRaw('SUM(`expenses`.`amount_minor`) DESC')
-            ->selectRaw('`expenses`.`category_account_id` AS category_account_id, `accounts`.`name` AS category_name,
-                COALESCE(SUM(`expenses`.`amount_minor`), 0) AS total, COUNT(*) AS cnt')
+        return DB::query()->fromSub(self::effects('expenses', $query), 'e')
+            ->join('accounts', 'accounts.id', '=', 'e.category_account_id')
+            ->groupBy('e.category_account_id', 'accounts.name')
+            ->orderByRaw('SUM(`e`.`effect`) DESC')
+            ->selectRaw('`e`.`category_account_id` AS category_account_id, `accounts`.`name` AS category_name,
+                COALESCE(SUM(`e`.`effect`), 0) AS total, COALESCE(SUM(`e`.`counted`), 0) AS cnt')
             ->get()->map(fn (object $r): array => [
                 'categoryAccountId' => (int) $r->category_account_id,
                 'categoryName' => $r->category_name,
@@ -639,15 +689,12 @@ final class CashbookService
     /** The category split for exactly the expenses a filter selects. @return list<array> */
     public static function getFilteredExpensesByCategory(array $query = []): array
     {
-        $q = DB::table('expenses');
-        self::applyConditions($q, 'expenses', $query);
-
-        return self::byCategory($q->where('expenses.status', 'POSTED'));
+        return self::byCategory($query);
     }
 
     /** @return list<array> */
     public static function getExpensesByCategory(string $from, string $to): array
     {
-        return self::byCategory(self::postedBetween('expenses', $from, $to));
+        return self::byCategory(['from' => $from, 'to' => $to]);
     }
 }

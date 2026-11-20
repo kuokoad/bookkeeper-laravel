@@ -19,6 +19,19 @@
         <x-stat :label="$side['averageLabel']" :value="\App\View\Format::money($summary['average'], currencyCode: $currency)" />
     </div>
 
+    @if ($summary['voidedLater'] > 0 || $summary['voidedEarlier'] > 0)
+        <x-alert tone="info" class="mb-6">
+            @if ($summary['voidedLater'] > 0)
+                The total still includes {{ \App\View\Format::money($summary['voidedLater'], currencyCode: $currency) }} for records voided after this period.
+                The books keep them in this period and take them back on the day they were voided.
+            @endif
+            @if ($summary['voidedEarlier'] > 0)
+                The total is reduced by {{ \App\View\Format::money($summary['voidedEarlier'], currencyCode: $currency) }} for records from before this period that were voided during it.
+            @endif
+            This is how the profit and loss shows it.
+        </x-alert>
+    @endif
+
     <x-filter-bar compact :list="$list" :dates="true" :fields="array_values(array_filter([
         ['kind' => 'search', 'key' => 'q', 'label' => 'Search', 'placeholder' => 'Description, reference or note', 'wide' => true, 'value' => $list['filters']['search'] ?? ''],
         ['kind' => 'select', 'key' => 'category', 'label' => 'Category', 'allLabel' => 'All categories', 'options' => array_column($categories, 'name', 'id'), 'value' => $list['filters']['categoryAccountId'] ?? null],

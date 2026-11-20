@@ -16,6 +16,8 @@ use App\Domain\Errors\ValidationError;
 use App\Enums\PaymentAccountKind;
 use App\Services\CashbookService;
 use App\Services\PaymentAccountService;
+use App\Services\Reporting\BalancesService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
@@ -107,7 +109,8 @@ describe('expenses', function () {
         $result = ($this->spend)('Repairs & Maintenance', 12_000, ['description' => 'Fridge repair']);
         expect(Shop::balance('1001'))->toBe(-12_000);
 
-        CashbookService::voidExpense($result['id'], 'Recorded twice by mistake', $this->actor);
+        // Voided the same day: a void made on a later day stays in this day's total (see the last block of this file).
+        CashbookService::voidExpense($result['id'], 'Recorded twice by mistake', $this->actor, Carbon::parse(CB_TODAY.' 15:00', 'Africa/Accra'));
 
         expect(Shop::balance('1001'))->toBe(0)
             ->and(Shop::balance('6070'))->toBe(0);
@@ -117,7 +120,7 @@ describe('expenses', function () {
         expect($original->status)->toBe('VOIDED')
             ->and($original->void_reason)->toBe('Recorded twice by mistake')
             ->and((int) $original->amount_minor)->toBe(12_000) // untouched
-            // A voided expense no longer counts toward the period total.
+            // An expense voided on its own day no longer counts toward the period total.
             ->and(CashbookService::getExpensesTotal(CB_TODAY, CB_TODAY))->toBe(0);
     });
 
@@ -160,7 +163,7 @@ describe('other income', function () {
 
     it('voids by reversal', function () {
         $result = ($this->receive)('Commission', 5_000);
-        CashbookService::voidIncome($result['id'], 'Duplicated', $this->actor);
+        CashbookService::voidIncome($result['id'], 'Duplicated', $this->actor, Carbon::parse(CB_TODAY.' 15:00', 'Africa/Accra'));
 
         expect(Shop::balance('1001'))->toBe(0)
             ->and(CashbookService::getFilteredIncomesSummary(['from' => CB_TODAY, 'to' => CB_TODAY])['total'])->toBe(0)
@@ -373,5 +376,38 @@ describe('lists', function () {
 
         expect(CashbookService::listExpenses())->toHaveCount(1)
             ->and(CashbookService::listIncomes())->toHaveCount(1);
+    });
+});
+
+describe('a record voided in a later period than its own', function () {
+    beforeEach(function () {
+        // An October expense, voided in November: the books keep it in October and take it back in November.
+        $this->taxi = ($this->spend)('Transport', 4_500, ['businessDate' => '2026-10-28', 'occurredAt' => Carbon::parse('2026-10-28 10:00', 'Africa/Accra')]);
+        ($this->spend)('Transport', 1_000, ['businessDate' => '2026-11-02', 'occurredAt' => Carbon::parse('2026-11-02 10:00', 'Africa/Accra')]);
+        CashbookService::voidExpense($this->taxi['id'], 'Recorded twice by mistake', $this->actor, Carbon::parse('2026-11-03 09:00', 'Africa/Accra'));
+        $this->october = ['from' => '2026-10-01', 'to' => '2026-10-31'];
+        $this->november = ['from' => '2026-11-01', 'to' => '2026-11-30'];
+        $this->both = ['from' => '2026-10-01', 'to' => '2026-11-30'];
+        $this->ledger = fn (array $period): int => BalancesService::getAccountBalanceByCode('6050', $period);
+    });
+
+    it('gives the same expenses total as the ledger for each month and for both together', function () {
+        foreach ([$this->october, $this->november, $this->both] as $period) {
+            expect(CashbookService::getFilteredExpensesSummary($period)['total'])->toBe(($this->ledger)($period))
+                ->and(CashbookService::getExpensesTotal($period['from'], $period['to']))->toBe(($this->ledger)($period))
+                ->and(array_sum(array_column(CashbookService::getFilteredExpensesByCategory($period), 'total')))->toBe(($this->ledger)($period));
+        }
+        expect(($this->ledger)($this->october))->toBe(4_500)->and(($this->ledger)($this->november))->toBe(-3_500);
+    });
+
+    it('says how much of a total is a record voided later, or one from before taken back', function () {
+        expect(CashbookService::getFilteredExpensesSummary($this->october))->toMatchArray(['count' => 1, 'total' => 4_500, 'voidedLater' => 4_500, 'voidedEarlier' => 0])
+            ->and(CashbookService::getFilteredExpensesSummary($this->november))->toMatchArray(['count' => 1, 'total' => -3_500, 'voidedLater' => 0, 'voidedEarlier' => 4_500])
+            ->and(CashbookService::getFilteredExpensesSummary($this->both))->toMatchArray(['count' => 1, 'total' => 1_000, 'voidedLater' => 0, 'voidedEarlier' => 0]);
+    });
+
+    it('still counts only standing records when the list is filtered to one status', function () {
+        expect(CashbookService::getFilteredExpensesSummary([...$this->october, 'status' => 'POSTED'])['total'])->toBe(0)
+            ->and(CashbookService::getFilteredExpensesSummary([...$this->november, 'status' => 'POSTED'])['total'])->toBe(1_000);
     });
 });

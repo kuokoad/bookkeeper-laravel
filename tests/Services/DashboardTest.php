@@ -29,6 +29,7 @@ use App\Services\Reporting\LedgerService;
 use App\Services\Reporting\MoneyTrend;
 use App\Services\Reporting\OperationsService;
 use App\Support\Clock;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Shop;
 
@@ -84,7 +85,8 @@ describe('dashboard financial regression', function () {
             Shop::expense($this->actor, $date, $this->expenseCategory, 100, 'Boundary expense');
         }
         $voided = Shop::expense($this->actor, $from, $this->expenseCategory, 999, 'Voided expense');
-        CashbookService::voidExpense($voided['id'], 'Test correction', $this->actor);
+        // Voided inside the period: one voided after it would still stand in March, as the ledger has it.
+        CashbookService::voidExpense($voided['id'], 'Test correction', $this->actor, Carbon::parse($from.' 15:00', 'Africa/Accra'));
 
         $rows = CashbookService::getExpensesByDay($from, $to);
         expect(array_column($rows, 'businessDate'))->toBe([$from, $to])

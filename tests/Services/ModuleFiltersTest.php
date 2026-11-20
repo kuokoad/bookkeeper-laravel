@@ -373,7 +373,7 @@ describe('expense filters', function () {
     });
 
     it('shows an average of nothing rather than dividing by zero', function () {
-        expect(CashbookService::getFilteredExpensesSummary(['from' => '2026-08-01', 'to' => '2026-08-31']))->toBe(['count' => 0, 'total' => 0, 'average' => 0]);
+        expect(CashbookService::getFilteredExpensesSummary(['from' => '2026-08-01', 'to' => '2026-08-31']))->toBe(['count' => 0, 'total' => 0, 'average' => 0, 'voidedLater' => 0, 'voidedEarlier' => 0]);
     });
 });
 

@@ -139,6 +139,13 @@ final class Show extends Component
             }
         }
 
+        // Taking goods back is till work; handing money back on a past sale is as strong as voiding it (the old app asked only for sales.create).
+        if ($refunds !== [] && Gate::denies('sales.void')) {
+            $this->addError('refundAmount', 'Handing money back needs the right to void sales. Ask someone who has it, or record the return without a refund.');
+
+            return;
+        }
+
         try {
             // The sale's own rule: a refund dated back would leave today's drawer short with no report showing why.
             SaleDate::assertAllowed($this->returnDate, Clock::today(), SettingsService::get()->books_locked_before, Gate::allows('sales.edit'), 'return');

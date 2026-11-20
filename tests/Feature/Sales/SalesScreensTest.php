@@ -148,6 +148,20 @@ it('records a customer return with a cash refund through the service', function 
         ->and((int) DB::table('sale_items')->where('id', $item)->value('returned_qty_milli'))->toBe(1_000);
 });
 
+it('refuses a refund from somebody who may sell but not void, and still lets them take the goods back', function () {
+    stockRice($this);
+    $sale = Shop::sell($this->actor, [[$this->rice, 3_000]], [], ['businessDate' => $this->today, 'customerId' => Shop::customer($this->actor, 'Adwoa Mensah')]);
+    $item = (int) DB::table('sale_items')->where('sale_id', $sale['saleId'])->value('id');
+    $cashier = staff(['sales' => ['canView' => true, 'canCreate' => true, 'canEdit' => false, 'canVoid' => false]], 'kofi');
+
+    salesAs($cashier, Show::class, ['id' => $sale['saleId']])->set("returnQty.{$item}", '1')->set('refundAmount', '10.00')
+        ->call('recordReturn')->assertHasErrors(['refundAmount']);
+    expect(Shop::productRow($this->rice)->qty_on_hand_milli)->toBe(97_000);
+
+    salesAs($cashier, Show::class, ['id' => $sale['saleId']])->set("returnQty.{$item}", '1')->call('recordReturn')->assertHasNoErrors();
+    expect(Shop::productRow($this->rice)->qty_on_hand_milli)->toBe(98_000);
+});
+
 it('says the customer balance was updated only when the sale had a customer', function () {
     stockRice($this);
     $sale = Shop::sell($this->actor, [[$this->rice, 3_000]], [], ['businessDate' => $this->today, 'customerId' => Shop::customer($this->actor, 'Adwoa Mensah')]);

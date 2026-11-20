@@ -27,7 +27,8 @@ use Illuminate\Support\Facades\DB;
  * A port of the old customer-payment.service.ts.
  *
  * Input: ['customerId', 'businessDate', 'paymentAccountId', 'amount', 'reference'?, 'note'?,
- * 'allocations'? => list of ['saleId', 'amount'], 'occurredAt'? => Carbon, 'isDemo'?].
+ * 'allocations'? => list of ['saleId', 'amount'], 'occurredAt'? => Carbon, 'isDemo'?,
+ * 'clientRef'? (the same form sent twice is one payment)].
  * Without allocations the payment settles the oldest unpaid sales first.
  */
 final class CustomerPaymentService
@@ -57,7 +58,8 @@ final class CustomerPaymentService
             $existing = $clientRef === null ? null : DB::table('customer_payments')->where('customer_payments.client_ref', $clientRef)->first();
             if ($existing !== null) {
                 $same = (int) $existing->customer_id === (int) $input['customerId'] && $existing->status === 'POSTED'
-                    && (int) $existing->amount_minor === $input['amount'] && (int) $existing->payment_account_id === (int) $input['paymentAccountId'];
+                    && (int) $existing->amount_minor === $input['amount'] && (int) $existing->payment_account_id === (int) $input['paymentAccountId']
+                    && (string) $existing->business_date === $input['businessDate'] && $existing->reference === ($input['reference'] ?? null);
                 if (! $same) {
                     throw new ConflictError("This form was already saved as {$existing->payment_no}, and it has changed or been voided since. Open the page again to see it before recording anything more.");
                 }

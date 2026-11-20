@@ -49,6 +49,43 @@ describe('the same cart submitted twice', function () {
             ->and(Shop::productRow($this->product)->qty_on_hand_milli)->toBe(9_000);
     });
 
+    it('refuses a cart whose line was switched from pieces to cartons since it was saved', function () {
+        $milk = Shop::product($this->actor, 'Milk', 400, 500, ['altUnit' => 'carton', 'altFactor' => 24_000, 'altSellingPrice' => 11_000]);
+        Shop::openingStock($this->actor, $milk, 100_000, 40_000, SALE_IDEM_TODAY);
+        $cart = fn (bool $alt): array => SaleService::createSale([
+            'businessDate' => SALE_IDEM_TODAY,
+            'items' => [['productId' => $milk, 'qty' => 1_000, ...($alt ? ['alt' => true, 'altFactor' => 24_000] : [])]],
+            'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 20_000]],
+            'clientRef' => 'cart-milk-1',
+        ], $this->actor);
+        $first = $cart(false);
+
+        expect(fn () => $cart(true))->toThrow(ConflictError::class, $first['receiptNo']);
+        expect(Shop::productRow($milk)->qty_on_hand_milli)->toBe(99_000);
+    });
+
+    it('returns the same receipt for a cart sold by the carton sent twice', function () {
+        $milk = Shop::product($this->actor, 'Milk', 400, 500, ['altUnit' => 'carton', 'altFactor' => 24_000, 'altSellingPrice' => 11_000]);
+        Shop::openingStock($this->actor, $milk, 100_000, 40_000, SALE_IDEM_TODAY);
+        $cart = fn (): array => SaleService::createSale([
+            'businessDate' => SALE_IDEM_TODAY,
+            'items' => [['productId' => $milk, 'qty' => 1_000, 'alt' => true, 'altFactor' => 24_000]],
+            'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 20_000]],
+            'clientRef' => 'cart-milk-2',
+        ], $this->actor);
+
+        expect($cart()['receiptNo'])->toBe($cart()['receiptNo'])
+            ->and(Shop::productRow($milk)->qty_on_hand_milli)->toBe(76_000);
+    });
+
+    it('refuses a cart sent again after its sale was voided, so the till does not show a voided receipt as saved', function () {
+        $first = ($this->sell)('cart-abc-123');
+        SaleService::voidSale($first['saleId'], 'rung up by mistake', $this->actor);
+
+        expect(fn () => ($this->sell)('cart-abc-123'))->toThrow(ConflictError::class, 'voided');
+        expect(DB::table('sales')->where('kind', 'SALE')->count())->toBe(1);
+    });
+
     it('returns the same receipt both times', function () {
         $first = ($this->sell)('cart-abc-123');
         $second = ($this->sell)('cart-abc-123');

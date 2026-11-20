@@ -110,7 +110,9 @@ final class Show extends Component
 
         $lines = [];
         $index = 0;
-        foreach (ReturnsService::getReturnableSaleItems($this->saleId) as $item) {
+        // Every line of the sale, not only those with something left: a second press after a lost reply
+        // must send what the first did, and the service refuses anything beyond what can still be returned.
+        foreach ($this->sale()['items'] as $item) {
             $index++;
             $raw = trim((string) ($this->returnQty[$item['id']] ?? ''));
             if ($raw === '' || $raw === '0') {
@@ -146,7 +148,8 @@ final class Show extends Component
 
         // Taking goods back is till work; handing money back on a past sale is as strong as voiding it (the old app asked only for sales.create).
         if ($refunds !== [] && Gate::denies('sales.void')) {
-            $this->addError('refundAmount', 'Handing money back needs the right to void sales. Ask someone who has it, or record the return without a refund.');
+            // A sale with no customer has no account to credit, so there the money is the only way.
+            $this->addError('refundAmount', 'Handing money back needs the right to void sales. Ask someone who has it'.($this->sale()['customerId'] !== null ? ', or record the return without a refund.' : '.'));
 
             return;
         }

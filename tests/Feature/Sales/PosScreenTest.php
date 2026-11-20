@@ -75,8 +75,26 @@ it('tells the cashier a cart was already saved when the reply was lost and an it
     ], $this->actor);
 
     $till->call('add', $this->rice)->set('tenderAmount', '20')->call('complete')
-        ->assertHasErrors(['form'])->assertSee($first['receiptNo'])->assertSet('salesCompleted', 1);
+        ->assertHasErrors(['form'])->assertSee($first['receiptNo'])->assertSet('salesCompleted', 1)
+        // The cart is cleared, or a second press would charge the saved items again.
+        ->assertSet('lines', []);
+    $till->call('complete');
     expect(DB::table('sales')->count())->toBe(1);
+});
+
+it('lets a cart whose first sale was voided be charged again as a new sale', function () {
+    $till = tillAs($this->ownerId)->call('add', $this->rice);
+    $first = SaleService::createSale([
+        'businessDate' => Clock::today(),
+        'items' => [['productId' => $this->rice, 'qty' => 1_000]],
+        'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 1_000]],
+        'clientRef' => $till->get('cartSeed').'-0',
+    ], $this->actor);
+    SaleService::voidSale($first['saleId'], 'rung up by mistake', $this->actor);
+
+    $till->set('tenderAmount', '10')->call('complete')->assertHasErrors(['form'])->assertSee('voided')->assertSet('salesCompleted', 1);
+    $till->call('complete')->assertHasNoErrors();
+    expect(DB::table('sales')->where('kind', 'SALE')->where('status', 'POSTED')->count())->toBe(1);
 });
 
 it('says what a part-paid sale left on the customer account, not "Payment received in full."', function () {

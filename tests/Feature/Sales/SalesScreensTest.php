@@ -7,10 +7,12 @@ declare(strict_types=1);
 | return) and its receipt and invoice. The till has its own file.
 */
 
+use App\Domain\Errors\ConflictError;
 use App\Livewire\Sales\Index;
 use App\Livewire\Sales\Show;
 use App\Models\User;
 use App\Services\Actor;
+use App\Services\ReturnsService;
 use App\Services\SaleService;
 use App\Support\Clock;
 use App\Support\Filters\ListFilters;
@@ -162,6 +164,32 @@ it('records one return when the button is pressed again after a lost reply, and 
     $page->set("returnQty.{$item}", '2')->call('recordReturn')->assertHasErrors(['returnForm'])
         ->assertSee(DB::table('sales')->where('kind', 'RETURN')->value('receipt_no'));
     expect(DB::table('sales')->where('kind', 'RETURN')->count())->toBe(1);
+});
+
+it('answers a second press with the same return when the first took the whole line', function () {
+    stockRice($this);
+    $sale = Shop::sell($this->actor, [[$this->rice, 2_000]], [], ['businessDate' => $this->today, 'customerId' => Shop::customer($this->actor, 'Adwoa Mensah')]);
+    $item = (int) DB::table('sale_items')->where('sale_id', $sale['saleId'])->value('id');
+
+    $page = salesAs($this->ownerId, Show::class, ['id' => $sale['saleId']])->set("returnQty.{$item}", '2');
+    $page->call('recordReturn')->assertHasNoErrors();
+    // Nothing is left to return on that line, and the reply to the first press was lost.
+    $page->call('recordReturn')->assertHasNoErrors()->assertRedirect("/sales/{$sale['saleId']}");
+    expect(DB::table('sales')->where('kind', 'RETURN')->count())->toBe(1);
+});
+
+it('refuses a return form changed to a different item of the same quantity', function () {
+    stockRice($this);
+    $beans = Shop::product($this->actor, 'Beans 5kg', 500, 1000);
+    Shop::openingStock($this->actor, $beans, 100_000, 50_000, '2026-01-01');
+    $sale = Shop::sell($this->actor, [[$this->rice, 2_000], [$beans, 2_000]], [], ['businessDate' => $this->today, 'customerId' => Shop::customer($this->actor, 'Adwoa Mensah')]);
+    [$riceLine, $beansLine] = DB::table('sale_items')->where('sale_id', $sale['saleId'])->orderBy('line_no')->pluck('id')->all();
+    $send = fn (int $item) => ReturnsService::createCustomerReturn($sale['saleId'], ['businessDate' => $this->today, 'items' => [['itemId' => $item, 'qty' => 1_000]], 'refunds' => [], 'clientRef' => 'return-form-1'], $this->actor);
+    $first = $send($riceLine);
+
+    expect(fn () => $send($beansLine))->toThrow(ConflictError::class, $first['receiptNo']);
+    expect($send($riceLine)['receiptNo'])->toBe($first['receiptNo'])
+        ->and(Shop::productRow($beans)->qty_on_hand_milli)->toBe(98_000);
 });
 
 it('refuses a refund from somebody who may sell but not void, and still lets them take the goods back', function () {

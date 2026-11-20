@@ -134,6 +134,19 @@ it('records one payment when the button is pressed again after a lost reply, and
     expect(DB::table('customer_payments')->count())->toBe(1);
 });
 
+it('refuses a payment form sent again after its payment was voided, or with another reference', function () {
+    ['customer' => $customer] = owingCustomer($this);
+    $page = customersAs($this->ownerId, Show::class, ['id' => $customer])->set('amount', '12.50');
+    $page->call('receivePayment')->assertHasNoErrors();
+
+    $page->set('reference', 'MoMo 4471')->call('receivePayment')->assertHasErrors(['payment']);
+    CustomerPaymentService::voidCustomerPayment((int) DB::table('customer_payments')->value('id'), 'Wrong customer', $this->actor);
+    $page->set('reference', '')->call('receivePayment')->assertHasErrors(['payment']);
+
+    expect(DB::table('customer_payments')->count())->toBe(1)
+        ->and(CustomerService::getCustomerBalance($customer))->toBe(3_000);
+});
+
 it('refuses receiving and voiding payments without those rights', function () {
     ['customer' => $customer] = owingCustomer($this);
     $viewer = staff(['customers' => viewOnly()], 'yaw');

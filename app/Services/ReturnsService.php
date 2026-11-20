@@ -33,7 +33,8 @@ use Illuminate\Support\Facades\DB;
  * shop sending them back to a supplier.
  *
  * Input: ['businessDate', 'items' => list of ['itemId', 'qty'],
- * 'refunds'? => list of ['paymentAccountId', 'amount'], 'reason'?, 'occurredAt'? => Carbon, 'isDemo'?].
+ * 'refunds'? => list of ['paymentAccountId', 'amount'], 'reason'?, 'occurredAt'? => Carbon, 'isDemo'?,
+ * 'clientRef'? (customer returns: the same form sent twice is one return)].
  */
 final class ReturnsService
 {
@@ -72,8 +73,14 @@ final class ReturnsService
             $existing = $clientRef === null ? null : DB::table('sales')->where('sales.client_ref', $clientRef)->first();
             if ($existing !== null) {
                 $refunded = -(int) DB::table('sale_payments')->where('sale_payments.sale_id', $existing->id)->sum('amount_minor');
-                $same = (int) $existing->returns_sale_id === $originalSaleId && $existing->status === 'POSTED'
-                    && (int) DB::table('sale_items')->where('sale_items.sale_id', $existing->id)->sum('qty_milli') === -array_sum(array_column($input['items'], 'qty'))
+                // Line by line: one of rice and one of beans are the same total, and different goods.
+                $productOf = DB::table('sale_items')->where('sale_items.sale_id', $originalSaleId)->pluck('product_id', 'id');
+                $sent = array_map(fn (array $i): array => [(int) ($productOf[$i['itemId']] ?? 0), (int) $i['qty']], array_values($input['items']));
+                $stored = DB::table('sale_items')->where('sale_items.sale_id', $existing->id)->get(['product_id', 'qty_milli'])
+                    ->map(fn (object $i): array => [(int) $i->product_id, -(int) $i->qty_milli])->all();
+                sort($sent);
+                sort($stored);
+                $same = (int) $existing->returns_sale_id === $originalSaleId && $existing->status === 'POSTED' && $sent === $stored
                     && $refunded === array_sum(array_column($input['refunds'] ?? [], 'amount'));
                 if (! $same) {
                     throw new ConflictError("This form was already saved as {$existing->receipt_no}, and it has changed or been voided since. Open the page again to see it before recording anything more.");

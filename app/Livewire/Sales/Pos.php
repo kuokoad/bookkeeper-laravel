@@ -449,11 +449,21 @@ final class Pos extends Component
 
             return;
         } catch (DomainError $e) {
-            $this->addError('form', $e->userMessage);
-            // The cart on screen is no longer the saved sale, so what is left of it is a new one.
-            if (isset($e->details['alreadySavedAs'])) {
+            // The cart on screen holds a sale already saved plus what was added since. It is cleared,
+            // or one more press would charge the saved items a second time; what is left is a new sale.
+            if (isset($e->details['voidedAs'])) {
+                // The saved sale no longer stands, so the same cart is a new sale under a new name.
                 $this->salesCompleted++;
             }
+            if (isset($e->details['alreadySavedAs'])) {
+                $this->clearSale();
+                $this->overrideReason = '';
+                $this->salesCompleted++;
+                $this->addError('form', "This cart was already saved as {$e->details['alreadySavedAs']} before it was changed, so it was not charged again and has been cleared. Check that receipt, then ring up only the items it leaves out.");
+
+                return;
+            }
+            $this->addError('form', $e->userMessage);
 
             return;
         }

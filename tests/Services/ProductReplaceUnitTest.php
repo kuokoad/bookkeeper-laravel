@@ -500,6 +500,35 @@ describe('replacing a product to change its units', function () {
             ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
     });
 
+    it('voids a sale of more than was left to move across, putting all of it on the replacement', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        ($this->stockIn)($oldId, 7, 42_000);
+        $saleId = SaleService::createSale(['businessDate' => REPLACE_TODAY, 'items' => [['productId' => $oldId, 'qty' => 5_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 36_000]]], $this->actor)['saleId'];
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'altUnit' => 'Carton', 'altFactor' => 50_000, 'costPrice' => 120, 'sellingPrice' => 150], 100)['productId'];
+
+        SaleService::voidSale($saleId, 'rung up by mistake', $this->actor);
+
+        expect(($this->row)($newId)->qty_on_hand_milli)->toBe(350_000)
+            ->and(($this->row)($newId)->stock_value_minor)->toBe(42_000)
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue()
+            ->and(collect(InventoryService::verifyBatchCoverage())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
+    it('still voids a sale whose quantity does not convert into the new units, leaving the goods on the old product', function () {
+        $oldId = ($this->create)();
+        ($this->stockIn)($oldId, 25, 12_500);
+        $saleId = SaleService::createSale(['businessDate' => REPLACE_TODAY, 'items' => [['productId' => $oldId, 'qty' => 1_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 800]]], $this->actor)['saleId'];
+        // 24 pieces become 2 cartons: one piece is not a whole number of thousandths of a carton.
+        $newId = ($this->replace)($oldId, ['name' => 'Milo 400g', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 9_600], 2)['productId'];
+
+        SaleService::voidSale($saleId, 'rung up by mistake', $this->actor);
+
+        expect(($this->row)($oldId)->qty_on_hand_milli)->toBe(1_000)
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(2_000)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
     it('refuses to void a stock-in on a product since replaced, which would leave the archived product below zero', function () {
         Shop::setting('allow_negative_stock', true);
         $oldId = ($this->create)();

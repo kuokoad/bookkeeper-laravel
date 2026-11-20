@@ -202,7 +202,8 @@ final class ProductReplaceService
      * crate the move put them in. Null when the product was not replaced, or
      * still holds what is asked for. Refused for a day before the replacement,
      * when the goods were not on it yet. Goods coming back ($incoming: a
-     * customer return, a voided sale) always go to the replacement.
+     * customer return, a voided sale) always go to the replacement, unless the
+     * quantity does not convert exactly, when they stay on the old product.
      * shortcut: the whole line moves to the replacement, never split with stock
      * an edited sale left on the old product. Upgrade if a shop ever needs both.
      *
@@ -224,6 +225,10 @@ final class ProductReplaceService
             }
             $scaled = $scaled->multipliedBy($next['after']);
             if (! $scaled->remainder($next['before'])->isZero()) {
+                // Goods coming back must land somewhere, or the void or return itself is refused: on the old product, as before.
+                if ($incoming) {
+                    return null;
+                }
                 throw new ValidationError('The quantity does not convert exactly into the units of the stock item that replaced this one. Take it off that stock item with a stock adjustment instead.');
             }
             $scaled = $scaled->quotient($next['before']);
@@ -239,11 +244,13 @@ final class ProductReplaceService
             throw new ValidationError("\"{$product->name}\" was replaced by stock item #{$id} on ".InventoryService::formatDate((string) $move->business_date).', and its goods were not on that stock item before then. Date this on or after that day.');
         }
 
-        return [
-            'productId' => $id,
-            'qty' => $scaled->toInt(),
-            'batches' => InventoryService::readBatchSplits('STOCK_ADJUSTMENT', (int) $move->id, $id)[0] ?? [],
-        ];
+        $batches = InventoryService::readBatchSplits('STOCK_ADJUSTMENT', (int) $move->id, $id)[0] ?? [];
+        // More coming back than moved across cannot be shared out over the move's crates: it goes in undated.
+        if ($incoming && $scaled->toInt() > array_sum(array_column($batches, 'qtyMilli'))) {
+            $batches = [];
+        }
+
+        return ['productId' => $id, 'qty' => $scaled->toInt(), 'batches' => $batches];
     }
 
     /** @return array{productId: int, before: int, after: int, adjustmentNo: ?string}|null the product that took this one's stock, the counts moved and the move */

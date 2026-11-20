@@ -45,7 +45,7 @@ use Illuminate\Support\Facades\DB;
  * oversold units, still below zero, at what it charged for them (Costing::stockIn).
  *
  * 'batch' says which batch the stock comes from or lands in:
- *   ['kind' => 'NEW', 'expiryDate'?, 'supplierId'?, 'warnDays'?, 'note'?]  a dated delivery
+ *   ['kind' => 'NEW', 'expiryDate'?, 'supplierId'?, 'warnDays'?, 'note'?]  a dated delivery (units already sold from it settle the undated batch first)
  *   ['kind' => 'SOURCE', 'allocations' => [...]]  the exact batches a document used
  *   ['kind' => 'PICK', 'allowExpired'?, 'expiredFirst'?, 'expiryAsAt'?, 'arrivedBy'?]  FEFO
  * Omitted: IN lands in the product's undated batch, OUT picks FEFO without expired stock.
@@ -192,7 +192,7 @@ final class InventoryService
         return $allocations;
     }
 
-    /** Stock arriving: into a new batch, back where it came from, or undated. */
+    /** Stock arriving: into a new batch (after settling what the undated one is below zero by), back where it came from, or undated. */
     private static function allocateIn(array $input): array
     {
         $directive = $input['batch'] ?? null;
@@ -207,6 +207,7 @@ final class InventoryService
                 ->orderBy('product_batches.id')
                 ->lockForUpdate()
                 ->first(['id', 'batch_ref', 'qty_milli']);
+            // (If those sold units are later returned by the customer they go back undated, where their sale recorded them.)
             $settle = $undated === null ? 0 : min($input['qty'], max(0, -(int) $undated->qty_milli));
             $allocations = $settle === 0 ? [] : [['batchId' => (int) $undated->id, 'batchRef' => $undated->batch_ref, 'qtyMilli' => $settle]];
             if ($input['qty'] > $settle) {
@@ -393,14 +394,30 @@ final class InventoryService
             return $allocations;
         }
 
-        $taken = array_column($allocations, 'batchId');
+        // The document's own crates first: a delivery that settled an oversell shows part of itself in
+        // the undated batch, which holds none of it, so that part comes out of the delivery's dated crate.
+        foreach ($source as $own) {
+            $takenHere = array_sum(array_column(array_filter($allocations, fn (array $a): bool => $a['batchId'] === $own['batchId']), 'qtyMilli'));
+            $more = min($short, max(0, $held[$own['batchId']] ?? 0) - $takenHere);
+            if ($more > 0) {
+                $allocations[] = ['batchId' => $own['batchId'], 'batchRef' => $own['batchRef'], 'qtyMilli' => $more];
+                $short -= $more;
+            }
+        }
+        $allocations = self::mergeByBatch($allocations);
+        if ($short === 0) {
+            return $allocations;
+        }
+
+        // Then what is still on the shelf in any other crate.
+        $taken = array_column($allocations, 'qtyMilli', 'batchId');
         $rest = DB::table('product_batches')
             ->where('product_batches.product_id', $input['productId'])
             ->where('product_batches.is_closed', false)
             ->orderBy('product_batches.id')
             ->get(['id', 'batch_ref', 'expiry_date', 'qty_milli'])
-            ->map(fn (object $b): array => ['id' => (int) $b->id, 'batchRef' => $b->batch_ref, 'expiryDate' => $b->expiry_date, 'qtyMilli' => (int) $b->qty_milli])
-            ->filter(fn (array $b): bool => ! in_array($b['id'], $taken, true))
+            ->map(fn (object $b): array => ['id' => (int) $b->id, 'batchRef' => $b->batch_ref, 'expiryDate' => $b->expiry_date, 'qtyMilli' => (int) $b->qty_milli - ($taken[(int) $b->id] ?? 0)])
+            ->filter(fn (array $b): bool => $b['qtyMilli'] > 0 || ! isset($taken[$b['id']]))
             ->values()
             ->all();
 

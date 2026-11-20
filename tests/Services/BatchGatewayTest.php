@@ -13,6 +13,7 @@ use App\Domain\Errors\ExpiredStockError;
 use App\Enums\AdjustmentReason;
 use App\Services\InventoryService;
 use App\Services\PurchaseService;
+use App\Services\ReturnsService;
 use App\Services\StockAdjustmentService;
 use App\Support\Clock;
 use Illuminate\Support\Facades\DB;
@@ -189,6 +190,22 @@ describe('a batch that empties', function () {
         $batches = ($this->batchesOf)($rice);
         expect($batches)->toHaveCount(1)->and($batches[0]->qty_milli)->toBe(-2_000);
         gatewayIntact('delivery smaller than the oversell');
+    });
+
+    it('sends goods back to the supplier out of the dated batch when part of the delivery settled an oversell', function () {
+        $rice = ($this->make)();
+        ($this->moveOut)($rice, 3, ['allowNegative' => true]);
+        $purchase = Shop::purchase($this->actor, $this->supplier, [['productId' => $rice, 'qty' => 10_000, 'unitCost' => 1_000, 'expiryDate' => '2027-01-31']], [], ['businessDate' => GATEWAY_DAY]);
+
+        ReturnsService::createSupplierReturn($purchase['purchaseId'], [
+            'businessDate' => GATEWAY_LATER,
+            'items' => [['itemId' => PurchaseService::getPurchase($purchase['purchaseId'])['items'][0]['id'], 'qty' => 5_000]],
+            'refunds' => [],
+        ], $this->actor);
+
+        [$undated, $dated] = ($this->batchesOf)($rice);
+        expect($undated->qty_milli)->toBe(0)->and($dated->qty_milli)->toBe(2_000);
+        gatewayIntact('supplier return after a settling delivery');
     });
 
     it('names the same batch once, not twice, when an oversell drains it', function () {

@@ -184,8 +184,28 @@ describe('after a lockout has been served', function () {
 
     it('gives back a full set of attempts, not one', function () {
         signIn('ama', 'wrong-again', $this->after);
-        $user = userRow('ama');
-        expect((int) $user->failed_login_count)->toBe(1)->and($user->locked_until)->toBeNull();
+        expect(signIn('ama', 'wrong-again', $this->after)['reason'])->toBe('INVALID_CREDENTIALS');
+    });
+
+    it('locks for twice as long each time the guessing carries on, up to a day', function () {
+        for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
+            signIn('ama', 'wrong', $this->after);
+        }
+        $second = signIn('ama', 'wrong', $this->after);
+        expect(Clock::stamp($second['lockedUntil']))->toBe(Clock::stamp($this->after->copy()->addMinutes(30)));
+
+        // Twenty lockouts on: never longer than a day.
+        DB::table('users')->where('username', 'ama')->update(['failed_login_count' => 99, 'locked_until' => Clock::stamp($this->after)]);
+        signIn('ama', 'wrong', $this->after);
+        expect(Clock::stamp(signIn('ama', 'wrong', $this->after)['lockedUntil']))->toBe(Clock::stamp($this->after->copy()->addDay()));
+    });
+
+    it('forgets the earlier lockouts once a day has passed without a new one', function () {
+        $nextDay = $this->start->copy()->addMinutes(15)->addDay()->addMinute();
+        for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
+            signIn('ama', 'wrong', $nextDay);
+        }
+        expect(Clock::stamp(signIn('ama', 'wrong', $nextDay)['lockedUntil']))->toBe(Clock::stamp($nextDay->copy()->addMinutes(15)));
     });
 
     it('still lets the right password through after a slip', function () {

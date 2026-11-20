@@ -43,6 +43,9 @@ final class AuthService
     /** How long a staff lock lasts: long enough to stop guessing, short enough to trade. */
     public const LOCKOUT_MINUTES = 15;
 
+    /** The longest a staff lock grows to, and how long after a lock ends the earlier ones stop counting. */
+    public const LOCKOUT_FORGET_HOURS = 24;
+
     /** An owner is never locked; from the fifth failure in a row each one doubles the wait, up to this (D16). */
     public const OWNER_DELAY_CAP_SECONDS = 60;
 
@@ -337,16 +340,21 @@ final class AuthService
             if ($userId !== null) {
                 $current = DB::table('users')->where('users.id', $userId)->lockForUpdate()->first();
                 $owner = $current !== null && self::isOwner($current);
-                // Serving the lockout gives the attempts back, or one slip a month later re-locks at once.
+                // The count runs on past a served lockout, so each further run of failures locks for
+                // twice as long (the old app started again at 15 minutes every time, which let a
+                // 4-digit PIN be worked through in weeks). A day after the last lock ended it is
+                // forgotten, or one slip a month later would lock for hours.
                 // Not an owner's: their count runs on, for the delay and the notice at their next sign-in.
                 $lockedUntil = $current?->locked_until === null ? null : Clock::fromStamp($current->locked_until);
-                $lockHasExpired = ! $owner && $lockedUntil !== null && $lockedUntil->lessThanOrEqualTo($now);
-                $failed = ($lockHasExpired ? 0 : (int) ($current->failed_login_count ?? 0)) + 1;
+                $forgotten = ! $owner && $lockedUntil !== null && $lockedUntil->copy()->addHours(self::LOCKOUT_FORGET_HOURS)->lessThanOrEqualTo($now);
+                $failed = ($forgotten ? 0 : (int) ($current->failed_login_count ?? 0)) + 1;
+                $lockouts = intdiv($failed, self::MAX_FAILED_LOGINS);
                 // An owner's locked_until is only the end of a short delay, never a lock.
                 $until = match (true) {
-                    $failed < self::MAX_FAILED_LOGINS => null,
-                    $owner => $now->copy()->addSeconds(self::ownerDelaySeconds($failed)),
-                    default => $now->copy()->addMinutes(self::LOCKOUT_MINUTES),
+                    $owner => $failed < self::MAX_FAILED_LOGINS ? null : $now->copy()->addSeconds(self::ownerDelaySeconds($failed)),
+                    $failed % self::MAX_FAILED_LOGINS === 0 => $now->copy()->addMinutes(min(self::LOCKOUT_FORGET_HOURS * 60, self::LOCKOUT_MINUTES << min($lockouts - 1, 10))),
+                    // Kept after it has passed: it is how the next failure knows how long ago the last lock ended.
+                    default => $forgotten ? null : $lockedUntil,
                 };
 
                 DB::table('users')->where('users.id', $userId)->update([

@@ -260,10 +260,7 @@ final class Import extends Component
     /** "C — Price", as Excel names the column. */
     public static function columnName(int $index, string $heading): string
     {
-        $letters = '';
-        for ($n = $index + 1; $n > 0; $n = intdiv($n - 1, 26)) {
-            $letters = chr(65 + (($n - 1) % 26)).$letters;
-        }
+        $letters = ProductImportService::columnLetter($index);
 
         return trim($heading) !== '' ? "{$letters} — ".trim($heading) : "{$letters} (no heading)";
     }

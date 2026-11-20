@@ -68,7 +68,7 @@ final class Costing
             throw new ValidationError('Stock out requires a quantity greater than zero.', ['qty' => $qty]);
         }
         if (! $allowNegative && $qty > $current->qty) {
-            throw new InsufficientStockError($productName ?? 'this stock item', self::formatMilli($current->qty), self::formatMilli($qty));
+            throw new InsufficientStockError($productName ?? 'this stock item', Batches::formatQty($current->qty), Batches::formatQty($qty));
         }
 
         if ($current->qty > 0 && $qty <= $current->qty) {
@@ -111,7 +111,7 @@ final class Costing
             throw new ValidationError('Stock cannot be returned at a negative cost.', ['totalCost' => $totalCost]);
         }
         if (! $allowNegative && $qty > $current->qty) {
-            throw new InsufficientStockError($productName ?? 'this stock item', self::formatMilli($current->qty), self::formatMilli($qty));
+            throw new InsufficientStockError($productName ?? 'this stock item', Batches::formatQty($current->qty), Batches::formatQty($qty));
         }
 
         $nextQty = Quantity::subtract($current->qty, $qty);
@@ -198,14 +198,5 @@ final class Costing
         }
 
         return new StockState($qty, $value);
-    }
-
-    /** "2.5": the quantity as the error message shows it, without grouping. */
-    private static function formatMilli(int $value): string
-    {
-        $digits = str_pad(ltrim((string) $value, '-'), 4, '0', STR_PAD_LEFT);
-        $fraction = rtrim(substr($digits, -3), '0');
-
-        return ($value < 0 ? '-' : '').substr($digits, 0, -3).($fraction !== '' ? ".{$fraction}" : '');
     }
 }

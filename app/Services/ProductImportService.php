@@ -492,7 +492,7 @@ final class ProductImportService
     }
 
     /** Zero-based column index to its spreadsheet letters: 0 → A, 26 → AA. */
-    private static function columnLetter(int $index): string
+    public static function columnLetter(int $index): string
     {
         $letters = '';
         for ($n = $index + 1; $n > 0; $n = intdiv($n - 1, 26)) {

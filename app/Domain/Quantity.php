@@ -157,11 +157,6 @@ final class Quantity
         return $a >= $b ? $a : $b;
     }
 
-    public static function min(int $a, int $b): int
-    {
-        return $a <= $b ? $a : $b;
-    }
-
     /** Price × quantity, to the nearest pesewa: 3 × GHS 8.70 = GHS 26.10. */
     public static function extendPrice(int $unitPrice, int $quantity): int
     {

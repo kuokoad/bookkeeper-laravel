@@ -228,7 +228,7 @@ final class ReconciliationService
     // --- reads --------------------------------------------------------------
 
     /** Newest first. @return list<array> */
-    public static function listReconciliations(?int $paymentAccountId = null, int $limit = 100, ?int $id = null): array
+    public static function listReconciliations(?int $paymentAccountId = null, int $limit = 100, ?int $id = null, int $offset = 0): array
     {
         $q = DB::table('reconciliations')->join('payment_accounts', 'payment_accounts.id', '=', 'reconciliations.payment_account_id');
         if ($paymentAccountId !== null) {
@@ -239,13 +239,19 @@ final class ReconciliationService
         }
 
         return $q->orderByDesc('reconciliations.business_date')->orderByDesc('reconciliations.id')
-            ->limit(min($limit, 500))
+            ->limit(min($limit, 500))->offset($offset)
             ->get([
                 'reconciliations.id', 'reconciliations.reconciliation_no', 'reconciliations.payment_account_id',
                 'payment_accounts.name AS account_name', 'reconciliations.business_date', 'reconciliations.occurred_at',
                 'reconciliations.expected_minor', 'reconciliations.actual_minor', 'reconciliations.difference_minor',
                 'reconciliations.explanation', 'reconciliations.adjusted', 'reconciliations.status', 'reconciliations.journal_entry_id',
             ])->map(fn (object $row): array => [...Row::camel($row), 'adjusted' => (bool) $row->adjusted])->all();
+    }
+
+    /** Every count ever recorded, voided ones included, as listReconciliations lists them. */
+    public static function countReconciliations(): int
+    {
+        return DB::table('reconciliations')->count();
     }
 
     /** Counted less the books: positive is money over, negative money short. The page's live preview uses the same rule. */

@@ -204,6 +204,7 @@
                             </tr>
                         @endforeach
                     </x-table>
+                    <x-step-pager :list="$ownerMoneyList" :total="$ownerMoneyTotal" noun="record" newer="newerOwnerMoney" older="olderOwnerMoney" />
                 </div>
             @endif
         </div>

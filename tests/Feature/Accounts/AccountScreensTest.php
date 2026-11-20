@@ -143,3 +143,13 @@ it('shows the resolved statement filters and labels a narrowed view', function (
         ->toContain('value="'.substr($this->today, 0, 7).'-01"')
         ->toContain('/export/list/account?from=junk&amp;type=BOGUS&amp;flow=out&amp;id='.$this->cash);
 });
+
+it('lets owner money older than the newest twenty be reached, so it can still be voided', function () {
+    for ($i = 1; $i <= 21; $i++) {
+        CashbookService::recordOwnerCapital(['businessDate' => $this->today, 'paymentAccountId' => $this->cash, 'amount' => 1_000 * $i, 'description' => "Float {$i}"], $this->actor);
+    }
+    $oldest = DB::table('owner_movements')->orderBy('id')->value('movement_no');
+
+    $page = accountsAs($this->ownerId, Index::class)->assertSee('Showing 1–20 of 21')->assertDontSee($oldest);
+    $page->call('olderOwnerMoney')->assertSee('Showing 21–21 of 21')->assertSee($oldest);
+});

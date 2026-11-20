@@ -68,6 +68,21 @@ final class Index extends Component
 
     public string $ownerDescription = '';
 
+    private const OWNER_MONEY_PAGE_SIZE = 20;
+
+    /** Which page of owner money is on screen, newest first. */
+    public int $ownerMoneyPage = 1;
+
+    public function olderOwnerMoney(): void
+    {
+        $this->ownerMoneyPage++;
+    }
+
+    public function newerOwnerMoney(): void
+    {
+        $this->ownerMoneyPage = max(1, $this->ownerMoneyPage - 1);
+    }
+
     public function mount(): void
     {
         $this->transferDate = $this->ownerDate = Clock::today();
@@ -239,6 +254,8 @@ final class Index extends Component
     {
         $accounts = PaymentAccountService::listPaymentAccounts(true);
         $active = array_values(array_filter($accounts, fn (array $a): bool => $a['isActive']));
+        $ownerMoneyTotal = CashbookService::countOwnerMovements();
+        $this->ownerMoneyPage = Filters::clampPage($this->ownerMoneyPage, $ownerMoneyTotal, self::OWNER_MONEY_PAGE_SIZE);
 
         return view('livewire.accounts.index', [
             'currency' => SettingsService::get()->currency_code ?? 'GHS',
@@ -249,7 +266,9 @@ final class Index extends Component
             'negative' => array_values(array_filter($active, fn (array $a): bool => $a['balance'] < 0)),
             'canCreate' => Gate::allows('accounts.create'),
             'canVoid' => Gate::allows('accounts.void'),
-            'ownerMoney' => CashbookService::listOwnerMovements(),
+            'ownerMoney' => CashbookService::listOwnerMovements(self::OWNER_MONEY_PAGE_SIZE, ($this->ownerMoneyPage - 1) * self::OWNER_MONEY_PAGE_SIZE),
+            'ownerMoneyTotal' => $ownerMoneyTotal,
+            'ownerMoneyList' => ['page' => $this->ownerMoneyPage, 'pageSize' => self::OWNER_MONEY_PAGE_SIZE],
         ]);
     }
 

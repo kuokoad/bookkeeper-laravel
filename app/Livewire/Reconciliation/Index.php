@@ -44,6 +44,21 @@ final class Index extends Component
     /** @var array<int|string, string> */
     public array $reasons = [];
 
+    private const HISTORY_PAGE_SIZE = 100;
+
+    /** Which page of past counts is on screen, newest first. */
+    public int $historyPage = 1;
+
+    public function olderCounts(): void
+    {
+        $this->historyPage++;
+    }
+
+    public function newerCounts(): void
+    {
+        $this->historyPage = max(1, $this->historyPage - 1);
+    }
+
     public function mount(Request $request): void
     {
         $this->params = $request->query();
@@ -141,12 +156,16 @@ final class Index extends Component
                 $counted = null;
             }
         }
-        $history = ReconciliationService::listReconciliations(null, 100);
+        $historyTotal = ReconciliationService::countReconciliations();
+        $this->historyPage = Filters::clampPage($this->historyPage, $historyTotal, self::HISTORY_PAGE_SIZE);
+        $history = ReconciliationService::listReconciliations(null, self::HISTORY_PAGE_SIZE, null, ($this->historyPage - 1) * self::HISTORY_PAGE_SIZE);
 
         return view('livewire.reconciliation.index', [
             'currency' => SettingsService::get()->currency_code ?? 'GHS',
             'overview' => $overview,
             'history' => $history,
+            'historyTotal' => $historyTotal,
+            'historyList' => ['page' => $this->historyPage, 'pageSize' => self::HISTORY_PAGE_SIZE],
             ...ReconciliationService::getOverviewTotals($overview),
             'expected' => $expected,
             'badAmount' => trim($this->actual) !== '' && $counted === null,

@@ -453,15 +453,20 @@ final class CashbookService
         self::voidRecord((string) $kind, $id, $reason, $actor, $now);
     }
 
+    public static function countOwnerMovements(): int
+    {
+        return DB::table('owner_movements')->count();
+    }
+
     /**
-     * The newest owner money, for voiding a mistake in its row.
+     * Owner money, newest first, for voiding a mistake in its row.
      *
      * @return list<array{id: int, movementNo: string, kind: string, businessDate: string, accountName: string, amountMinor: int, description: string, status: string, voidReason: ?string}>
      */
-    public static function listOwnerMovements(int $limit = 20): array
+    public static function listOwnerMovements(int $limit = 20, int $offset = 0): array
     {
         return DB::table('owner_movements')->join('payment_accounts', 'payment_accounts.id', '=', 'owner_movements.payment_account_id')
-            ->orderByDesc('owner_movements.business_date')->orderByDesc('owner_movements.id')->limit($limit)
+            ->orderByDesc('owner_movements.business_date')->orderByDesc('owner_movements.id')->limit($limit)->offset($offset)
             ->get(['owner_movements.id', 'owner_movements.movement_no', 'owner_movements.kind', 'owner_movements.business_date', 'payment_accounts.name AS account_name',
                 'owner_movements.amount_minor', 'owner_movements.description', 'owner_movements.status', 'owner_movements.void_reason'])
             ->map(fn (object $r): array => [

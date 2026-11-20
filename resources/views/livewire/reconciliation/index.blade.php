@@ -15,7 +15,7 @@
     <div class="mb-6 grid gap-3 sm:grid-cols-3">
         <x-stat icon="accounts" label="Accounts" :value="(string) count($overview)" :hint="$neverCounted > 0 ? $neverCounted.' never counted' : 'All counted'" />
         <x-stat icon="warning" label="Unresolved differences" :value="$F::money($unresolved)" :tone="$unresolved !== 0 ? 'warning' : 'success'" />
-        <x-stat icon="books" label="Counts recorded" :value="(string) count($history)" />
+        <x-stat icon="books" label="Counts recorded" :value="(string) $historyTotal" />
     </div>
 
     <h2 class="mb-3 text-sm font-semibold text-content">Where each account stands</h2>
@@ -113,6 +113,7 @@
                         </tr>
                     @endforeach
                 </x-table>
+                <x-step-pager :list="$historyList" :total="$historyTotal" noun="count" newer="newerCounts" older="olderCounts" />
             @endif
         </div>
 

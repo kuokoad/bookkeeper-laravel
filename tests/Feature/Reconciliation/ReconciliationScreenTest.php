@@ -81,3 +81,14 @@ it('voids a count with a reason', function () {
         ->set('reasons.'.$r['reconciliationId'], 'Counted the wrong till')->call('void', $r['reconciliationId'])->assertRedirect('/reconciliation?voided=1');
     expect(DB::table('reconciliations')->value('status'))->toBe('VOIDED');
 });
+
+it('counts every count ever recorded and lets the older ones be reached', function () {
+    for ($day = 0; $day < 101; $day++) {
+        ReconciliationService::createReconciliation(['businessDate' => BusinessDate::addDays($this->today, -$day), 'paymentAccountId' => $this->cash, 'actual' => 0, 'adjust' => false], $this->actor);
+    }
+    $oldest = DB::table('reconciliations')->orderBy('business_date')->value('reconciliation_no');
+
+    $page = countAs($this->ownerId)->assertSee('Showing 1–100 of 101 counts')->assertDontSee($oldest);
+    expect($page->viewData('historyTotal'))->toBe(101);
+    $page->call('olderCounts')->assertSee('Showing 101–101 of 101 counts')->assertSee($oldest);
+});

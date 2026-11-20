@@ -206,3 +206,9 @@ it('narrows who owes you without breaking the ledger check', function () {
         ->assertDontSee('Kofi Mensah</a>', false)->assertDontSee('does not agree with the ledger')
         ->assertSeeHtml('/export/report/receivables?to='.$this->today);
 });
+
+it('offers the who-owes-you file only to somebody the export will not refuse', function () {
+    // The file needs the reports right as well as the accounts one; the page needs only accounts.
+    signedIn(staff(['accounts' => viewOnly()]))->get('/accounting/receivables')->assertOk()->assertDontSee('/export/report/receivables', false);
+    signedIn(staff(['accounts' => viewOnly(), 'reports' => viewOnly()], 'kofi'))->get('/accounting/receivables')->assertOk()->assertSee('/export/report/receivables', false);
+});

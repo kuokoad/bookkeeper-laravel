@@ -12,4 +12,7 @@
     $path = $list !== null ? '/export/list/'.rawurlencode($list) : '/export/report/'.rawurlencode((string) $report);
     $query = \Illuminate\Support\Arr::except($query, ['page']);
 @endphp
-<x-button variant="secondary" size="sm" :href="$path.($query === [] ? '' : '?'.http_build_query($query))" download {{ $attributes }}>Download CSV</x-button>
+{{-- Every report file needs the reports right (ExportController::report), whatever right its page needs: no button that would only be refused. --}}
+@if ($report === null || \Illuminate\Support\Facades\Gate::allows('reports.view'))
+    <x-button variant="secondary" size="sm" :href="$path.($query === [] ? '' : '?'.http_build_query($query))" download {{ $attributes }}>Download CSV</x-button>
+@endif

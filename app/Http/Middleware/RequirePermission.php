@@ -24,7 +24,10 @@ final class RequirePermission
     public function handle(Request $request, Closure $next, string $module, string $action): Response
     {
         if (! Auth::guard('web')->check()) {
-            return $request->expectsJson() ? response('Please sign in.', 401) : redirect()->guest('/login');
+            // Thrown, not returned: on a Livewire update this runs as persistent middleware, which keeps only redirects and exceptions.
+            abort_if($request->expectsJson(), 401, 'Please sign in.');
+
+            return redirect()->guest('/login');
         }
         $area = PermissionModule::from($module);
         if (Gate::forUser(Auth::guard('web')->user())->denies("{$area->value}.{$action}")) {
@@ -32,7 +35,7 @@ final class RequirePermission
                 return redirect('/no-access?area='.rawurlencode($area->value));
             }
 
-            return response('You do not have permission to do that.', 403);
+            abort(403, 'You do not have permission to do that.');
         }
 
         return $next($request);

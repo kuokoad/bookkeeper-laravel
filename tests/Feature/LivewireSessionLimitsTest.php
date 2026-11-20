@@ -76,3 +76,12 @@ it('refuses a Livewire call from an open page once that right has been taken awa
     $this->withSession([Sessions::SIGNED_IN_AT => Carbon::now()->getTimestampMs(), Sessions::FINGERPRINT => Sessions::fingerprint($id)]);
     livewireCall($snapshot)->assertRedirect('/no-access?area=products');
 });
+
+it('refuses that call with a 403 when it asks for JSON, rather than re-rendering the page', function () {
+    $id = staff(['products' => viewOnly()]);
+    $snapshot = openPage($id, Carbon::now());
+
+    DB::table('user_permissions')->where('user_id', $id)->delete();
+    $this->withSession([Sessions::SIGNED_IN_AT => Carbon::now()->getTimestampMs(), Sessions::FINGERPRINT => Sessions::fingerprint($id)]);
+    livewireCall($snapshot, ['X-Requested-With' => 'XMLHttpRequest'])->assertForbidden();
+});

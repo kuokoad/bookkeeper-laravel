@@ -30,7 +30,7 @@ final class RestoreCommand extends Command
             $this->warn('This replaces every record in the shop with the contents of that backup.');
             $this->line("  from: {$file}");
             $this->line("  to:   the MySQL database {$database}");
-            $this->line('The backup is checked first, and the books being replaced are backed up before anything changes.');
+            $this->line('The books being replaced are backed up first, then the backup is checked, before anything changes.');
             $this->line('Re-run with --force if that is what you want.');
 
             return self::FAILURE;

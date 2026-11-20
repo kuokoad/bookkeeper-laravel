@@ -284,11 +284,16 @@ it('refuses a backup file that is not a usable database, and one whose books do 
     $junk = $this->dir.DIRECTORY_SEPARATOR.'junk.sql.gz';
     file_put_contents($junk, gzencode('this is not a database'));
 
+    // Its own folder for the safety copies, not the developer's real backup folder.
+    $safetyDir = $this->dir.DIRECTORY_SEPARATOR.'safety';
     foreach ([$tampered, $junk] as $bad) {
-        $restore = nuna(BACKUP_SOURCE, 'nuna:restore', $bad, '--force');
+        $restore = Process::env(['DB_DATABASE' => BACKUP_SOURCE, 'APP_ENV' => 'testing', 'NUNA_BACKUP_DIR' => $safetyDir])
+            ->path(base_path())->timeout(600)->run([PHP_BINARY, 'artisan', 'nuna:restore', $bad, '--force']);
         expect($restore->successful())->toBeFalse()
-            ->and($restore->output())->toContain('nothing was changed');
+            ->and($restore->output())->toContain('the books were not replaced');
     }
+    array_map('unlink', glob($safetyDir.DIRECTORY_SEPARATOR.'*'));
+    rmdir($safetyDir);
     expect(figures('source')['trialBalance']['balanced'])->toBeTrue()
         ->and(DB::connection('source')->table('journal_entries')->count())->toBeGreaterThan(0);
 });

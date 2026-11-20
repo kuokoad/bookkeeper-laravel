@@ -157,7 +157,10 @@ final class BackupService
         try {
             [$entries, $triggers] = self::withScratchCopy($file, fn (): array => [self::assertSound(), self::triggers((string) DB::getDatabaseName())]);
         } catch (Throwable $e) {
-            throw new RuntimeException('That backup cannot be used, so nothing was changed: '.$e->getMessage().($safety === null ? '' : ". A copy of the live books as they were before the file was read is at {$safety}."), 0, $e);
+            // Not "nothing was changed" once there are books: a tampered file can write to them while it is being checked.
+            throw new RuntimeException($safety === null
+                ? 'That backup cannot be used, so nothing was changed: '.$e->getMessage()
+                : 'That backup cannot be used, so the books were not replaced: '.$e->getMessage().". A copy of the books as they were before the file was read is at {$safety}; delete it once you have seen that today's figures are as you left them.", 0, $e);
         }
 
         $database = $live['database'];

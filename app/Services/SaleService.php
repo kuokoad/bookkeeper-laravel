@@ -514,6 +514,20 @@ final class SaleService
      */
     private static function replayOf(object $existing, array $input): array
     {
+        // The reply to the first attempt was lost and the cart changed since: answering with the
+        // first receipt would hand over the added goods unbilled. Tender may differ; the goods may not.
+        // shortcut: compares stock items and quantities only, add prices and discounts if a changed price must be refused too.
+        $stored = DB::table('sale_items')->where('sale_items.sale_id', $existing->id)->orderBy('sale_items.line_no')
+            ->get(['product_id', 'qty_milli', 'entry_qty_milli'])
+            ->map(fn (object $i): array => [(int) $i->product_id, (int) ($i->entry_qty_milli ?? $i->qty_milli)])->all();
+        $sent = array_map(fn (array $i): array => [(int) $i['productId'], (int) $i['qty']], array_values($input['items']));
+        if ($stored !== $sent) {
+            throw new ConflictError(
+                "This cart was already saved as {$existing->receipt_no} before it was changed. Check that receipt, take off the items it already covers, then charge what is left as a new sale.",
+                ['alreadySavedAs' => $existing->receipt_no],
+            );
+        }
+
         $total = (int) $existing->total_minor;
         $tendered = (int) DB::table('sale_payments')->where('sale_id', $existing->id)->sum('amount_minor');
 

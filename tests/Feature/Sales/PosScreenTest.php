@@ -64,6 +64,21 @@ it('completes a cash sale, gives change and starts a new cart', function () {
         ->assertSet('lines', [])->assertSet('salesCompleted', 1);
 });
 
+it('tells the cashier a cart was already saved when the reply was lost and an item was added, and lets the rest be charged', function () {
+    $till = tillAs($this->ownerId)->call('add', $this->rice);
+    // The sale saved, but the reply never reached the till: the cart is still on screen.
+    $first = SaleService::createSale([
+        'businessDate' => Clock::today(),
+        'items' => [['productId' => $this->rice, 'qty' => 1_000]],
+        'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 1_000]],
+        'clientRef' => $till->get('cartSeed').'-0',
+    ], $this->actor);
+
+    $till->call('add', $this->rice)->set('tenderAmount', '20')->call('complete')
+        ->assertHasErrors(['form'])->assertSee($first['receiptNo'])->assertSet('salesCompleted', 1);
+    expect(DB::table('sales')->count())->toBe(1);
+});
+
 it('says what a part-paid sale left on the customer account, not "Payment received in full."', function () {
     $adwoa = Shop::customer($this->actor, 'Adwoa Mensah');
     $product = Shop::product($this->actor, 'Gari 5kg', 2_000, 5_000);

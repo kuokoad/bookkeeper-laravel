@@ -9,6 +9,7 @@ declare(strict_types=1);
 */
 
 use App\Domain\Accounting\ChartOfAccounts;
+use App\Domain\Errors\ConflictError;
 use App\Services\CatalogService;
 use App\Services\SaleService;
 use Illuminate\Database\QueryException;
@@ -37,6 +38,15 @@ describe('the same cart submitted twice', function () {
         ($this->sell)('cart-abc-123');
         ($this->sell)('cart-abc-123');
         expect(DB::table('sales')->count())->toBe($before + 1);
+    });
+
+    it('refuses a cart changed since it was saved, naming the receipt, so the added goods are not handed over unbilled', function () {
+        $first = ($this->sell)('cart-abc-123');
+
+        expect(fn () => ($this->sell)('cart-abc-123', 1_600, 2_000))
+            ->toThrow(ConflictError::class, $first['receiptNo']);
+        expect(DB::table('sales')->count())->toBe(1)
+            ->and(Shop::productRow($this->product)->qty_on_hand_milli)->toBe(9_000);
     });
 
     it('returns the same receipt both times', function () {

@@ -450,6 +450,10 @@ final class Pos extends Component
             return;
         } catch (DomainError $e) {
             $this->addError('form', $e->userMessage);
+            // The cart on screen is no longer the saved sale, so what is left of it is a new one.
+            if (isset($e->details['alreadySavedAs'])) {
+                $this->salesCompleted++;
+            }
 
             return;
         }

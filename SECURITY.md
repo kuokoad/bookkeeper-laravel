@@ -1,8 +1,10 @@
 # Security Policy
 
-> Status: **planned**. This describes the security model the Laravel rebuild must
-> keep from the old app (`C:\ClaudeProjects\bookkeeper`). Nothing here is
-> implemented yet. Last updated: 2026-11-05.
+> Status: **implemented**, except where a line below says planned, open or TBD.
+> This is the security model the Laravel rebuild keeps from the old app
+> (`C:\ClaudeProjects\bookkeeper`), with the departures from it marked. Still to
+> do before cut-over: the backup-restore rehearsal on the shop's real data.
+> Last updated: 2026-11-20.
 
 ## Reporting a vulnerability
 Contact: **TBD**. Please do not open public issues for vulnerabilities.
@@ -32,7 +34,9 @@ The app runs on the shop's own Windows PC and is reached over the shop WiFi on p
 **Credentials** (carried over exactly from `src/lib/auth/`):
 - Password: 8 to 200 characters. Refuse a short list of common passwords (password, password1, password123, 12345678, 123456789, qwerty123, shop1234, admin123, letmein1, welcome1) and a single repeated character. NFKC-normalise before hashing and verifying.
 - Till PIN: 4 to 8 digits. Refuse all-same digits and a PIN that starts with a simple run (0123, 1234 … 3210). It is a second credential for the same account and shares one throttle and one lockout counter with the password.
-- Lockout: 5 failed sign-ins lock the account for 15 minutes; an owner can unlock it. Throttle: 10 attempts per 10 minutes on one shop-wide key (`login:shared`), or per client IP only when proxy headers are trusted. Counters must survive a restart, so they are stored in the database.
+- Lockout (staff): 5 failed sign-ins lock the account for 15 minutes; an owner can unlock it. Each further 5 failures double the lock, up to 24 hours, and the count is forgotten a day after the last lock ended (the old app started again at 15 minutes every time). An attempt made while a lock is running is not counted.
+- Owners are never locked out: from the fifth failure in a row each attempt waits, doubling up to 60 seconds, and one attempt is checked per wait.
+- Throttle: 10 attempts per 10 minutes per typed username, under a looser ceiling of 50 on one shop-wide key (per client IP only when proxy headers are trusted). Counters must survive a restart, so they are stored in the database.
 - Error text is identical for every failure: "Incorrect username or password." / "Incorrect username or PIN."
 - Sessions: 7-day idle expiry that slides forward when less than 24 h remains, and a hard limit of 30 days from sign-in. Cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` only when `SESSION_SECURE_COOKIE=true` (default off on the LAN).
 - `must_change_password`: after an owner resets a password, every page except the password-change screen redirects there.
@@ -45,7 +49,7 @@ The app runs on the shop's own Windows PC and is reached over the shop WiFi on p
 - Dashboard, search, help and the password-change screen need only a session.
 - Two answers to a refusal, one decision: pages redirect to `/no-access?area=<known module>`; actions and API routes return 403. Hiding a menu link is a courtesy, not the control.
 - Users are switched off, never deleted. The last active owner cannot be switched off or demoted, and nobody can switch off themselves. Role checks for owner-only actions read the role from the database, not from the session.
-- Backdating a sale needs sales `edit`. Downloading a backup needs settings `edit`. Updates are owner-only.
+- Backdating a sale needs sales `edit`. Handing money back on a customer return needs sales `void`. Downloading a backup needs settings `edit`. Updates are owner-only.
 
 **Other controls:** CSRF protection on every form (Laravel default); all input validated server-side (Form Requests or service-level validation); Eloquent / query-builder bindings for every value; sort keys whitelisted before they reach `ORDER BY`; Blade escapes output; per-user throttles on exports (30/min), backups (6/5 min) and search (240/min).
 
@@ -65,8 +69,10 @@ The app runs on the shop's own Windows PC and is reached over the shop WiFi on p
 | Risk | Mitigation | Status |
 |---|---|---|
 | Plain HTTP on the shop LAN | LAN only, firewall rule limited to the private network, `Secure` cookies when HTTPS is added | Open (same as old app) |
-| One PC holds all the data | Verified `mysqldump` backups, copied off the machine; restore tested | Planned |
-| Legacy scrypt verifier is custom code | Tested against RFC 7914 and real old-app hashes; used only until each user's first sign-in | Planned |
-| MySQL root password on the shop PC | Random at install, kept out of the app; app uses a least-privilege user | Planned |
-| Two tills writing at once (new risk with MySQL) | Row locks on stock, sequences and balances; tested with two concurrent connections | Planned |
-| Login throttle is one shop-wide bucket | Same as the old app; per-IP needs trusted proxy headers | Accepted |
+| One PC holds all the data | Verified `mysqldump` backups, copied off the machine; restore tested in the test suite. A restore copies the live books first | In place; rehearsal on the real data still to do |
+| A backup file from outside (a USB stick) | The file is loaded into a scratch database and checked before it replaces anything, but it is not signed: a tampered file can still run statements while it is checked. Restore only files this shop made | Open |
+| Legacy scrypt verifier is custom code | Tested against RFC 7914 and real old-app hashes; used only until each user's first sign-in | In place |
+| MySQL root password on the shop PC | Random at install, kept out of the app; app uses a least-privilege user. The installer restricts the app folder to Administrators and SYSTEM before it writes `.env` | In place |
+| Two tills writing at once (new risk with MySQL) | Row locks on stock, sequences and balances; tested with concurrent processes | In place |
+| A staff account locked by somebody else's wrong guesses | The lock doubles on repeats, so a colleague who knows a username can keep it locked; an owner can unlock it | Accepted |
+| Login throttle has a shop-wide ceiling | Per username first; per-IP needs trusted proxy headers | Accepted |

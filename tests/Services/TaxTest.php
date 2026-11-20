@@ -121,6 +121,10 @@ describe('edits that would make the books unfileable', function () {
         TaxService::create(levy(['glAccountId' => Shop::accountId(ChartOfAccounts::SALES_REVENUE)]), $this->actor);
     })->throws(ValidationError::class, 'liability account');
 
+    it('refuses to hold tax in Accounts Payable, which the balance sheet reads as owed to suppliers', function () {
+        TaxService::create(levy(['glAccountId' => Shop::accountId(ChartOfAccounts::ACCOUNTS_PAYABLE)]), $this->actor);
+    })->throws(ValidationError::class, 'owed to suppliers');
+
     it('refuses a duplicate code, including one typed in lowercase, or renamed onto another', function () {
         expect(fn () => TaxService::create(levy(['code' => 'VAT']), $this->actor))->toThrow(ConflictError::class, 'already exists')
             ->and(fn () => TaxService::create(levy(['code' => 'vat']), $this->actor))->toThrow(ConflictError::class, 'already exists')
@@ -187,6 +191,7 @@ describe('what the settings screen shows', function () {
         $codes = TaxService::holdingAccounts()->pluck('code')->all();
         expect($codes)->toContain(ChartOfAccounts::TAX_PAYABLE, ChartOfAccounts::NHIL_PAYABLE, ChartOfAccounts::GETFUND_PAYABLE)
             ->and($codes)->not->toContain(ChartOfAccounts::SALES_REVENUE)
+            ->and($codes)->not->toContain(ChartOfAccounts::ACCOUNTS_PAYABLE)
             ->and($codes)->not->toContain(ChartOfAccounts::CASH)
             ->and($codes)->not->toContain(ChartOfAccounts::INVENTORY);
     });

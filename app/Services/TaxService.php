@@ -180,7 +180,11 @@ final class TaxService
         return TaxComponents::totalRateBp(self::activeRows()->map(self::component(...))->all());
     }
 
-    /** Active liability accounts that are not headings: where a tax may be held. */
+    /**
+     * Active liability accounts that are not headings: where a tax may be held.
+     * Never Accounts Payable: the balance sheet reads that account as what is
+     * owed to suppliers, line by supplier, so tax held there would drop out of it.
+     */
     public static function holdingAccounts(): Collection
     {
         $headings = DB::table('accounts')->whereNotNull('parent_id')->distinct()->pluck('parent_id')->map(fn ($id): int => (int) $id)->all();
@@ -188,6 +192,7 @@ final class TaxService
         return DB::table('accounts')
             ->where('type', AccountType::Liability->value)
             ->where('is_active', true)
+            ->where('code', '!=', ChartOfAccounts::ACCOUNTS_PAYABLE)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
             ->reject(fn (object $a): bool => in_array((int) $a->id, $headings, true))
@@ -390,7 +395,7 @@ final class TaxService
 
     private static function assertHoldingAccount(int $glAccountId): void
     {
-        $account = DB::table('accounts')->where('id', $glAccountId)->first(['type', 'is_active', 'name']);
+        $account = DB::table('accounts')->where('id', $glAccountId)->first(['type', 'is_active', 'name', 'code']);
         if ($account === null) {
             throw new NotFoundError('Account', $glAccountId);
         }
@@ -399,6 +404,9 @@ final class TaxService
         }
         if (! $account->is_active) {
             throw new ValidationError("\"{$account->name}\" is archived, so tax cannot be held in it.", ['glAccountId' => $glAccountId]);
+        }
+        if ($account->code === ChartOfAccounts::ACCOUNTS_PAYABLE) {
+            throw new ValidationError("\"{$account->name}\" holds what is owed to suppliers, so tax cannot be held in it. Choose a tax account.", ['glAccountId' => $glAccountId]);
         }
     }
 

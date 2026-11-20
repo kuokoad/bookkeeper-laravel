@@ -92,6 +92,22 @@ describe('reading a price list', function () {
         expect(Spreadsheet::read('a.xlsx', $crafted))->toBe([['name']]);
     });
 
+    it('still reads a cell in the last column Excel has', function () {
+        $rows = Spreadsheet::read('a.xlsx', sheetWorkbook('<worksheet><sheetData><row r="1"><c r="XFD1" t="inlineStr"><is><t>far right</t></is></c></row></sheetData></worksheet>'));
+        expect($rows)->toHaveCount(1)->and($rows[0])->toHaveCount(16_384)->and($rows[0][16_383])->toBe('far right');
+    });
+
+    it('refuses a sparse sheet that would fill out to far more cells than an import can hold', function () {
+        $wide = '';
+        for ($r = 1; $r <= 500; $r++) {
+            $wide .= "<row r=\"{$r}\"><c r=\"XFD{$r}\" t=\"inlineStr\"><is><t>x</t></is></c></row>";
+        }
+        $tall = '<row r="1048576"><c r="A1048576" t="inlineStr"><is><t>x</t></is></c></row>';
+
+        expect(fn () => Spreadsheet::read('a.xlsx', sheetWorkbook("<worksheet><sheetData>{$wide}</sheetData></worksheet>")))->toThrow(ValidationError::class, 'too large')
+            ->and(fn () => Spreadsheet::read('a.xlsx', sheetWorkbook("<worksheet><sheetData>{$tall}</sheetData></worksheet>")))->toThrow(ValidationError::class, 'too large');
+    });
+
     it('refuses a file that is not .xlsx or .csv, or is not really a workbook', function () {
         expect(fn () => Spreadsheet::read('old.xls', str_repeat("\0", 10)))->toThrow(ValidationError::class)
             ->and(fn () => Spreadsheet::read('fake.xlsx', 'not a zip'))->toThrow(ValidationError::class);

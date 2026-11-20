@@ -24,6 +24,11 @@ final class Spreadsheet
     /** An .xlsx is a zip of XML. A file that unpacks past this is not a price list. */
     private const MAX_UNPACKED_BYTES = 20 * 1024 * 1024;
 
+    /** What a sheet may fill out to once its gaps are padded: far above any import, far below what exhausts memory. */
+    private const MAX_ROWS = 100_000;
+
+    private const MAX_CELLS = 1_000_000;
+
     /** @return list<list<string>> */
     public static function read(string $fileName, string $bytes): array
     {
@@ -272,6 +277,11 @@ final class Spreadsheet
         return $column > 16_384 ? null : ['column' => $column - 1, 'row' => (int) $m[2]];
     }
 
+    private static function tooLarge(): ValidationError
+    {
+        return new ValidationError('That sheet is too large to read. Keep it to the rows and columns that hold data, with nothing far below or to the right.');
+    }
+
     private static function first(Generator $items): ?array
     {
         return $items->valid() ? $items->current() : null;
@@ -339,10 +349,18 @@ final class Spreadsheet
         }
 
         // Fill the holes a sparse sheet leaves, so every row is a plain list of text.
+        // Capped first: a few cells far apart would otherwise fill out to millions (the import takes far fewer).
+        if ($lastRow > self::MAX_ROWS) {
+            throw self::tooLarge();
+        }
         $result = [];
+        $built = 0;
         for ($r = 0; $r < $lastRow; $r++) {
             $cells = $rows[$r] ?? [];
             $width = $cells === [] ? 0 : max(array_keys($cells)) + 1;
+            if (($built += $width) > self::MAX_CELLS) {
+                throw self::tooLarge();
+            }
             $line = [];
             for ($c = 0; $c < $width; $c++) {
                 $line[] = $cells[$c] ?? '';

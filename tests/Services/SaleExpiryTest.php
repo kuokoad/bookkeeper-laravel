@@ -171,6 +171,27 @@ describe('when somebody senior says yes', function () {
         ($this->expectHealthy)('edited expired sale');
     });
 
+    it('records it on a backdated sale of a crate that expired after the sale date', function () {
+        // The till judges a backdated sale's stock as it stands today (expiryAsAt), so the record must too.
+        $milk = ($this->make)();
+        ($this->deliver)($milk, 20, EXPIRY_SOON);
+
+        $sale = SaleService::createSale([
+            'businessDate' => EXPIRY_TODAY,
+            'items' => [['productId' => $milk, 'qty' => 5_000]],
+            'tenders' => [['paymentAccountId' => $this->cash, 'amount' => 2_500]],
+            'allowExpiredStock' => true,
+            'overrideReason' => 'Customer was told and still wanted it',
+            'expiryAsAt' => '2026-09-15',
+            'arrivedBy' => EXPIRY_TODAY,
+        ], $this->actor);
+
+        $rows = ($this->overrides)();
+        expect($rows)->toHaveCount(1)
+            ->and($rows->first()->entity_id)->toBe((string) $sale['saleId'])
+            ->and(json_decode($rows->first()->metadata, true)['batchRefs'])->toHaveCount(1);
+    });
+
     it('leaves no override row behind on an ordinary sale', function () {
         $milk = ($this->make)();
         ($this->deliver)($milk, 20, EXPIRY_GONE);

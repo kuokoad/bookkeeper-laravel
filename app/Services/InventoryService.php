@@ -412,9 +412,11 @@ final class InventoryService
     }
 
     /**
-     * Which of these batches had passed their date on the day of the
-     * movement. Only a movement given the right can have used it, so the
-     * ordinary till returns before touching the database.
+     * Which of these batches had passed their date on the day the picking
+     * judged them by: the day of the movement, or today for a backdated sale
+     * (expiryAsAt), which is the day somebody had to say yes. Only a movement
+     * given the right can have used it, so the ordinary till returns before
+     * touching the database.
      */
     private static function expiredRefsAmong(array $input, array $allocations): array
     {
@@ -423,11 +425,12 @@ final class InventoryService
         if (! $approved || $allocations === []) {
             return [];
         }
+        $asAt = $directive['expiryAsAt'] ?? $input['businessDate'];
         $dates = DB::table('product_batches')->where('product_batches.product_id', $input['productId'])->pluck('expiry_date', 'id')->all();
 
         return array_values(array_map(
             fn (array $a): string => $a['batchRef'],
-            array_filter($allocations, fn (array $a): bool => ($dates[$a['batchId']] ?? null) !== null && $dates[$a['batchId']] < $input['businessDate']),
+            array_filter($allocations, fn (array $a): bool => ($dates[$a['batchId']] ?? null) !== null && $dates[$a['batchId']] < $asAt),
         ));
     }
 

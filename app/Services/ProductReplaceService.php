@@ -201,16 +201,17 @@ final class ProductReplaceService
      * stock over (followed to the last one), the quantity in its units, and the
      * crate the move put them in. Null when the product was not replaced, or
      * still holds what is asked for. Refused for a day before the replacement,
-     * when the goods were not on it yet.
+     * when the goods were not on it yet. Goods coming back ($incoming: a
+     * customer return, a voided sale) always go to the replacement.
      * shortcut: the whole line moves to the replacement, never split with stock
      * an edited sale left on the old product. Upgrade if a shop ever needs both.
      *
      * @return array{productId: int, qty: int, batches: list<array>}|null
      */
-    public static function replacementHolding(int $productId, int $qty, string $businessDate): ?array
+    public static function replacementHolding(int $productId, int $qty, string $businessDate, bool $incoming = false): ?array
     {
         $product = DB::table('products')->where('id', $productId)->first(['name', 'is_active', 'qty_on_hand_milli']) ?? throw new NotFoundError('Stock item', $productId);
-        if ($product->is_active || (int) $product->qty_on_hand_milli >= $qty) {
+        if ($product->is_active || (! $incoming && (int) $product->qty_on_hand_milli >= $qty)) {
             return null;
         }
         $id = $productId;

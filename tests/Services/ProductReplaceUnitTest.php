@@ -464,6 +464,58 @@ describe('replacing a product to change its units', function () {
             ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(100_000);
     });
 
+    it('puts goods a customer brings back onto the replacement, not the archived product', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        ($this->stockIn)($oldId, 5, 30_000);
+        $saleId = SaleService::createSale(['businessDate' => REPLACE_TODAY, 'items' => [['productId' => $oldId, 'qty' => 2_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 14_400]]], $this->actor)['saleId'];
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'altUnit' => 'Carton', 'altFactor' => 50_000, 'costPrice' => 120, 'sellingPrice' => 150], 150)['productId'];
+
+        ReturnsService::createCustomerReturn($saleId, [
+            'businessDate' => REPLACE_TODAY,
+            'items' => [['itemId' => SaleService::getSale($saleId)['items'][0]['id'], 'qty' => 1_000]],
+            'refunds' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 7_200]],
+        ], $this->actor);
+
+        // One carton back is 50 tins on the live product, at what the carton cost.
+        expect(($this->row)($newId)->qty_on_hand_milli)->toBe(200_000)
+            ->and(($this->row)($newId)->stock_value_minor)->toBe(24_000)
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(($this->row)($oldId)->stock_value_minor)->toBe(0)
+            ->and(Shop::balance(ChartOfAccounts::INVENTORY))->toBe(24_000)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
+    it('puts the goods of a voided sale onto the replacement, not the archived product', function () {
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        ($this->stockIn)($oldId, 5, 30_000);
+        $saleId = SaleService::createSale(['businessDate' => REPLACE_TODAY, 'items' => [['productId' => $oldId, 'qty' => 2_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 14_400]]], $this->actor)['saleId'];
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'altUnit' => 'Carton', 'altFactor' => 50_000, 'costPrice' => 120, 'sellingPrice' => 150], 150)['productId'];
+
+        SaleService::voidSale($saleId, 'rung up by mistake', $this->actor);
+
+        expect(($this->row)($newId)->qty_on_hand_milli)->toBe(250_000)
+            ->and(($this->row)($newId)->stock_value_minor)->toBe(30_000)
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(Shop::balance(ChartOfAccounts::INVENTORY))->toBe(30_000)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
+    it('refuses to void a stock-in on a product since replaced, which would leave the archived product below zero', function () {
+        Shop::setting('allow_negative_stock', true);
+        $oldId = ($this->create)();
+        $adjustment = StockAdjustmentService::createStockAdjustment([
+            'businessDate' => REPLACE_TODAY,
+            'reason' => AdjustmentReason::CountCorrection,
+            'items' => [['productId' => $oldId, 'direction' => 'IN', 'qty' => 10_000, 'totalCost' => 5_000]],
+        ], $this->actor);
+        $newId = ($this->replace)($oldId, $this->milo24, 10)['productId'];
+
+        expect(fn () => StockAdjustmentService::voidStockAdjustment($adjustment['adjustmentId'], 'counted twice', $this->actor))
+            ->toThrow(ValidationError::class, 'replaced')
+            ->and(($this->row)($oldId)->qty_on_hand_milli)->toBe(0)
+            ->and(($this->row)($newId)->qty_on_hand_milli)->toBe(10_000);
+    });
+
     it('will not restore a replaced product, which would split its stock across two', function () {
         $oldId = ($this->create)();
         ($this->stockIn)($oldId, 10, 5_000);

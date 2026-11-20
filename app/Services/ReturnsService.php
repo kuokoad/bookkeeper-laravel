@@ -59,7 +59,7 @@ final class ReturnsService
             $isDemo = $input['isDemo'] ?? false;
 
             // Lock order (Tx): products, the customer, then the sale and its lines.
-            InventoryService::lockProducts(DB::table('sale_items')->where('sale_items.sale_id', $originalSaleId)->pluck('product_id')->all());
+            ProductReplaceService::lockWithReplacements(DB::table('sale_items')->where('sale_items.sale_id', $originalSaleId)->pluck('product_id')->all());
             $customerId = DB::table('sales')->where('id', $originalSaleId)->value('customer_id');
             if ($customerId !== null) {
                 CustomerService::lockCustomer((int) $customerId);
@@ -203,13 +203,16 @@ final class ReturnsService
                 $tracked = (bool) DB::table('products')->where('id', $item->product_id)->value('track_inventory');
                 // D27: always back on the shelf, even at no cost (stockIn takes a zero).
                 if ($tracked) {
-                    $cameFrom = self::notYetReturned($soldFrom[(int) $item->id] ?? null, 'sales', 'returns_sale_id', $originalSaleId, 'SALE_RETURN', (int) $item->product_id, $line['request']['qty']);
+                    // Its units changed since: the goods go onto the product that replaced it, in its units.
+                    $holder = ProductReplaceService::replacementHolding((int) $item->product_id, $line['request']['qty'], $input['businessDate'], true);
+                    $cameFrom = $holder !== null ? ($holder['batches'] ?: null) : self::notYetReturned($soldFrom[(int) $item->id] ?? null, 'sales', 'returns_sale_id', $originalSaleId, 'SALE_RETURN', (int) $item->product_id, $line['request']['qty']);
                     $movement = InventoryService::recordStockMovement([
-                        'productId' => (int) $item->product_id,
+                        'productId' => $holder['productId'] ?? (int) $item->product_id,
                         'direction' => 'IN',
-                        'qty' => $line['request']['qty'],
+                        'qty' => $holder['qty'] ?? $line['request']['qty'],
                         'totalCost' => $line['costShare'],
-                        'cancels' => $line['cancels'],
+                        // What the sale took below zero was on the old product, in its units.
+                        'cancels' => $holder === null ? $line['cancels'] : ['qty' => 0, 'cost' => 0],
                         ...($cameFrom === null ? [] : ['batch' => ['kind' => 'SOURCE', 'allocations' => $cameFrom]]),
                         'movementType' => MovementType::SaleReturn,
                         'sourceType' => 'SALE_RETURN',

@@ -212,6 +212,10 @@ final class StockAdjustmentService
                 // side is an exact reversal, so an average-costed removal would
                 // make the two counts of inventory disagree.
                 $opposite = $item->direction === 'IN' ? 'OUT' : 'IN';
+                // Its goods are on the product that replaced it: taking them off this one would leave it below zero.
+                if ($opposite === 'OUT' && ($holder = ProductReplaceService::replacementHolding((int) $item->product_id, (int) $item->qty_milli, $businessDate)) !== null) {
+                    throw new ValidationError("{$original->adjustment_no} brought goods in on a stock item that was replaced by stock item #{$holder['productId']} since, which holds them now. Take them off that stock item with a stock adjustment instead.");
+                }
                 $moved = InventoryService::recordStockMovement([
                     'productId' => (int) $item->product_id,
                     'direction' => $opposite,

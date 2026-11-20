@@ -544,7 +544,7 @@ final class SaleService
 
         return Tx::run(function () use ($saleId, $why, $actor, $now): array {
             // Lock order (Tx): products, the customer whose receivable changes, then the sale.
-            InventoryService::lockProducts(DB::table('sale_items')->where('sale_items.sale_id', $saleId)->pluck('product_id')->all());
+            ProductReplaceService::lockWithReplacements(DB::table('sale_items')->where('sale_items.sale_id', $saleId)->pluck('product_id')->all());
             $customerId = DB::table('sales')->where('id', $saleId)->value('customer_id');
             if ($customerId !== null) {
                 CustomerService::lockCustomer((int) $customerId);
@@ -627,13 +627,18 @@ final class SaleService
                 $productId = (int) $item->product_id;
                 if (DB::table('products')->where('id', $productId)->value('track_inventory')) {
                     $cameFrom = array_shift($soldFrom[$productId]);
+                    $cancels = array_shift($oversold[$productId]) ?? ['qty' => 0, 'cost' => 0];
+                    // Its units changed since: the goods go onto the product that replaced it, in its units.
+                    $holder = ProductReplaceService::replacementHolding($productId, (int) $item->qty_milli, $businessDate, true);
+                    $cameFrom = $holder['batches'] ?? $cameFrom;
                     $movement = InventoryService::recordStockMovement([
-                        'productId' => $productId,
+                        'productId' => $holder['productId'] ?? $productId,
                         'direction' => 'IN',
-                        'qty' => (int) $item->qty_milli,
+                        'qty' => $holder['qty'] ?? (int) $item->qty_milli,
                         // Back at the ORIGINAL cost, from the line snapshot.
                         'totalCost' => (int) $item->total_cost_minor,
-                        'cancels' => array_shift($oversold[$productId]) ?? ['qty' => 0, 'cost' => 0],
+                        // What the sale took below zero was on the old product, in its units.
+                        'cancels' => $holder === null ? $cancels : ['qty' => 0, 'cost' => 0],
                         'movementType' => MovementType::SaleReturn,
                         'sourceType' => 'SALE_VOID',
                         'sourceId' => $reversalId,

@@ -40,8 +40,11 @@ final class AuthService
     /** Consecutive failures before a staff account is locked, or an owner's attempts are slowed (D16). */
     public const MAX_FAILED_LOGINS = 5;
 
-    /** How long a staff lock lasts: long enough to stop guessing, short enough to trade. */
+    /** The first staff lock: long enough to stop guessing, short enough to trade. Each repeat doubles, up to LOCKOUT_FORGET_HOURS. */
     public const LOCKOUT_MINUTES = 15;
+
+    /** Only stops the doubling shift overflowing; the day's cap is reached well before it. */
+    private const MAX_LOCKOUT_DOUBLINGS = 10;
 
     /** The longest a staff lock grows to, and how long after a lock ends the earlier ones stop counting. */
     public const LOCKOUT_FORGET_HOURS = 24;
@@ -346,22 +349,27 @@ final class AuthService
                 // forgotten, or one slip a month later would lock for hours.
                 // Not an owner's: their count runs on, for the delay and the notice at their next sign-in.
                 $lockedUntil = $current?->locked_until === null ? null : Clock::fromStamp($current->locked_until);
+                // An attempt refused before the lock was looked at (a PIN tried on an account with none) must not
+                // count while the lock runs, or the lock could be stretched to a day without one guess being checked.
+                $lockRunning = ! $owner && $lockedUntil !== null && $lockedUntil->greaterThan($now);
                 $forgotten = ! $owner && $lockedUntil !== null && $lockedUntil->copy()->addHours(self::LOCKOUT_FORGET_HOURS)->lessThanOrEqualTo($now);
                 $failed = ($forgotten ? 0 : (int) ($current->failed_login_count ?? 0)) + 1;
                 $lockouts = intdiv($failed, self::MAX_FAILED_LOGINS);
                 // An owner's locked_until is only the end of a short delay, never a lock.
                 $until = match (true) {
                     $owner => $failed < self::MAX_FAILED_LOGINS ? null : $now->copy()->addSeconds(self::ownerDelaySeconds($failed)),
-                    $failed % self::MAX_FAILED_LOGINS === 0 => $now->copy()->addMinutes(min(self::LOCKOUT_FORGET_HOURS * 60, self::LOCKOUT_MINUTES << min($lockouts - 1, 10))),
+                    $failed % self::MAX_FAILED_LOGINS === 0 => $now->copy()->addMinutes(min(self::LOCKOUT_FORGET_HOURS * 60, self::LOCKOUT_MINUTES << min($lockouts - 1, self::MAX_LOCKOUT_DOUBLINGS))),
                     // Kept after it has passed: it is how the next failure knows how long ago the last lock ended.
                     default => $forgotten ? null : $lockedUntil,
                 };
 
-                DB::table('users')->where('users.id', $userId)->update([
-                    'failed_login_count' => $failed,
-                    'locked_until' => $until === null ? null : Clock::stamp($until),
-                    'updated_at' => Clock::stamp($now),
-                ]);
+                if (! $lockRunning) {
+                    DB::table('users')->where('users.id', $userId)->update([
+                        'failed_login_count' => $failed,
+                        'locked_until' => $until === null ? null : Clock::stamp($until),
+                        'updated_at' => Clock::stamp($now),
+                    ]);
+                }
             }
 
             // The attempted password is never recorded.

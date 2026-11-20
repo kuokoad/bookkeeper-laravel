@@ -183,8 +183,21 @@ describe('after a lockout has been served', function () {
     });
 
     it('gives back a full set of attempts, not one', function () {
-        signIn('ama', 'wrong-again', $this->after);
-        expect(signIn('ama', 'wrong-again', $this->after)['reason'])->toBe('INVALID_CREDENTIALS');
+        for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS - 1; $i++) {
+            expect(signIn('ama', 'wrong-again', $this->after)['reason'])->toBe('INVALID_CREDENTIALS');
+        }
+        expect(signIn('ama', STAFF_INPUT['password'], $this->after)['ok'])->toBeTrue();
+    });
+
+    it('does not count attempts made while the lock is running, so nobody can stretch it without a single guess being checked', function () {
+        // Ama has no PIN, so a PIN attempt is refused before the lock is looked at.
+        $during = $this->start->copy()->addMinutes(5);
+        for ($i = 0; $i < 20; $i++) {
+            AuthService::loginWithPin('ama', '8351', now: $during);
+        }
+        $user = userRow('ama');
+        expect((int) $user->failed_login_count)->toBe(AuthService::MAX_FAILED_LOGINS)
+            ->and($user->locked_until)->toBe(Clock::stamp($this->start->copy()->addMinutes(15)));
     });
 
     it('locks for twice as long each time the guessing carries on, up to a day', function () {

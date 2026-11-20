@@ -234,7 +234,7 @@ final class Pos extends Component
             }
         }
 
-        $dates = InventoryService::getExpiryOutlook(Clock::today())[$product['id']] ?? null;
+        $dates = InventoryService::getExpiryOutlook(Clock::today(), (int) $product['id'])[$product['id']] ?? null;
         // Past every line on screen, so a cart put back after a sign-in ended (keep-form.js) is never overwritten.
         $this->nextKey = max($this->nextKey, 1 + max([0, ...array_keys($this->lines)]));
         $this->lines[$this->nextKey++] = [

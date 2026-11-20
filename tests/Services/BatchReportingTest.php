@@ -280,3 +280,16 @@ it('keeps kilograms and tins apart in the expiry ageing instead of adding them u
     $later = collect(InventoryService::getExpiryAgeing(REPORTING_TODAY))->firstWhere('bucket', 'later');
     expect($later['byUnit'])->toBe(['kg' => 12_500, 'tin' => 30_000]);
 });
+
+it('reads the expiry outlook of one product without the rest of the shop, for the till adding a line', function () {
+    $rice = Shop::product($this->actor, 'Rice 5kg', 1_000, 3_000);
+    $beans = Shop::product($this->actor, 'Beans 5kg', 1_000, 3_000);
+    foreach ([$rice, $beans] as $id) {
+        Shop::move(['productId' => $id, 'direction' => 'IN', 'qty' => 5_000, 'totalCost' => 5_000, 'movementType' => 'ADJUSTMENT_IN', 'sourceType' => 'TEST',
+            'businessDate' => REPORTING_TODAY, 'occurredAt' => Clock::fromStamp(REPORTING_TODAY.' 08:00:00'), 'batch' => ['kind' => 'NEW', 'expiryDate' => '2027-06-30']]);
+    }
+
+    $one = InventoryService::getExpiryOutlook(REPORTING_TODAY, $beans);
+    expect(array_keys($one))->toBe([$beans])
+        ->and($one[$beans])->toBe(InventoryService::getExpiryOutlook(REPORTING_TODAY)[$beans]);
+});

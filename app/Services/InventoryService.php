@@ -881,11 +881,11 @@ final class InventoryService
 
     /**
      * What each product's dates look like as at a business day, in one pass,
-     * for the till. Undated stock counts as good.
+     * for the till (one product when it adds a line). Undated stock counts as good.
      *
      * @return array<int, array{goodQtyMilli: int, soonestExpiry: ?string, warnDays: int}>
      */
-    public static function getExpiryOutlook(string $businessDate): array
+    public static function getExpiryOutlook(string $businessDate, ?int $productId = null): array
     {
         $shopDays = (int) (DB::table('business_settings')->where('id', 1)->value('expiry_warning_days') ?? 30);
 
@@ -893,6 +893,7 @@ final class InventoryService
             ->join('products', 'products.id', '=', 'product_batches.product_id')
             ->where('product_batches.is_closed', false)
             ->where('product_batches.qty_milli', '>', 0)
+            ->when($productId !== null, fn (Builder $q) => $q->where('product_batches.product_id', $productId))
             ->where(fn (Builder $q) => $q->whereNull('product_batches.expiry_date')->orWhere('product_batches.expiry_date', '>=', $businessDate))
             ->groupBy('product_batches.product_id')
             ->selectRaw('`product_batches`.`product_id` AS productId, COALESCE(SUM(`product_batches`.`qty_milli`), 0) AS goodQtyMilli,

@@ -60,7 +60,7 @@ final class CashbookService
      * Goods Sold is the right type too, but income typed in there would show
      * as sales no sale stands behind.
      */
-    private static function assertCategoryUsable(int $accountId, string $direction): string
+    private static function assertCategoryUsable(int $accountId, string $direction, ?int $keeping = null): string
     {
         $account = DB::table('accounts')->where('id', $accountId)->first() ?? throw new NotFoundError('Account', $accountId);
 
@@ -78,7 +78,9 @@ final class CashbookService
             throw new ValidationError("\"{$account->name}\" is a heading. Choose one of the categories under it.");
         }
         $heading = $direction === 'EXPENSE' ? ChartOfAccounts::OPERATING_EXPENSES : ChartOfAccounts::OTHER_INCOME;
-        if ($account->parent_id === null || DB::table('accounts')->where('accounts.id', $account->parent_id)->value('code') !== $heading) {
+        // An entry may keep the category it already has (the old app took any account of the type), so an
+        // imported one can still have its amount or description corrected. It cannot be moved to another such account.
+        if ($accountId !== $keeping && ($account->parent_id === null || DB::table('accounts')->where('accounts.id', $account->parent_id)->value('code') !== $heading)) {
             throw new ValidationError(
                 "\"{$account->name}\" is not one of the ".($direction === 'EXPENSE' ? 'expense' : 'income').' categories. Choose one from the list.',
                 ['accountId' => $accountId],
@@ -236,7 +238,7 @@ final class CashbookService
             if ($row->status === 'VOIDED') {
                 throw new ConflictError("{$documentNo} has been voided, so it cannot be edited.");
             }
-            $categoryName = self::assertCategoryUsable($input['categoryAccountId'], $direction);
+            $categoryName = self::assertCategoryUsable($input['categoryAccountId'], $direction, (int) $row->category_account_id);
             // The accounts the reversal and the new entry move, in one ordered lock.
             $accounts = PaymentAccountService::lockAccounts([(int) $row->payment_account_id, (int) $input['paymentAccountId']]);
             $account = $accounts[$input['paymentAccountId']] ?? throw new NotFoundError('Payment account', $input['paymentAccountId']);

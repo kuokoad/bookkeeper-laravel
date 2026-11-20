@@ -260,6 +260,19 @@ describe('editing an expense or income', function () {
         ];
     });
 
+    it('lets an entry keep a category from before the list was narrowed, and refuses moving it to another such account', function () {
+        $expense = CashbookService::recordExpense(($this->expenseInput)(), $this->actor);
+        // As an imported entry: the old app took any expense account.
+        $shrinkage = Shop::accountId(ChartOfAccounts::INVENTORY_SHRINKAGE);
+        DB::table('expenses')->where('id', $expense['id'])->update(['category_account_id' => $shrinkage]);
+
+        CashbookService::editExpense($expense['id'], ($this->expenseInput)(['categoryAccountId' => $shrinkage, 'description' => 'Taxi to Makola market']), 'Wrong market', $this->actor);
+        expect(DB::table('expenses')->where('id', $expense['id'])->value('description'))->toBe('Taxi to Makola market');
+
+        expect(fn () => CashbookService::editExpense($expense['id'], ($this->expenseInput)(['categoryAccountId' => Shop::accountId(ChartOfAccounts::COST_OF_GOODS_SOLD)]), 'Recategorise', $this->actor))
+            ->toThrow(ValidationError::class, 'is not one of the expense categories');
+    });
+
     it('moves the amount and the account as if it had been entered right', function () {
         $expense = CashbookService::recordExpense(($this->expenseInput)(), $this->actor);
         CashbookService::editExpense($expense['id'], ($this->expenseInput)(['amount' => 1_500, 'paymentAccountId' => $this->momo]), 'Typed 50 instead of 15', $this->actor);

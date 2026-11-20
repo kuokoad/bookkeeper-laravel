@@ -348,6 +348,17 @@ describe('editing a purchase', function () {
         $this->buy = fn (int $qty, int $unitCost, array $extra = []): array => PurchaseService::createPurchase(($this->purchaseInput)($qty, $unitCost, $extra), $this->actor);
     });
 
+    it('writes a carton line into the edit history as cartons at the carton cost, not pieces at it', function () {
+        $milk = Shop::product($this->actor, 'Milk', 500, 700, ['unit' => 'pcs', 'altUnit' => 'Carton', 'altFactor' => 24_000]);
+        $carton = fn (int $cost): array => ['supplierId' => $this->supplier, 'businessDate' => EDIT_DAY, 'tenders' => [],
+            'items' => [['productId' => $milk, 'qty' => 2_000, 'unitCost' => $cost, 'alt' => true, 'altFactor' => 24_000]]];
+        $purchase = PurchaseService::createPurchase($carton(12_000), $this->actor);
+        PurchaseService::editPurchase($purchase['purchaseId'], $carton(12_500), 'Invoice said 125', $this->actor);
+
+        $label = AuditService::editHistory('purchase', $purchase['purchaseId'])[0]['before']['lines'][0]['label'];
+        expect($label)->toBe('Milk: 2 Carton at GHS 120.00');
+    });
+
     it('refuses to re-price a purchase after the tax settings changed', function () {
         Shop::setSingleTax(1_500);
         $purchase = ($this->buy)(20_000, 600);

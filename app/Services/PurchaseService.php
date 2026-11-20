@@ -501,7 +501,10 @@ final class PurchaseService
             ],
             'lines' => DB::table('purchase_items')->where('purchase_id', $purchaseId)->orderBy('line_no')->get()
                 ->map(fn (object $i): array => [
-                    'label' => "{$i->product_name}: ".Quantity::formatWithUnit((int) $i->qty_milli, $i->unit).' at '.Money::format((int) $i->unit_cost_minor),
+                    // The cost is per unit as entered, so the quantity is too: 2 Carton at 120.00, never 48 pcs at it.
+                    'label' => "{$i->product_name}: ".($i->entry_unit !== null && $i->entry_qty_milli !== null
+                        ? Quantity::formatWithUnit((int) $i->entry_qty_milli, $i->entry_unit)
+                        : Quantity::formatWithUnit((int) $i->qty_milli, $i->unit)).' at '.Money::format((int) $i->unit_cost_minor),
                     'amount' => (int) $i->line_total_minor,
                 ])->all(),
             'total' => (int) $purchase->total_minor,

@@ -299,6 +299,7 @@ final class CatalogService
                 'after' => [
                     'name' => $name,
                     'sellingPriceMinor' => $input['sellingPrice'],
+                    'costPriceMinor' => $input['costPrice'],
                     'unit' => $unitCols['unit'],
                     'altUnit' => $unitCols['alt_unit'],
                     'altFactorMilli' => $unitCols['alt_factor_milli'],

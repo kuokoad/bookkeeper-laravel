@@ -149,3 +149,12 @@ describe('the stock-tracking flag (D28)', function () {
         expect(Shop::productRow($id)->name)->toBe('Delivery job');
     });
 });
+
+it('records the new cost price in the audit log when a stock item is edited, not only the old one', function () {
+    $id = ($this->make)('Milo 400g');
+    CatalogService::updateProduct($id, ['name' => 'Milo 400g', 'costPrice' => 650, 'sellingPrice' => 900, 'unit' => 'pcs'], $this->actor);
+
+    $change = json_decode((string) DB::table('audit_logs')->where('entity_type', 'product')->where('entity_id', (string) $id)->where('action', 'UPDATE')->value('metadata'), true);
+    expect($change['before']['costPriceMinor'])->toBe(500)
+        ->and($change['after']['costPriceMinor'])->toBe(650);
+});

@@ -55,6 +55,10 @@ final class CashbookService
     /**
      * The category must be a leaf account of the right type: an expense posted
      * to revenue, or to a heading, would quietly corrupt the Profit & Loss.
+     * And one of the categories the form offers (PaymentAccountService::
+     * listExpenseCategories / listIncomeCategories): Sales Revenue or Cost of
+     * Goods Sold is the right type too, but income typed in there would show
+     * as sales no sale stands behind.
      */
     private static function assertCategoryUsable(int $accountId, string $direction): string
     {
@@ -72,6 +76,13 @@ final class CashbookService
         }
         if (DB::table('accounts')->where('accounts.parent_id', $accountId)->exists()) {
             throw new ValidationError("\"{$account->name}\" is a heading. Choose one of the categories under it.");
+        }
+        $heading = $direction === 'EXPENSE' ? ChartOfAccounts::OPERATING_EXPENSES : ChartOfAccounts::OTHER_INCOME;
+        if ($account->parent_id === null || DB::table('accounts')->where('accounts.id', $account->parent_id)->value('code') !== $heading) {
+            throw new ValidationError(
+                "\"{$account->name}\" is not one of the ".($direction === 'EXPENSE' ? 'expense' : 'income').' categories. Choose one from the list.',
+                ['accountId' => $accountId],
+            );
         }
 
         return $account->name;

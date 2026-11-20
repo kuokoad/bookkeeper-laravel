@@ -72,6 +72,15 @@ describe('expenses', function () {
             ->toThrow(ValidationError::class, 'is not a valid expense category');
     });
 
+    it('refuses an expense account that is not one of the expense categories', function () {
+        // Right type, wrong place: these are posted by sales, stock counts and till counts, never typed in.
+        foreach ([ChartOfAccounts::COST_OF_GOODS_SOLD, ChartOfAccounts::INVENTORY_SHRINKAGE, ChartOfAccounts::CASH_OVER_SHORT] as $code) {
+            expect(fn () => ($this->spend)('Rent', 1_000, ['categoryAccountId' => Shop::accountId($code), 'description' => 'Not a category']))
+                ->toThrow(ValidationError::class, 'is not one of the expense categories');
+        }
+        expect(Shop::balance(ChartOfAccounts::COST_OF_GOODS_SOLD))->toBe(0);
+    });
+
     it('refuses to post to a heading that groups other categories', function () {
         expect(fn () => ($this->spend)('Rent', 1_000, ['categoryAccountId' => Shop::accountId(ChartOfAccounts::OPERATING_EXPENSES), 'description' => 'To a heading']))
             ->toThrow(ValidationError::class, 'is a heading');
@@ -136,6 +145,12 @@ describe('other income', function () {
         // Other income must NOT inflate sales revenue.
         expect(Shop::balance(ChartOfAccounts::SALES_REVENUE))->toBe(0)
             ->and(CashbookService::getFilteredIncomesSummary(['from' => CB_TODAY, 'to' => CB_TODAY])['total'])->toBe(2_000);
+    });
+
+    it('refuses sales revenue as an income category, so other income never shows as sales', function () {
+        expect(fn () => ($this->receive)('Commission', 1_000, ['categoryAccountId' => Shop::accountId(ChartOfAccounts::SALES_REVENUE), 'description' => 'Not a category']))
+            ->toThrow(ValidationError::class, 'is not one of the income categories');
+        expect(Shop::balance(ChartOfAccounts::SALES_REVENUE))->toBe(0);
     });
 
     it('refuses an expense account as an income category', function () {

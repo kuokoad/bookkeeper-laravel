@@ -177,7 +177,12 @@ final class ReturnsService
                 fn (TaxLine $l): TaxLine => $l->withAmount(self::cumulativeShare($l->amount, $basisBefore, $basisAfter, $saleNetRevenue)),
                 $charged,
             );
-            $taxShare = (int) $original->tax_minor === 0 ? 0 : Money::sum(array_map(fn (TaxLine $l): int => $l->amount, $returnedLines));
+            // A sale with tax and no tax rows (old data): its tax back off VAT Payable, where the old app
+            // put a sale's single tax, as the supplier side below does. The old app returned no tax here.
+            $legacyTax = $charged === [] && (int) $original->tax_minor !== 0 && $saleNetRevenue !== 0
+                ? self::cumulativeShare((int) $original->tax_minor, $basisBefore, $basisAfter, $saleNetRevenue)
+                : 0;
+            $taxShare = (int) $original->tax_minor === 0 ? 0 : Money::add($legacyTax, Money::sum(array_map(fn (TaxLine $l): int => $l->amount, $returnedLines)));
 
             // Inclusive prices already hold the tax; exclusive ones carry it on top.
             $returnedValue = $original->tax_inclusive ? $totalRevenue : Money::add($totalRevenue, $taxShare);
@@ -303,6 +308,9 @@ final class ReturnsService
                     continue;
                 }
                 $lines[] = Journal::debit(TaxService::accountFor($componentIds[$index], $line->component->code), $line->amount, ['description' => "{$receiptNo} {$line->component->name} on goods returned"]);
+            }
+            if ($legacyTax !== 0) {
+                $lines[] = Journal::debit(JournalService::accountIdByCode(ChartOfAccounts::TAX_PAYABLE), $legacyTax, ['description' => "{$receiptNo} tax on goods returned"]);
             }
             foreach ($refunds as $refund) {
                 if ($refund['amount'] <= 0) {

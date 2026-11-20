@@ -132,3 +132,19 @@ describe('sending goods back to a supplier', function () {
             ->and(Shop::trialBalanced())->toBeTrue();
     });
 });
+
+it('gives the tax back on a sale from before tax rows were kept, out of the tax account it went into', function () {
+    Shop::setSingleTax(1_500);
+    $saleId = ($this->creditSale)(($this->stockedProduct)(), 2);
+    // As imported from the old app's early days: the sale carries its tax, with no row per tax.
+    DB::table('sale_taxes')->where('sale_id', $saleId)->delete();
+    $taxBefore = Shop::balance(ChartOfAccounts::TAX_PAYABLE);
+
+    $return = ($this->bringBack)($saleId, 1);
+
+    // One bag at 100.00 plus 15.00 tax comes off what the customer owes, and the 15.00 off the tax owed.
+    expect((int) DB::table('sales')->where('id', $return['returnSaleId'])->value('tax_minor'))->toBe(-1_500)
+        ->and($return['creditApplied'])->toBe(11_500)
+        ->and(Shop::balance(ChartOfAccounts::TAX_PAYABLE))->toBe($taxBefore - 1_500);
+    Shop::assertBooksHealthy('return of a sale with no tax rows');
+});

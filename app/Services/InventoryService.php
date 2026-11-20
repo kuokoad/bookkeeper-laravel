@@ -198,9 +198,23 @@ final class InventoryService
         $directive = $input['batch'] ?? null;
 
         if (($directive['kind'] ?? null) === 'NEW') {
-            $batch = self::openBatch($input, $directive);
+            // Units sold before the delivery was entered came out of it and left the
+            // undated batch below zero. That debt is settled first, so the dated
+            // batch holds only what is still on the shelf (the old app dated it all).
+            $undated = DB::table('product_batches')
+                ->where('product_batches.product_id', $input['productId'])
+                ->whereNull('product_batches.expiry_date')
+                ->orderBy('product_batches.id')
+                ->lockForUpdate()
+                ->first(['id', 'batch_ref', 'qty_milli']);
+            $settle = $undated === null ? 0 : min($input['qty'], max(0, -(int) $undated->qty_milli));
+            $allocations = $settle === 0 ? [] : [['batchId' => (int) $undated->id, 'batchRef' => $undated->batch_ref, 'qtyMilli' => $settle]];
+            if ($input['qty'] > $settle) {
+                $batch = self::openBatch($input, $directive);
+                $allocations[] = ['batchId' => $batch['id'], 'batchRef' => $batch['batchRef'], 'qtyMilli' => $input['qty'] - $settle];
+            }
 
-            return [['batchId' => $batch['id'], 'batchRef' => $batch['batchRef'], 'qtyMilli' => $input['qty']]];
+            return $allocations;
         }
 
         if (($directive['kind'] ?? null) === 'SOURCE') {

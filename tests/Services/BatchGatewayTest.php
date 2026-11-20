@@ -166,6 +166,31 @@ describe('a batch that empties', function () {
         gatewayIntact('oversold');
     });
 
+    it('settles units sold before a dated delivery was entered, so the dated batch holds only what is left', function () {
+        $rice = ($this->make)();
+        ($this->moveOut)($rice, 5, ['allowNegative' => true]);
+
+        $landed = ($this->moveIn)($rice, 10, 10_000, ['expiryDate' => '2027-01-31']);
+
+        [$undated, $dated] = ($this->batchesOf)($rice);
+        expect($landed)->toHaveCount(2)
+            ->and($undated->qty_milli)->toBe(0)
+            ->and($dated->expiry_date)->toBe('2027-01-31')
+            ->and($dated->qty_milli)->toBe(5_000);
+        gatewayIntact('dated delivery after an oversell');
+    });
+
+    it('opens no dated batch when the whole delivery was already sold', function () {
+        $rice = ($this->make)();
+        ($this->moveOut)($rice, 5, ['allowNegative' => true]);
+
+        ($this->moveIn)($rice, 3, 3_000, ['expiryDate' => '2027-01-31']);
+
+        $batches = ($this->batchesOf)($rice);
+        expect($batches)->toHaveCount(1)->and($batches[0]->qty_milli)->toBe(-2_000);
+        gatewayIntact('delivery smaller than the oversell');
+    });
+
     it('names the same batch once, not twice, when an oversell drains it', function () {
         // The allocation drains the batch and then pushes the SAME one negative.
         $rice = ($this->make)();

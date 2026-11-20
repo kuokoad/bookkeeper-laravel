@@ -193,3 +193,14 @@ it('install.ps1 runs its has-an-owner probe under Continue, so stderr from it ba
     expect($probe)->not->toBeFalse()
         ->and(strrpos($before, '$ErrorActionPreference = "Continue"'))->toBeGreaterThan((int) strrpos($before, '$ErrorActionPreference = "Stop"'));
 });
+
+it('install.ps1 restricts the app folder before it writes the database passwords into .env', function () {
+    $script = (string) file_get_contents(dirname(__DIR__, 2).'/scripts/install.ps1');
+    $defined = strpos($script, 'function Lock-Folder(');
+    $locked = strpos($script, 'Lock-Folder $AppDir');
+    $written = strpos($script, 'Copy-Item (Join-Path $AppDir ".env.example") $envFile');
+
+    expect($defined)->not->toBeFalse()->and($locked)->not->toBeFalse()->and($written)->not->toBeFalse()
+        ->and($defined)->toBeLessThan($locked)
+        ->and($locked)->toBeLessThan($written);
+});

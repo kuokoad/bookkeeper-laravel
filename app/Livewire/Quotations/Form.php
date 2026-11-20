@@ -56,6 +56,9 @@ final class Form extends Component
     #[Locked]
     public int $nextKey = 1;
 
+    /** Typed to find a stock item by name, code or barcode; the list on each line holds only the first 500. */
+    public string $search = '';
+
     public function mount(?int $id = null): void
     {
         if ($id === null) {
@@ -109,7 +112,32 @@ final class Form extends Component
     /** @return array<string, array> active products by id */
     private function products(): array
     {
-        return collect(CatalogService::listProducts(['limit' => 500]))->keyBy(fn (array $p): string => (string) $p['id'])->all();
+        $products = collect(CatalogService::listProducts(['limit' => 500]))->keyBy(fn (array $p): string => (string) $p['id'])->all();
+        // The items already on the quote, wherever they fall in the list, so their lines keep their name, price and carton size.
+        foreach ($this->lines as $line) {
+            $id = (string) ($line['productId'] ?? '');
+            if ($id !== '' && ctype_digit($id) && ! isset($products[$id]) && ($found = CatalogService::listProducts(['id' => (int) $id, 'limit' => 1])[0] ?? null) !== null) {
+                $products[$id] = $found;
+            }
+        }
+
+        return $products;
+    }
+
+    /** A search match picked: onto the first empty line, or a new one, at the shelf price. */
+    public function addProduct(int $id): void
+    {
+        $this->search = '';
+        $product = CatalogService::listProducts(['id' => $id, 'limit' => 1])[0] ?? null;
+        if ($product === null) {
+            return;
+        }
+        $key = array_key_first(array_filter($this->lines, fn (array $line): bool => $line['productId'] === ''));
+        if ($key === null) {
+            $this->addLine();
+            $key = array_key_last($this->lines);
+        }
+        $this->lines[$key] = [...$this->lines[$key], 'productId' => (string) $id, 'alt' => false, 'quoted' => null, 'unitPrice' => Money::toInputString($product['sellingPrice'])];
     }
 
     public function addLine(): void
@@ -273,6 +301,7 @@ final class Form extends Component
 
         return view('livewire.quotations.form', [
             'products' => $products,
+            'matches' => trim($this->search) === '' ? [] : CatalogService::listProducts(['search' => $this->search, 'limit' => 8]),
             'customers' => CustomerService::listCustomerOptions(),
             'currency' => SettingsService::get()->currency_code ?? 'GHS',
             'lineTotals' => $lineTotals,

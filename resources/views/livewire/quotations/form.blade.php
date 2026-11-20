@@ -48,6 +48,25 @@
             <h2 class="mb-4 text-sm font-semibold text-content">What is being quoted</h2>
             @error('lines')<x-alert tone="danger" class="mb-4">{{ $message }}</x-alert>@enderror
 
+            <div class="mb-4">
+                <label for="quote-search" class="mb-1 block text-xs text-content-muted">Find a stock item by name, code or barcode</label>
+                <x-input id="quote-search" wire:model.live.debounce.300ms="search" wire:keydown.enter.prevent placeholder="Type to search every stock item" autocomplete="off" class="h-10" />
+                @if ($matches !== [])
+                    <ul class="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line">
+                        @foreach ($matches as $match)
+                            <li wire:key="qmatch-{{ $match['id'] }}">
+                                <button type="button" wire:click="addProduct({{ $match['id'] }})" class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-surface-sunken">
+                                    <span class="min-w-0 truncate font-medium text-content">{{ $match['name'] }}</span>
+                                    <span class="tabular shrink-0 font-semibold text-content">{{ $fmt($match['sellingPrice']) }}</span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @elseif (trim($search) !== '')
+                    <p class="mt-2 text-sm text-content-muted">No stock item matches that.</p>
+                @endif
+            </div>
+
             <div class="space-y-3">
                 @foreach ($lines as $key => $line)
                     @php

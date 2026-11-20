@@ -105,6 +105,22 @@ it('writes a quote through the service and shows its validation messages', funct
     expect((int) $quote->total_minor)->toBe(16_000)->and($quote->customer_name)->toBe('Mensah & Sons');
 });
 
+it('quotes a stock item beyond the first 500, found by searching, and opens such a quote again', function () {
+    for ($i = 0; $i < 500; $i++) {
+        Shop::product($this->actor, sprintf('Item %03d', $i));
+    }
+    $last = Shop::product($this->actor, 'Zinc Roofing Sheet', 6_000, 8_000);
+
+    $form = quotesAs($this->ownerId, Form::class)->set('customerName', 'Mensah & Sons')
+        ->set('search', 'zinc roof')->assertSee('Zinc Roofing Sheet')->call('addProduct', $last)->assertSet('search', '');
+    $key = array_key_last($form->get('lines'));
+    $form->assertSet("lines.{$key}.productId", (string) $last)->assertSet("lines.{$key}.unitPrice", '80.00')
+        ->set("lines.{$key}.qty", '2')->assertSee('GHS 160.00')->call('save')->assertHasNoErrors();
+
+    $id = (int) DB::table('quotations')->value('id');
+    quotesAs($this->ownerId, Form::class, ['id' => $id])->assertSee('Zinc Roofing Sheet')->assertSee('GHS 160.00');
+});
+
 it('refuses a quote line with no price instead of quoting it at GHS 0.00', function () {
     $cement = Shop::product($this->actor, 'Cement 50kg', 6_000, 8_000);
     $form = quotesAs($this->ownerId, Form::class)->set('customerName', 'Mensah & Sons');

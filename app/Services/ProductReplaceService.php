@@ -245,8 +245,9 @@ final class ProductReplaceService
         }
 
         $batches = InventoryService::readBatchSplits('STOCK_ADJUSTMENT', (int) $move->id, $id)[0] ?? [];
-        // More coming back than moved across cannot be shared out over the move's crates: it goes in undated.
-        if ($incoming && $scaled->toInt() > array_sum(array_column($batches, 'qtyMilli'))) {
+        // More than moved across cannot be shared out over the move's crates: coming back it goes in
+        // undated, going out (a voided delivery) it is picked as any other stock leaving.
+        if ($scaled->toInt() > array_sum(array_column($batches, 'qtyMilli'))) {
             $batches = [];
         }
 

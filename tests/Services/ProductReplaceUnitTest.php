@@ -432,6 +432,21 @@ describe('replacing a product to change its units', function () {
             ->and(SupplierService::getSupplierBalance($supplierId))->toBe(18_000);
     });
 
+    it('voids a delivery of more than was left to move across, instead of failing on the moved batch', function () {
+        Shop::setting('allow_negative_stock', true);
+        $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
+        $purchase = Shop::purchase($this->actor, Shop::supplier($this->actor, 'Depot'), [[$oldId, 10_000, 6_000]], [], ['businessDate' => REPLACE_TODAY]);
+        SaleService::createSale(['businessDate' => REPLACE_TODAY, 'items' => [['productId' => $oldId, 'qty' => 6_000]], 'tenders' => [['paymentAccountId' => Shop::paymentAccount('CASH'), 'amount' => 43_200]]], $this->actor);
+        $newId = ($this->replace)($oldId, ['name' => 'Sardines', 'unit' => 'tin', 'costPrice' => 120, 'sellingPrice' => 150], 200)['productId'];
+
+        PurchaseService::voidPurchase($purchase['purchaseId'], 'never delivered', $this->actor);
+
+        // 4 cartons moved across as 200 tins; the delivery's 10 cartons (500 tins) come off the tins.
+        expect(($this->row)($newId)->qty_on_hand_milli)->toBe(-300_000)
+            ->and(collect(InventoryService::verifyAllStock())->every(fn (array $c): bool => $c['ok']))->toBeTrue()
+            ->and(collect(InventoryService::verifyBatchCoverage())->every(fn (array $c): bool => $c['ok']))->toBeTrue();
+    });
+
     it('voids a delivery whose product was replaced twice, taking the goods off the last replacement', function () {
         $oldId = ($this->create)(['name' => 'Sardines', 'unit' => 'Carton', 'costPrice' => 6_000, 'sellingPrice' => 7_200]);
         $supplierId = Shop::supplier($this->actor, 'Depot');

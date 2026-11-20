@@ -256,7 +256,8 @@ final class ReconciliationService
 
     /**
      * The overview's headline: every unresolved difference added up, and how
-     * many accounts were never counted.
+     * many accounts were never counted. Added up by size, whichever way each
+     * one points: a till over by what a wallet is short is not nothing missing.
      *
      * @param  list<array{unresolvedDifference: int, lastCountedOn: ?string}>  $overview  getReconciliationOverview()
      * @return array{unresolved: int, neverCounted: int}
@@ -264,7 +265,7 @@ final class ReconciliationService
     public static function getOverviewTotals(array $overview): array
     {
         return [
-            'unresolved' => Money::sum(array_column($overview, 'unresolvedDifference')),
+            'unresolved' => Money::sum(array_map(abs(...), array_column($overview, 'unresolvedDifference'))),
             'neverCounted' => count(array_filter($overview, fn (array $a): bool => $a['lastCountedOn'] === null)),
         ];
     }

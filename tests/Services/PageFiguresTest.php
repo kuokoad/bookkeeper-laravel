@@ -100,10 +100,20 @@ it('heads the reconciliation page with unresolved differences and accounts never
         ['unresolvedDifference' => 0, 'lastCountedOn' => null],
     ];
 
-    expect(ReconciliationService::getOverviewTotals($overview))->toBe(['unresolved' => -300, 'neverCounted' => 2])
+    // Either sign is money unaccounted for: a till GHS 5 short and a wallet GHS 2 over is GHS 7, not 3.
+    expect(ReconciliationService::getOverviewTotals($overview))->toBe(['unresolved' => 700, 'neverCounted' => 2])
         // The live preview and the saved count use one rule: counted less the books.
         ->and(ReconciliationService::countDifference(9_500, 10_000))->toBe(-500)
         ->and(ReconciliationService::countDifference(10_000, 10_000))->toBe(0);
+});
+
+it('still reports money unaccounted for when one account is over by what another is short', function () {
+    $overview = [
+        ['unresolvedDifference' => 5_000, 'lastCountedOn' => '2026-03-01'],
+        ['unresolvedDifference' => -5_000, 'lastCountedOn' => '2026-03-01'],
+    ];
+
+    expect(ReconciliationService::getOverviewTotals($overview)['unresolved'])->toBe(10_000);
 });
 
 it('totals what was bought from a supplier and paid later, posted only, and what a purchase paid', function () {

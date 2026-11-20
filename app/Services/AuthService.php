@@ -75,7 +75,7 @@ final class AuthService
             return ['ok' => false, 'reason' => 'INVALID_CREDENTIALS'];
         }
 
-        $lockedUntil = self::lockedUntil($user, $now);
+        $lockedUntil = self::isOwner($user) ? self::claimOwnerTurn($user, $now) : self::lockedUntil($user, $now);
         if ($lockedUntil !== null && self::isOwner($user)) {
             $seconds = max(1, (int) ceil(($lockedUntil->getTimestampMs() - $now->getTimestampMs()) / 1000));
             Tx::run(fn () => AuditService::write(AuditAction::LoginFailed, 'user', "Owner sign-in attempt refused: {$seconds} s left of the delay after repeated failures", $user->id, new Actor((int) $user->id, $user->username), at: $now, ipAddress: $ipAddress, userAgent: $userAgent));
@@ -368,6 +368,35 @@ final class AuthService
                 userAgent: $userAgent,
                 username: $username,
             );
+        });
+    }
+
+    /**
+     * An owner being slowed gets one guess checked per delay. The delay is
+     * read under the row lock and the next one started before the password is
+     * checked, so guesses sent together when a delay ends do not all get
+     * through on the same stale read: the rest find the delay running.
+     * A wrong password then sets the delay from the new count; the right one clears it.
+     *
+     * @return ?Carbon when the delay still running ends, or null when this attempt may be checked
+     */
+    private static function claimOwnerTurn(object $user, Carbon $now): ?Carbon
+    {
+        return Tx::run(function () use ($user, $now): ?Carbon {
+            $current = DB::table('users')->where('users.id', $user->id)->lockForUpdate()->first();
+            if ($current === null) {
+                return null;
+            }
+            $until = self::lockedUntil($current, $now);
+            $failed = (int) $current->failed_login_count;
+            if ($until === null && self::ownerDelaySeconds($failed) > 0) {
+                DB::table('users')->where('users.id', $user->id)->update([
+                    'locked_until' => Clock::stamp($now->copy()->addSeconds(self::ownerDelaySeconds($failed + 1))),
+                    'updated_at' => Clock::stamp($now),
+                ]);
+            }
+
+            return $until;
         });
     }
 

@@ -245,6 +245,26 @@ describe('an owner is slowed down, never locked out (D16)', function () {
             ->and(signIn('kwame', OWNER_INPUT['password'], $this->t)['failedAttemptsSinceLastSignIn'])->toBe(0);
     });
 
+    it('checks only one of two guesses sent together when the delay ends', function () {
+        for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
+            signIn('kwame', 'wrong', $this->t);
+        }
+        $after = $this->t->copy()->addSeconds(2);
+        // The second guess arrives just after the first has read the account, before it is checked.
+        $second = null;
+        DB::listen(function ($query) use (&$second, $after): void {
+            if ($second === null && str_contains($query->sql, 'LOWER(`users`.`username`)')) {
+                $second = false;
+                $second = signIn('kwame', 'guess-two', $after);
+            }
+        });
+
+        $first = signIn('kwame', 'guess-one', $after);
+
+        expect([$first['reason'], $second['reason']])->toEqualCanonicalizing(['INVALID_CREDENTIALS', 'TOO_MANY_ATTEMPTS'])
+            ->and((int) userRow('kwame')->failed_login_count)->toBe(AuthService::MAX_FAILED_LOGINS + 1);
+    });
+
     it('still refuses a switched-off owner with the right password', function () {
         for ($i = 0; $i < AuthService::MAX_FAILED_LOGINS; $i++) {
             signIn('kwame', 'wrong', $this->t);
